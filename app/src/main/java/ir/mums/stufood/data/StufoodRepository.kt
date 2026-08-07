@@ -129,9 +129,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
                 body.contains("body_txtUsername", ignoreCase = true)
 
         if (stillOnLoginPage) {
-            // Try to extract the server's error message; fall back to a generic one.
             val errorText = extractServerError(body)
-            LoginResult.Failure(errorText ?: "Login failed. Check your captcha and credentials.")
+            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(500)}")
+        }
         } else {
             LoginResult.Success
         }
