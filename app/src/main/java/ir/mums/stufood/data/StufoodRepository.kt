@@ -50,7 +50,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
      * matched against what the server generated for this captcha.
      */
     suspend fun fetchLoginPage(): LoginPageData = withClient {
-        val html = get("$baseUrl/Default.aspx").body?.string().orEmpty()
+        val html = get("$baseUrl/Default.aspx").use { it.body?.string().orEmpty() }
         val doc = Jsoup.parse(html, baseUrl)
 
         val viewState = inputValue(doc, "__VIEWSTATE")
@@ -75,7 +75,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val captchaSrc = if (captchaSrcRaw.startsWith("http")) captchaSrcRaw else "$baseUrl/$captchaSrcRaw"
         val captchaBytes: ByteArray? = if (captchaSrc.isNotEmpty()) {
             try {
-                get(captchaSrc).body?.bytes()
+                get(captchaSrc).use { it.body?.bytes() }
             } catch (_: Exception) { null }
         } else null
 
