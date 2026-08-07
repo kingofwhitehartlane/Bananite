@@ -40,7 +40,6 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val html = response.use { it.body?.string().orEmpty() }
         val doc = Jsoup.parse(html, baseUrl)
 
-        // Capture ALL hidden fields — some ASP.NET pages have extras we don't know about.
         val allHiddenFields = doc.select("input[type=hidden]").associate {
             it.attr("name") to (it.attr("value") ?: "")
         }
@@ -76,20 +75,32 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     }
 
     suspend fun login(username: String, password: String, captcha: String, page: LoginPageData): LoginResult = withClient {
+        // Fields we manage ourselves — exclude from hiddenFields to avoid duplicates.
+        val skipFields = setOf(
+            "__EVENTTARGET", "__EVENTARGUMENT",
+            "__VIEWSTATE", "__EVENTVALIDATION", "__VIEWSTATEGENERATOR"
+        )
+
         val builder = FormBody.Builder()
 
-        // Include ALL hidden fields from the page first.
+        // 1. Known ASP.NET hidden fields (explicit control)
+        builder.add("__EVENTTARGET", "")
+        builder.add("__EVENTARGUMENT", "")
+        builder.add("__VIEWSTATE", page.hiddenFields["__VIEWSTATE"].orEmpty())
+        builder.add("__EVENTVALIDATION", page.hiddenFields["__EVENTVALIDATION"].orEmpty())
+        builder.add("__VIEWSTATEGENERATOR", page.hiddenFields["__VIEWSTATEGENERATOR"].orEmpty())
+
+        // 2. Any OTHER hidden fields the page has that we don't know about
         page.hiddenFields.forEach { (name, value) ->
-            builder.add(name, value)
+            if (name !in skipFields) {
+                builder.add(name, value)
+            }
         }
 
-        // Override with our explicit values.
-        builder
-            .add("__EVENTTARGET", "")
-            .add("__EVENTARGUMENT", "")
-            .add(page.usernameName, username)
-            .add(page.passwordName, password)
-            .add(page.captchaInputName, captcha)
+        // 3. User inputs + login button
+        builder.add(page.usernameName, username)
+        builder.add(page.passwordName, password)
+        builder.add(page.captchaInputName, captcha)
 
         if (page.loginBtnName.isNotEmpty()) {
             builder.add(page.loginBtnName, page.loginBtnValue)
@@ -97,6 +108,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val request = Request.Builder()
             .url("$baseUrl/Default.aspx")
+            .header("Referer", "$baseUrl/Default.aspx")
             .post(builder.build())
             .build()
 
@@ -109,7 +121,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         if (stillOnLoginPage) {
             val errorText = extractServerError(body)
-            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(1000)}")
+            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(3000)}")
         } else {
             LoginResult.Success
         }
