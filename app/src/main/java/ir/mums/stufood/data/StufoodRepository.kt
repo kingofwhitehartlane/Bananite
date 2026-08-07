@@ -68,7 +68,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             ?: doc.selectFirst("input[type=submit]")
             ?: doc.selectFirst("#ctl01")
         val loginBtnName = loginBtn?.attr("name").orEmpty()
-        val loginBtnValue = loginBtn?.attr("value").ifEmpty { "Login" }
+        val loginBtnValue = loginBtn?.attr("value").orEmpty().ifEmpty { "Login" }
 
         // Captcha image — resolve the relative src to absolute.
         val captchaSrc = doc.selectFirst("#body_imgCaptcha")?.absUrl("src").orEmpty()
@@ -324,7 +324,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         // Next-week button
         val nextWeekBtn = doc.selectFirst("#body_btnNextWeek")
         val nextWeekBtnName = nextWeekBtn?.attr("name")
-        val nextWeekBtnValue = nextWeekBtn?.attr("value").ifEmpty { "Next Week" }
+        val nextWeekBtnValue = nextWeekBtn?.attr("value").orEmpty().ifEmpty { "Next Week" }
 
         // Per-day dropdowns + radios — pattern from the Python script: 5 days (0..4)
         val days = (0..4).mapNotNull { i ->
