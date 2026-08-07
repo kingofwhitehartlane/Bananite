@@ -1,8 +1,10 @@
 package ir.mums.stufood.data
 
 import okhttp3.FormBody
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -15,21 +17,33 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
         .followRedirects(true)
+        .addInterceptor(UserAgentInterceptor)
         .build()
 
     private val baseUrl = "https://stufood.mums.ac.ir"
+
+    private object UserAgentInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            val request = chain.request().newBuilder()
+                .header("User-Agent", "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36")
+                .build()
+            return chain.proceed(request)
+        }
+    }
 
     // ----------------------------------------------------------------------
     // LOGIN
     // ----------------------------------------------------------------------
 
     suspend fun fetchLoginPage(): LoginPageData = withClient {
-        val html = get("$baseUrl/Default.aspx").use { it.body?.string().orEmpty() }
+        val response = get("$baseUrl/Default.aspx")
+        val html = response.use { it.body?.string().orEmpty() }
         val doc = Jsoup.parse(html, baseUrl)
 
-        val viewState = inputValue(doc, "__VIEWSTATE")
-        val eventValidation = inputValue(doc, "__EVENTVALIDATION")
-        val viewStateGenerator = inputValue(doc, "__VIEWSTATEGENERATOR")
+        // Capture ALL hidden fields — some ASP.NET pages have extras we don't know about.
+        val allHiddenFields = doc.select("input[type=hidden]").associate {
+            it.attr("name") to (it.attr("value") ?: "")
+        }
 
         val usernameName = nameById(doc, "body_txtUsername", default = "body_txtUsername")
         val passwordName = nameById(doc, "body_txtPassword", default = "body_txtPassword")
@@ -51,9 +65,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         } else null
 
         LoginPageData(
-            viewState = viewState,
-            eventValidation = eventValidation,
-            viewStateGenerator = viewStateGenerator,
+            hiddenFields = allHiddenFields,
             usernameName = usernameName,
             passwordName = passwordName,
             captchaInputName = captchaInputName,
@@ -64,34 +76,40 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     }
 
     suspend fun login(username: String, password: String, captcha: String, page: LoginPageData): LoginResult = withClient {
-        val form = FormBody.Builder()
+        val builder = FormBody.Builder()
+
+        // Include ALL hidden fields from the page first.
+        page.hiddenFields.forEach { (name, value) ->
+            builder.add(name, value)
+        }
+
+        // Override with our explicit values.
+        builder
             .add("__EVENTTARGET", "")
             .add("__EVENTARGUMENT", "")
-            .add("__VIEWSTATE", page.viewState)
-            .add("__EVENTVALIDATION", page.eventValidation)
-            .add("__VIEWSTATEGENERATOR", page.viewStateGenerator)
             .add(page.usernameName, username)
             .add(page.passwordName, password)
             .add(page.captchaInputName, captcha)
-            .also { builder ->
-                if (page.loginBtnName.isNotEmpty()) {
-                    builder.add(page.loginBtnName, page.loginBtnValue)
-                }
-            }
+
+        if (page.loginBtnName.isNotEmpty()) {
+            builder.add(page.loginBtnName, page.loginBtnValue)
+        }
+
+        val request = Request.Builder()
+            .url("$baseUrl/Default.aspx")
+            .post(builder.build())
             .build()
 
-        val request = Request.Builder().url("$baseUrl/Default.aspx").post(form).build()
         val response = client.newCall(request).execute()
-        val body = response.body?.string().orEmpty()
+        val body = response.use { it.body?.string().orEmpty() }
         val finalUrl = response.request.url.toString()
-        response.close()
 
         val stillOnLoginPage = finalUrl.contains("Default.aspx", ignoreCase = true) &&
                 body.contains("body_txtUsername", ignoreCase = true)
 
         if (stillOnLoginPage) {
             val errorText = extractServerError(body)
-            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(500)}")
+            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(1000)}")
         } else {
             LoginResult.Success
         }
@@ -106,7 +124,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     suspend fun fetchReservationPage(): ReservationPage = withClient {
-        val html = get("$baseUrl/WebForm/StudentReserveFood.aspx").body?.string().orEmpty()
+        val response = get("$baseUrl/WebForm/StudentReserveFood.aspx")
+        val html = response.use { it.body?.string().orEmpty() }
         parseReservationPage(html)
     }
 
@@ -324,9 +343,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     data class LoginPageData(
-        val viewState: String,
-        val eventValidation: String,
-        val viewStateGenerator: String,
+        val hiddenFields: Map<String, String>,
         val usernameName: String,
         val passwordName: String,
         val captchaInputName: String,
