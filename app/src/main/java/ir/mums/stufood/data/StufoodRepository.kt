@@ -71,7 +71,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val loginBtnValue = loginBtn?.attr("value").orEmpty().ifEmpty { "Login" }
 
         // Captcha image — resolve the relative src to absolute.
-        val captchaSrc = doc.selectFirst("#body_imgCaptcha")?.absUrl("src").orEmpty()
+        val captchaSrcRaw = doc.selectFirst("#body_imgCaptcha")?.attr("src").orEmpty()
+        val captchaSrc = if (captchaSrcRaw.startsWith("http")) captchaSrcRaw else "$baseUrl/$captchaSrcRaw"
         val captchaBytes: ByteArray? = if (captchaSrc.isNotEmpty()) {
             try {
                 get(captchaSrc).body?.bytes()
