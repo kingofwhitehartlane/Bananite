@@ -51,7 +51,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
      */
     suspend fun fetchLoginPage(): LoginPageData = withClient {
         val html = get("$baseUrl/Default.aspx").body?.string().orEmpty()
-        val doc = Jsoup.parse(html)
+        val doc = Jsoup.parse(html, baseUrl)
 
         val viewState = inputValue(doc, "__VIEWSTATE")
         val eventValidation = inputValue(doc, "__EVENTVALIDATION")
