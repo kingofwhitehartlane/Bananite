@@ -13,16 +13,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -41,13 +47,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.data.StufoodRepository
 
 /**
  * Reservation screen.
  *
- * Shows a one-tap "reserve next week" button + the parsed meal options so the user can
- * pick non-defaults. While the operation runs, the status text shows what step we're on
- * (loading page, selecting meal, going to next week, day X/Y).
+ * The set of days, whether each day is reservable, and whether the week-nav buttons
+ * are usable are all read fresh from whatever the server just sent — none of it is
+ * assumed to be a fixed shape, since the site adds/removes days and locks/unlocks
+ * them (cutoffs, already-reserved, admin changes, etc.) on its own schedule.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,11 +67,10 @@ fun ReservationScreen(
     val status by vm.statusText.collectAsState()
     val error by vm.errorMessage.collectAsState()
     val selectedMeal by vm.selectedMeal.collectAsState()
-    val selectedDiet by vm.selectedDiet.collectAsState()
+    val daySelections by vm.daySelections.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it) } }
-
     LaunchedEffect(Unit) { vm.load() }
 
     Scaffold(
@@ -88,12 +95,10 @@ fun ReservationScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            when {
-                state is ReservationUiState.Loading -> {
+            when (val s = state) {
+                is ReservationUiState.Loading, ReservationUiState.Idle -> {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(32.dp),
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -102,100 +107,121 @@ fun ReservationScreen(
                         Text("Loading…")
                     }
                 }
-                state is ReservationUiState.Working -> {
+                is ReservationUiState.Working -> {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
+                        modifier = Modifier.fillMaxWidth().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         CircularProgressIndicator()
-                        Text(
-                            text = status ?: "Working…",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
+                        Text(status ?: "Working…", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
-                state is ReservationUiState.Ready -> {
-                    val page = (state as ReservationUiState.Ready).page
+                is ReservationUiState.Ready -> {
+                    val page = s.page
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // ---- Quick action card ----
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-                        ) {
+                        // ---- Meal + week navigation ----
+                        Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
                             Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Meal & week", style = MaterialTheme.typography.titleLarge)
+                                Spacer(Modifier.height(12.dp))
+
+                                if (page.mealOptions.isNotEmpty()) {
+                                    DropdownField(
+                                        label = "Meal",
+                                        options = page.mealOptions,
+                                        selectedValue = selectedMeal,
+                                        onSelected = {
+                                            vm.updateMeal(it)
+                                            vm.applyMeal()
+                                        }
+                                    )
+                                    Spacer(Modifier.height(12.dp))
+                                }
+
+                                // "هفته قبل" (last week) / "هفته بعد" (next week). Each
+                                // button only shows as enabled when the server's page
+                                // currently allows it — it may be absent entirely (e.g.
+                                // no earlier week to go back to) or present but greyed
+                                // out (e.g. can't go further back/forward), and that can
+                                // change from one page load to the next.
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = { vm.lastWeek() },
+                                        enabled = page.lastWeek.isUsable,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(Icons.Default.ChevronLeft, contentDescription = null)
+                                        Text("هفته قبل")
+                                    }
+                                    OutlinedButton(
+                                        onClick = { vm.nextWeek() },
+                                        enabled = page.nextWeek.isUsable,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text("هفته بعد")
+                                        Icon(Icons.Default.ChevronRight, contentDescription = null)
+                                    }
+                                }
+                                if (!page.nextWeek.exists && !page.lastWeek.exists) {
+                                    Text(
+                                        "No week-navigation buttons on this page.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+
+                        // ---- Per-day dropdowns ----
+                        Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Days this week", style = MaterialTheme.typography.titleLarge)
                                 Text(
-                                    "Reserve next week",
-                                    style = MaterialTheme.typography.titleLarge
-                                )
-                                Text(
-                                    "One tap runs the full script: ناهار + سلف پردیس + first " +
-                                    "radio, for every day.",
+                                    "Pick an option for each day, then reserve them all at once — " +
+                                        "or reserve a single day with its own button. Locked/closed " +
+                                        "days are shown but can't be changed.",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                                 Spacer(Modifier.height(12.dp))
 
-                                // Meal dropdown — exposes the options parsed from the page
-                                DropdownField(
-                                    label = "Meal",
-                                    options = page.mealOptions.map { it.first },
-                                    selected = selectedMeal,
-                                    onSelected = vm::updateMeal
-                                )
-                                Spacer(Modifier.height(8.dp))
-
-                                // Diet dropdown (visible text used as the search key when
-                                // matching against each day's parsed options).
-                                DropdownField(
-                                    label = "Cafeteria (diet)",
-                                    options = page.days.firstOrNull()?.dietOptions?.map { it.first }
-                                        ?: listOf("سلف پردیس"),
-                                    selected = selectedDiet,
-                                    onSelected = vm::updateDiet
-                                )
-
-                                Spacer(Modifier.height(16.dp))
-                                Button(
-                                    onClick = { vm.reserveWeek() },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(52.dp)
-                                ) {
-                                    Text("Reserve week")
-                                }
-                            }
-                        }
-
-                        // ---- Parsed state ----
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    "Parsed page state",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Text("Meal options: ${page.mealOptions.map { it.first }}")
-                                Text("Days found: ${page.days.size}")
-                                page.days.forEach { day ->
-                                    Text(
-                                        "  • ${day.dayLabel} — diets: " +
-                                        day.dietOptions.joinToString { it.first },
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                page.days.forEachIndexed { idx, day ->
+                                    if (idx > 0) HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                                    DayRow(
+                                        day = day,
+                                        selectedValue = daySelections[day.fieldName] ?: day.currentValue,
+                                        onSelected = { vm.updateDaySelection(day.fieldName, it) },
+                                        onReserveThisDay = { vm.reserveDay(day.fieldName) }
                                     )
                                 }
-                                if (page.nextWeekBtnName == null) {
+
+                                if (page.days.isEmpty()) {
                                     Text(
-                                        "  (Next-week button not found — you may already " +
-                                        "be on next week.)",
+                                        "No reservable days found on this page.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }
+
+                                Spacer(Modifier.height(16.dp))
+                                val anyUsable = page.days.any { it.isUsable }
+                                Button(
+                                    onClick = { vm.reserveAllDays() },
+                                    enabled = anyUsable,
+                                    modifier = Modifier.fillMaxWidth().height(52.dp)
+                                ) {
+                                    Text("Reserve all days")
+                                }
+                                if (page.days.isNotEmpty() && !anyUsable) {
+                                    Text(
+                                        "All days are currently locked.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.error
                                     )
@@ -204,51 +230,93 @@ fun ReservationScreen(
                         }
                     }
                 }
-                state is ReservationUiState.Idle -> {
-                    // Initial state — nothing to show yet, load() was called by LaunchedEffect.
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) { Text("Loading…") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayRow(
+    day: StufoodRepository.DayInfo,
+    selectedValue: String,
+    onSelected: (String) -> Unit,
+    onReserveThisDay: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(day.dayLabel, style = MaterialTheme.typography.titleMedium)
+            if (!day.isUsable) {
+                Icon(
+                    Icons.Default.Lock,
+                    contentDescription = "Locked",
+                    tint = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.height(16.dp)
+                )
+            }
+        }
+        if (!day.isUsable) {
+            Text(
+                day.lockedReason ?: "Not available for reservation right now.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    DropdownField(
+                        label = "Cafeteria / diet",
+                        options = day.dietOptions,
+                        selectedValue = selectedValue,
+                        onSelected = onSelected
+                    )
+                }
+                OutlinedButton(onClick = onReserveThisDay) {
+                    Text("Reserve")
                 }
             }
         }
     }
 }
 
+/**
+ * Dropdown bound to option *values* (not just labels) so the caller can look the
+ * label back up without guessing — meal/diet option text and value can differ.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DropdownField(
     label: String,
-    options: List<String>,
-    selected: String,
+    options: List<Pair<String, String>>, // label to value
+    selectedValue: String,
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.second == selectedValue }?.first ?: selectedValue
 
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded }
     ) {
         OutlinedTextField(
-            value = selected,
+            value = selectedLabel,
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor()
+            modifier = Modifier.fillMaxWidth().menuAnchor()
         )
-        ExposedDropdownMenu(
+        androidx.compose.material3.ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            options.forEach { option ->
-                androidx.compose.material3.DropdownMenuItem(
-                    text = { Text(option) },
+            options.forEach { (optLabel, optValue) ->
+                DropdownMenuItem(
+                    text = { Text(optLabel) },
                     onClick = {
-                        onSelected(option)
+                        onSelected(optValue)
                         expanded = false
                     }
                 )

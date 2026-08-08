@@ -11,12 +11,11 @@ import kotlinx.coroutines.launch
 /**
  * Reservation screen state.
  *
- * Two modes:
- *   1. Manual — user walks through the same steps as the Python script but via UI:
- *        load page -> pick meal -> next week -> for each day, pick diet + radio.
- *      Useful when you want to see what's happening or pick non-default options.
- *   2. Auto — one tap runs the whole week with the script's defaults (ناهار,
- *      سلف پردیس, first radio).
+ * Days and nav buttons are whatever StufoodRepository parsed off the *current* page —
+ * their number, order, and enabled/disabled state can change between loads (the site
+ * adds/removes rows and locks days dynamically), so nothing here assumes a fixed shape.
+ * Selections are keyed by each day's live field name, not a positional index, since a
+ * day's index can shift when rows appear/disappear.
  */
 class ReservationViewModel(
     private val repo: StufoodRepository = StufoodApp.instance.repository
@@ -31,26 +30,33 @@ class ReservationViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    // Selected meal + diet (visible text)
-    private val _selectedMeal = MutableStateFlow("ناهار")
+    private val _selectedMeal = MutableStateFlow("")
     val selectedMeal: StateFlow<String> = _selectedMeal
 
-    private val _selectedDiet = MutableStateFlow("سلف پردیس")
-    val selectedDiet: StateFlow<String> = _selectedDiet
-
-    private var currentPage: StufoodRepository.ReservationPage? = null
+    // day.fieldName -> chosen option value (not label). Pre-filled with each usable
+    // day's current server-side value once the page loads; locked days are left out.
+    private val _daySelections = MutableStateFlow<Map<String, String>>(emptyMap())
+    val daySelections: StateFlow<Map<String, String>> = _daySelections
 
     fun updateMeal(v: String) { _selectedMeal.value = v }
-    fun updateDiet(v: String) { _selectedDiet.value = v }
 
-    /** Loads the initial reservation page so we can show meal options. */
+    fun updateDaySelection(fieldName: String, optionValue: String) {
+        _daySelections.value = _daySelections.value.toMutableMap().apply { put(fieldName, optionValue) }
+    }
+
+    private fun applyLoadedPage(page: StufoodRepository.ReservationPage) {
+        _selectedMeal.value = page.mealOptions.firstOrNull()?.second ?: ""
+        _daySelections.value = page.days.filter { it.isUsable }.associate { it.fieldName to it.currentValue }
+    }
+
+    /** Loads the reservation page and pre-fills dropdowns from server state. */
     fun load() {
         _uiState.value = ReservationUiState.Loading
         _statusText.value = "Loading reservation page…"
         viewModelScope.launch {
             try {
                 val page = repo.fetchReservationPage()
-                currentPage = page
+                applyLoadedPage(page)
                 _uiState.value = ReservationUiState.Ready(page)
                 _statusText.value = null
             } catch (t: Throwable) {
@@ -60,34 +66,116 @@ class ReservationViewModel(
         }
     }
 
-    /**
-     * Runs the whole "reserve food for next week" flow with the current meal/diet
-     * selections. Reports progress via statusText.
-     */
-    fun reserveWeek() {
+    fun applyMeal() {
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
         val meal = _selectedMeal.value
-        val diet = _selectedDiet.value
+        if (meal.isEmpty()) return
+        _uiState.value = ReservationUiState.Working
+        viewModelScope.launch {
+            try {
+                val updated = repo.selectMeal(page, meal)
+                applyLoadedPage(updated)
+                _uiState.value = ReservationUiState.Ready(updated)
+            } catch (t: Throwable) {
+                _errorMessage.value = "Failed to change meal: ${t.message}"
+                _uiState.value = ReservationUiState.Ready(page)
+            }
+        }
+    }
+
+    fun nextWeek() {
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        if (!page.nextWeek.isUsable) return
+        _uiState.value = ReservationUiState.Working
+        _statusText.value = "Going to next week…"
+        viewModelScope.launch {
+            try {
+                val updated = repo.clickNextWeek(page)
+                applyLoadedPage(updated)
+                _uiState.value = ReservationUiState.Ready(updated)
+                _statusText.value = null
+            } catch (t: Throwable) {
+                _errorMessage.value = "Failed to go to next week: ${t.message}"
+                _uiState.value = ReservationUiState.Ready(page)
+            }
+        }
+    }
+
+    fun lastWeek() {
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        if (!page.lastWeek.isUsable) return
+        _uiState.value = ReservationUiState.Working
+        _statusText.value = "Going to last week…"
+        viewModelScope.launch {
+            try {
+                val updated = repo.clickLastWeek(page)
+                applyLoadedPage(updated)
+                _uiState.value = ReservationUiState.Ready(updated)
+                _statusText.value = null
+            } catch (t: Throwable) {
+                _errorMessage.value = "Failed to go to last week: ${t.message}"
+                _uiState.value = ReservationUiState.Ready(page)
+            }
+        }
+    }
+
+    /** Reserves every day currently shown in the dropdowns, one postback per day. */
+    fun reserveAllDays() {
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
         _uiState.value = ReservationUiState.Working
         _errorMessage.value = null
 
         viewModelScope.launch {
-            val result = repo.reserveWeekWithDefaults(
-                mealText = meal,
-                dietText = diet,
+            val result = repo.reserveDays(
+                page,
+                _daySelections.value,
                 onProgress = { step -> _statusText.value = step }
             )
             when (result) {
                 is StufoodRepository.ReservationResult.Success -> {
-                    currentPage = result.finalPage
+                    applyLoadedPage(result.finalPage)
                     _uiState.value = ReservationUiState.Ready(result.finalPage)
-                    _statusText.value = "Done! Week reserved."
+                    _statusText.value = if (result.skipped.isEmpty()) {
+                        "Done! Week reserved."
+                    } else {
+                        "Reserved, but skipped: ${result.skipped.joinToString("; ")}"
+                    }
                 }
                 is StufoodRepository.ReservationResult.Failure -> {
                     _errorMessage.value = result.message
                     _statusText.value = null
-                    // Try to reload so the user can retry
                     load()
                 }
+            }
+        }
+    }
+
+    /** Reserves just one day (used by the per-day dropdown's own confirm button). */
+    fun reserveDay(fieldName: String) {
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        val day = page.days.firstOrNull { it.fieldName == fieldName } ?: return
+        val value = _daySelections.value[fieldName] ?: return
+        if (!day.isUsable) {
+            _errorMessage.value = "${day.dayLabel} isn't available right now" +
+                (day.lockedReason?.let { " ($it)" } ?: ".")
+            return
+        }
+        _uiState.value = ReservationUiState.Working
+        _statusText.value = "Reserving ${day.dayLabel}…"
+        viewModelScope.launch {
+            try {
+                val updated = repo.selectDayDiet(page, day, value)
+                if (updated == null) {
+                    _errorMessage.value = "${day.dayLabel} became unavailable — reloading."
+                    load()
+                    return@launch
+                }
+                applyLoadedPage(updated)
+                _uiState.value = ReservationUiState.Ready(updated)
+                _statusText.value = "${day.dayLabel} reserved."
+            } catch (t: Throwable) {
+                _errorMessage.value = "Failed to reserve ${day.dayLabel}: ${t.message}"
+                _uiState.value = ReservationUiState.Ready(page)
             }
         }
     }
