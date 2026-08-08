@@ -282,9 +282,11 @@ private fun ReservationContent(
 @Composable
 private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: ReservationViewModel) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // ---- Header: date (+ lock icon) on the left, status badge pinned to
-            // the top-right corner where there's room for it. ----
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // ---- Header: date (+ lock icon) on the left, status badge on the right ----
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -321,8 +323,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                 }
 
                 DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
-                    // Intentionally no extra text here — the status badge in the
-                    // top-right corner already says everything there is to say.
+                    // Header badge handles status display
                 }
 
                 DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
@@ -331,17 +332,33 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
 
                 DayStatus.SELECT_CAFETERIA -> {
                     if (mealSelected) {
-                        DropdownField(
-                            label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
-                            options = day.cafeteriaOptions,
-                            selectedValue = day.selectedCafeteria ?: "0",
-                            enabled = enabled,
-                            onSelected = { vm.selectCafeteria(day, it) }
-                        )
-                    } else {
-                        // No meal chosen yet — nothing meaningful to show, so leave
-                        // blank space instead of a dead "0 / no options" dropdown.
-                        Spacer(Modifier.height(48.dp))
+                        val onlyPlaceholder = day.cafeteriaOptions.size <= 1
+                        if (onlyPlaceholder) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = "Locked",
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.height(16.dp)
+                                )
+                                Text(
+                                    "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            DropdownField(
+                                label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
+                                options = day.cafeteriaOptions,
+                                selectedValue = day.selectedCafeteria ?: "0",
+                                enabled = enabled,
+                                onSelected = { vm.selectCafeteria(day, it) }
+                            )
+                        }
                     }
                 }
 
@@ -361,8 +378,6 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                             onSelect = { vm.selectDiet(it) },
                             onCancel = { vm.requestCancel(it) }
                         )
-                    } else {
-                        Spacer(Modifier.height(48.dp))
                     }
                 }
 

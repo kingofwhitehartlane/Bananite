@@ -93,8 +93,7 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Your phone must be on the campus wifi / VPN for the app to " +
-                               "reach stufood.mums.ac.ir — same as your PC.",
+                        text = "Your phone must not be connected to foreign VPN for the app to reach stufood.mums.ac.ir",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
