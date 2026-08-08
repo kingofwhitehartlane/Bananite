@@ -68,7 +68,15 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         // removes days/rows dynamically (weekends, past days, cutoffs, etc.) — so we
         // never assume a fixed count or a fixed set of indices. This regex is used to
         // *discover* whatever day fields actually exist on the current page.
-        val DAY_DROPDOWN_REGEX = Regex("""^ctl00\$body\$rptFoodDiet\$ctl(\d+)\$dpSelf$""")
+        //
+        // NOTE: this must be a normal (non-raw) string literal. In a raw ("""...""")
+        // string, backslash is not an escape character, so "\$" doesn't produce a
+        // literal $ — it gets read as the start of a ($body) template interpolation,
+        // which fails to compile ("Unresolved reference 'body'"). In a normal string,
+        // "\\\$" is: "\\" -> one backslash, "\$" -> one dollar sign, giving the regex
+        // engine the literal two characters \$ it needs to match ASP.NET's field-name
+        // separator (which is itself a literal '$').
+        val DAY_DROPDOWN_REGEX = Regex("^ctl00\\\$body\\\$rptFoodDiet\\\$ctl(\\d+)\\\$dpSelf\$")
     }
 
     // ----------------------------------------------------------------------
