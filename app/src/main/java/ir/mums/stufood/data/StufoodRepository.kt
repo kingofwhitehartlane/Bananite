@@ -10,6 +10,7 @@ import okhttp3.Response
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,17 +20,21 @@ import java.util.concurrent.TimeUnit
  *
  * The real site posts every field of the ASP.NET WebForm on every single postback
  * (that's how classic WebForms / __doPostBack works — the whole form, not just the
- * changed control). Rather than hardcode every hidden field name (view the HAR: there
- * are hidden fields like hfCalcDate, hfFirstdayofWeek, hdnSelectFood, dpSubject,
- * rbList, txtSearchStuNum, etc. that must be echoed back unchanged), we generically
- * walk the parsed HTML form and resend every field we find, only overriding the ones
- * that represent the actual UI action (e.g. the day dropdown that changed). This is
- * exactly what a browser does, and it's robust to hidden fields we haven't seen.
+ * changed control). Rather than hardcode every hidden field name, we generically walk
+ * the parsed HTML form and resend every field we find, only overriding the ones that
+ * represent the actual UI action (e.g. a day's cafeteria dropdown, or a diet radio),
+ * exactly like a browser would.
  *
  * Also important: requests must be multipart/form-data (the real site's form has a
- * file upload control, ctl00$body$fuAttachment), not URL-encoded. A plain FormBody
- * post will look like a completely different browser/client to the server and may be
- * rejected or mishandled.
+ * file upload control, ctl00$body$fuAttachment), not URL-encoded.
+ *
+ * Per-day UI on the reservation page is discovered generically by scanning for
+ * `lblDayDate_<N>` elements — that span is present on the page regardless of the
+ * day's state (not-allowed, needs-cafeteria, needs-diet, already-reserved, received,
+ * not-received, not-reserved, or "no food defined yet"), so it's the one reliable
+ * anchor we can enumerate days from. Everything else for that day (cafeteria select,
+ * diet table, "no food defined" banner, comment button, cancel button) is looked up
+ * by the same `<N>` suffix and may or may not be present, depending on state.
  */
 class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
@@ -62,25 +67,31 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val MEAL = "ctl00\$body\$dpFoodMeal"
         const val NEXT_WEEK_BTN = "ctl00\$body\$btnNextWeek"
         const val LAST_WEEK_BTN = "ctl00\$body\$btnlastWeek"
+        const val TODAY_BTN = "ctl00\$body\$btnToday"
         const val FILE_UPLOAD = "ctl00\$body\$fuAttachment"
+        const val CREDIT_ELEMENT_ID = "body_lblStuCredit"
 
-        // Day dropdowns are ctl00$body$rptFoodDiet$ctlNN$dpSelf, but the site adds or
-        // removes days/rows dynamically (weekends, past days, cutoffs, etc.) — so we
-        // never assume a fixed count or a fixed set of indices. This regex is used to
-        // *discover* whatever day fields actually exist on the current page.
-        //
-        // NOTE: this must be a normal (non-raw) string literal. In a raw ("""...""")
-        // string, backslash is not an escape character, so "\$" doesn't produce a
-        // literal $ — it gets read as the start of a ($body) template interpolation,
-        // which fails to compile ("Unresolved reference 'body'"). In a normal string,
-        // "\\\$" is: "\\" -> one backslash, "\$" -> one dollar sign, giving the regex
-        // engine the literal two characters \$ it needs to match ASP.NET's field-name
-        // separator (which is itself a literal '$').
-        val DAY_DROPDOWN_REGEX = Regex("^ctl00\\\$body\\\$rptFoodDiet\\\$ctl(\\d+)\\\$dpSelf\$")
+        // "انتخاب نمایید" / "انتخاب سلف" placeholder value used by both the meal
+        // dropdown and every per-day cafeteria dropdown to mean "nothing chosen yet".
+        const val PLACEHOLDER_VALUE = "0"
     }
 
+    // Badge labels for the header <div>'s CSS class, per the legend on the site:
+    //   NotRecivedFood, RecivedFood, DaySeal, ChangeFood, OnlineDaySaleReserve,
+    //   NoReserve, NoFoodChange, OnlineDaySaleWaitingReserve
+    private val statusBadgeLabels = mapOf(
+        "NotRecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647",
+        "RecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647",
+        "DaySeal" to "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634",
+        "ChangeFood" to "\u0627\u0645\u06a9\u0627\u0646 \u062a\u0642\u06cc\u06cc\u0631 \u0642\u0630\u0627",
+        "OnlineDaySaleReserve" to "\u0631\u0648\u0632\u0641\u0631\u0648\u0634 \u0622\u0646\u0644\u0627\u06cc\u0646",
+        "NoReserve" to "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a",
+        "NoFoodChange" to "\u0639\u062f\u0645 \u0627\u0645\u06a9\u0627\u0646 \u062a\u0642\u06cc\u06cc\u0631 \u0642\u0630\u0627",
+        "OnlineDaySaleWaitingReserve" to "\u062f\u0631 \u0644\u06cc\u0633\u062a \u0627\u0646\u062a\u0638\u0627\u0631 \u062a\u0627\u06cc\u06cc\u062f \u0631\u0648\u0632\u0641\u0631\u0648\u0634"
+    )
+
     // ----------------------------------------------------------------------
-    // LOGIN  (unchanged from before — not covered by this HAR)
+    // LOGIN  (unchanged)
     // ----------------------------------------------------------------------
 
     suspend fun fetchLoginPage(): LoginPageData = withClient {
@@ -134,7 +145,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     fun clearSession() = cookieJar.clear()
 
     // ----------------------------------------------------------------------
-    // RESERVATION
+    // RESERVATION — page load & navigation
     // ----------------------------------------------------------------------
 
     suspend fun fetchReservationPage(): ReservationPage = withClient {
@@ -143,130 +154,87 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         parseReservationPage(html)
     }
 
-    /** Change the meal dropdown (e.g. ناهار / lunch). */
+    /** Change the meal dropdown (e.g. \u0646\u0627\u0647\u0627\u0631 / lunch). */
     suspend fun selectMeal(current: ReservationPage, mealOptionValue: String): ReservationPage =
         postForm(current, eventTarget = Fields.MEAL, overrides = mapOf(Fields.MEAL to mealOptionValue))
 
+    suspend fun clickToday(current: ReservationPage): ReservationPage {
+        if (!current.today.isUsable) return current
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = mapOf(Fields.TODAY_BTN to "\u0627\u0645\u0631\u0648\u0632"),
+            clickedButton = Fields.TODAY_BTN
+        )
+    }
+
     suspend fun clickNextWeek(current: ReservationPage): ReservationPage {
-        if (current.nextWeek.isUsable.not()) return current
-        return postForm(current, eventTarget = "", overrides = mapOf(Fields.NEXT_WEEK_BTN to "next"), clickedButton = Fields.NEXT_WEEK_BTN)
+        if (!current.nextWeek.isUsable) return current
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = mapOf(Fields.NEXT_WEEK_BTN to "next"),
+            clickedButton = Fields.NEXT_WEEK_BTN
+        )
     }
 
     suspend fun clickLastWeek(current: ReservationPage): ReservationPage {
-        if (current.lastWeek.isUsable.not()) return current
-        return postForm(current, eventTarget = "", overrides = mapOf(Fields.LAST_WEEK_BTN to "prev"), clickedButton = Fields.LAST_WEEK_BTN)
+        if (!current.lastWeek.isUsable) return current
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = mapOf(Fields.LAST_WEEK_BTN to "prev"),
+            clickedButton = Fields.LAST_WEEK_BTN
+        )
     }
 
     /**
-     * Selects a diet/cafeteria option for one day, identified by its live field name
-     * (see DayInfo.fieldName) rather than a positional index, since which index a day
-     * gets can shift as the site adds/removes rows. Per the captured HAR, changing
-     * this dropdown IS the reservation action for that day — the server commits it on
-     * this postback, there is no separate "confirm" step observed.
-     *
-     * Returns null (instead of throwing) if [day] is locked/disabled on the current
-     * page — always re-check against the freshest ReservationPage before calling.
+     * Step 1 of reserving a day that's in [DayStatus.SELECT_CAFETERIA]: pick a
+     * cafeteria. The server responds with the diet options for that day (the day
+     * moves to [DayStatus.SELECT_DIET]).
      */
-    suspend fun selectDayDiet(current: ReservationPage, day: DayInfo, dietOptionValue: String): ReservationPage? {
-        if (!day.isUsable) return null
-        return postForm(current, eventTarget = day.fieldName, overrides = mapOf(day.fieldName to dietOptionValue))
+    suspend fun selectCafeteria(current: ReservationPage, day: DayInfo, cafeteriaValue: String): ReservationPage {
+        val fieldName = day.cafeteriaFieldName ?: return current
+        return postForm(current, eventTarget = fieldName, overrides = mapOf(fieldName to cafeteriaValue))
     }
 
     /**
-     * Reserves every day keyed in [selections] (day.fieldName -> chosen option
-     * *value*, not label). Re-resolves each day against the freshest page before
-     * posting, since a day can become locked (cutoff, already reserved, etc.) or
-     * simply disappear between when the user picked a value and when this runs — in
-     * that case the day is skipped and reported, not treated as a hard failure.
-     * Each day is a separate sequential postback (the server needs the fresh
-     * __VIEWSTATE from the previous response before the next request will be valid).
+     * Step 2: pick (or change) the actual food for a day whose diet table is showing
+     * ([DayStatus.SELECT_DIET] or [DayStatus.RESERVED]). Per the site's behavior this
+     * commits the reservation immediately — there's no separate confirm step.
      */
-    suspend fun reserveDays(
-        startPage: ReservationPage,
-        selections: Map<String, String>,
-        onProgress: (step: String) -> Unit = {}
-    ): ReservationResult {
-        return try {
-            var page = startPage
-            val skipped = mutableListOf<String>()
-            val fieldNames = selections.keys.toList()
+    suspend fun selectDiet(current: ReservationPage, option: DietOption): ReservationPage =
+        postForm(current, eventTarget = option.fieldName, overrides = mapOf(option.fieldName to "rdoDiet"))
 
-            for ((n, fieldName) in fieldNames.withIndex()) {
-                val value = selections[fieldName] ?: continue
-                val day = page.days.firstOrNull { it.fieldName == fieldName }
-                if (day == null) {
-                    skipped.add("$fieldName (no longer on the page)")
-                    continue
-                }
-                if (!day.isUsable) {
-                    skipped.add("${day.dayLabel} (${day.lockedReason ?: "not available"})")
-                    continue
-                }
-                val label = day.dietOptions.firstOrNull { it.second == value }?.first ?: value
-                onProgress("${day.dayLabel} (${n + 1}/${fieldNames.size}): reserving \"$label\"")
-                page = postForm(page, eventTarget = day.fieldName, overrides = mapOf(day.fieldName to value))
-            }
-
-            if (skipped.isNotEmpty()) {
-                onProgress("Done, but skipped: ${skipped.joinToString("; ")}")
-            } else {
-                onProgress("Done!")
-            }
-            ReservationResult.Success(page, skipped)
-        } catch (t: Throwable) {
-            ReservationResult.Failure(t.message ?: "Network error while reserving.")
-        }
-    }
-
-    /** Convenience wrapper matching the old "one tap, whole week" behavior. */
-    suspend fun reserveWeekWithDefaults(
-        mealText: String = "\u0646\u0627\u0647\u0627\u0631",
-        dietText: String = "\u0633\u0644\u0641 \u067e\u0631\u062f\u06cc\u0633",
-        onProgress: (step: String) -> Unit = {}
-    ): ReservationResult {
-        return try {
-            onProgress("Loading reservation page\u2026")
-            var page = fetchReservationPage()
-
-            val mealValue = page.mealOptions.firstOrNull { it.first == mealText }?.second
-                ?: return ReservationResult.Failure("Meal \"$mealText\" not found in dropdown.")
-            onProgress("Selecting meal: $mealText")
-            page = selectMeal(page, mealValue)
-
-            if (page.nextWeek.isUsable) {
-                onProgress("Going to next week")
-                page = clickNextWeek(page)
-            }
-
-            val selections = mutableMapOf<String, String>()
-            for (day in page.days) {
-                if (!day.isUsable) continue // skip locked/closed days rather than failing the whole run
-                val dietValue = day.dietOptions.firstOrNull { it.first == dietText }?.second
-                    ?: return ReservationResult.Failure("Diet \"$dietText\" not found for ${day.dayLabel}.")
-                selections[day.fieldName] = dietValue
-            }
-            return reserveDays(page, selections, onProgress)
-        } catch (t: Throwable) {
-            ReservationResult.Failure(t.message ?: "Network error during reservation.")
-        }
+    /**
+     * Cancels an already-reserved diet for a day. On the real site this is an
+     * `<input type="image">` button, which browsers submit as `name.x` / `name.y`
+     * coordinate fields rather than a normal `__doPostBack` — we mirror that here.
+     * Always re-check [DietOption.cancelFieldName] against the freshest page; it's
+     * null whenever cancellation isn't available for that option.
+     */
+    suspend fun cancelDiet(current: ReservationPage, option: DietOption): ReservationPage? {
+        val cancelField = option.cancelFieldName ?: return null
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = emptyMap(),
+            extraFields = mapOf("$cancelField.x" to "1", "$cancelField.y" to "1")
+        )
     }
 
     // ----------------------------------------------------------------------
-    // GENERIC FORM POST — walks the parsed form, resends every field, then
-    // parses the response into a fresh ReservationPage.
+    // GENERIC FORM POST
     // ----------------------------------------------------------------------
 
-    /**
-     * Rebuilds the multipart body for [current]'s form snapshot, applying [overrides]
-     * on top, sets __EVENTTARGET to [eventTarget], and (if [clickedButton] is set)
-     * includes that button's field so the server sees it as "clicked". Then posts and
-     * re-parses the response.
-     */
+    private val navButtons = listOf(Fields.NEXT_WEEK_BTN, Fields.LAST_WEEK_BTN, Fields.TODAY_BTN)
+
     private suspend fun postForm(
         current: ReservationPage,
         eventTarget: String,
         overrides: Map<String, String>,
-        clickedButton: String? = null
+        clickedButton: String? = null,
+        extraFields: Map<String, String> = emptyMap()
     ): ReservationPage = withClient {
         val bodyBuilder = MultipartBody.Builder().setType(MultipartBody.FORM)
 
@@ -280,15 +248,16 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         overrides.forEach { (k, v) -> fields[k] = v }
 
-        // Buttons are only sent when "clicked" — remove the other nav button's field
-        // if present so we don't imply pressing two buttons at once.
-        if (clickedButton != Fields.NEXT_WEEK_BTN) fields.remove(Fields.NEXT_WEEK_BTN)
-        if (clickedButton != Fields.LAST_WEEK_BTN) fields.remove(Fields.LAST_WEEK_BTN)
+        // Nav buttons (Next week / Previous week / Today) are only sent when
+        // "clicked" — drop the others so we don't imply pressing several at once.
+        navButtons.forEach { name -> if (name != clickedButton) fields.remove(name) }
 
         fields.forEach { (name, value) ->
             if (name == Fields.FILE_UPLOAD) return@forEach // handled below
             bodyBuilder.addFormDataPart(name, value)
         }
+        extraFields.forEach { (name, value) -> bodyBuilder.addFormDataPart(name, value) }
+
         // Empty file part, matching the real request's untouched file input.
         bodyBuilder.addFormDataPart(
             Fields.FILE_UPLOAD, "",
@@ -311,71 +280,219 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // PARSING
     // ----------------------------------------------------------------------
 
+    private val dayDateIdRegex = Regex("^body_rptFoodDiet_lblDayDate_(\\d+)$")
+
     private fun parseReservationPage(html: String): ReservationPage {
         val doc = Jsoup.parse(html, reservationUrl)
 
+        // ---- Meal dropdown ("\u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0645\u0627\u06cc\u06cc\u062f" placeholder included) ----
         val mealSelect = doc.selectFirst("select[name='${Fields.MEAL}']")
         val mealOptions = mealSelect?.select("option")
             ?.map { it.text().trim() to (it.attr("value").ifEmpty { it.text() }) }
             ?: emptyList()
+        val selectedMeal = mealSelect?.select("option[selected]")?.firstOrNull()?.attr("value")
+            ?: mealOptions.firstOrNull { it.second == Fields.PLACEHOLDER_VALUE }?.second
+            ?: Fields.PLACEHOLDER_VALUE
 
+        // ---- Credit / balance ----
+        val creditRaw = doc.getElementById(Fields.CREDIT_ELEMENT_ID)?.text()?.trim()
+        val creditToman = creditRaw?.let { parseRialTextToTomanLabel(it) }
+
+        // ---- Nav buttons ----
+        val today = parseButtonState(doc, Fields.TODAY_BTN)
         val nextWeek = parseButtonState(doc, Fields.NEXT_WEEK_BTN)
         val lastWeek = parseButtonState(doc, Fields.LAST_WEEK_BTN)
 
-        // Discover whichever day dropdowns actually exist on THIS page load — the
-        // site adds/removes rows (weekends, past days, cutoffs), so we never assume a
-        // fixed set of indices.
-        val dayFieldNames = doc.select("form select")
-            .mapNotNull { it.attr("name").takeIf { n -> Fields.DAY_DROPDOWN_REGEX.matches(n) } }
+        // ---- Days: discovered generically via lblDayDate_<N>, which is always
+        // present no matter the day's state. ----
+        val dayIndices = doc.select("span[id]")
+            .mapNotNull { el -> dayDateIdRegex.find(el.attr("id"))?.groupValues?.get(1)?.toIntOrNull() }
             .distinct()
-            .sortedBy { name -> Fields.DAY_DROPDOWN_REGEX.find(name)!!.groupValues[1].toInt() }
+            .sorted()
 
-        val days = dayFieldNames.mapIndexed { i, name ->
-            val dropdown = doc.selectFirst("select[name='$name']")!!
-            val dietOptions = dropdown.select("option").map {
-                it.text().trim() to (it.attr("value").ifEmpty { it.text() })
-            }
-            val currentValue = dropdown.select("option[selected]").firstOrNull()?.attr("value")
-                ?: dropdown.select("option").firstOrNull()?.attr("value").orEmpty()
-
-            // Best-effort label for the day (date/weekday), read from nearby text —
-            // falls back to a plain "Day N" if the site's markup doesn't cooperate.
-            val container = dropdown.closest("tr, li, div") ?: dropdown.parent()
-            val dayLabel = container?.select("td, span, label, th")
-                ?.map { it.text().trim() }
-                ?.firstOrNull { it.isNotBlank() && it != dropdown.text().trim() }
-                ?: "Day ${i + 1}"
-
-            // The dropdown itself may be disabled/readonly even though it's still in
-            // the DOM (e.g. cutoff passed, already reserved, admin locked it). We treat
-            // any of these as "not usable" and try to grab a human-readable reason from
-            // whatever's sitting next to it.
-            val isDisabled = dropdown.hasAttr("disabled") || dropdown.hasAttr("readonly")
-            val lockedReason = if (isDisabled) findNearbyReasonText(container, dropdown) else null
-
-            DayInfo(
-                index = i,
-                fieldName = name,
-                dietOptions = dietOptions,
-                currentValue = currentValue,
-                dayLabel = dayLabel,
-                isUsable = dietOptions.isNotEmpty() && !isDisabled,
-                lockedReason = lockedReason
-            )
-        }
+        val days = dayIndices.map { i -> parseDay(doc, i) }
 
         return ReservationPage(
             fieldSnapshot = snapshotForm(doc),
             mealOptions = mealOptions,
+            selectedMeal = selectedMeal,
+            creditToman = creditToman,
+            today = today,
             nextWeek = nextWeek,
             lastWeek = lastWeek,
             days = days
         )
     }
 
+    private fun parseDay(doc: Document, i: Int): DayInfo {
+        val dateLabel = doc.getElementById("body_rptFoodDiet_lblDayDate_$i")?.text()?.trim().orEmpty()
+        val rawMessage = doc.getElementById("body_rptFoodDiet_lblMsg_$i")?.text()?.trim().orEmpty()
+        val message = rawMessage.trim('(', ')', ' ', '\u200c').trim().ifEmpty { null }
+
+        val selfLabelEl = doc.getElementById("body_rptFoodDiet_lblSelf_$i")
+        val selfLabelText = selfLabelEl?.text()?.trim()
+
+        val cafeteriaSelect = doc.getElementById("body_rptFoodDiet_dpSelf_$i")
+        val cafeteriaFieldName = cafeteriaSelect?.attr("name")?.takeIf { it.isNotBlank() }
+        val cafeteriaOptions = cafeteriaSelect?.select("option")
+            ?.map { it.text().trim() to (it.attr("value").ifEmpty { it.text() }) }
+            ?: emptyList()
+        val selectedCafeteria = cafeteriaSelect?.select("option[selected]")?.firstOrNull()?.attr("value")
+            ?: cafeteriaOptions.firstOrNull()?.second
+
+        val noFoodEl = doc.getElementById("body_rptFoodDiet_dvNoFood_$i")
+        val noFoodDefined = noFoodEl != null && noFoodEl.text().isNotBlank()
+
+        val table = doc.getElementById("body_rptFoodDiet_grdDiet_$i")
+        val dietOptions = table?.select("input[type=radio]")?.map { radio -> parseDietOption(table, radio) }
+            ?: emptyList()
+
+        val commentBtn = doc.getElementById("body_rptFoodDiet_btnComment_$i")
+        val commentFieldName = commentBtn?.attr("name")?.takeIf { it.isNotBlank() }
+
+        val headerDiv = doc.getElementById("body_rptFoodDiet_dvHeader_$i")
+        val statusBadge = headerDiv?.classNames()?.firstNotNullOfOrNull { statusBadgeLabels[it] }
+
+        val hasSelf = !selfLabelText.isNullOrBlank()
+        val hasSelect = cafeteriaFieldName != null
+        val hasTable = dietOptions.isNotEmpty()
+        val checkedOption = dietOptions.firstOrNull { it.checked }
+
+        val status = when {
+            noFoodDefined -> DayStatus.NO_FOOD_DEFINED
+
+            // Informational-only day (no cafeteria select, no diet table): either the
+            // day is off-limits, or nothing was reserved for it at all.
+            hasSelf && !hasSelect && !hasTable -> {
+                if (containsAny("\u0645\u062c\u0627\u0632", message, selfLabelText)) {
+                    DayStatus.NOT_ALLOWED
+                } else {
+                    DayStatus.NOT_RESERVED
+                }
+            }
+
+            // Read-only history with a diet table (past reservation): received / not
+            // received, told apart by the message text.
+            hasSelf && hasTable -> {
+                when {
+                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0634\u062f\u0647", message) -> DayStatus.NOT_RECEIVED
+                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0634\u062f\u0647", message) -> DayStatus.RECEIVED
+                    checkedOption?.disabled == true -> DayStatus.RECEIVED
+                    else -> DayStatus.RESERVED
+                }
+            }
+
+            // Cafeteria chosen but nothing chosen yet, still needs to pick a cafeteria.
+            hasSelect && !hasTable -> DayStatus.SELECT_CAFETERIA
+
+            // Cafeteria chosen, diet table showing.
+            hasSelect && hasTable -> {
+                when {
+                    checkedOption == null -> DayStatus.SELECT_DIET
+                    checkedOption.disabled -> DayStatus.RECEIVED
+                    else -> DayStatus.RESERVED
+                }
+            }
+
+            else -> DayStatus.UNKNOWN
+        }
+
+        return DayInfo(
+            index = i,
+            dateLabel = dateLabel,
+            message = message,
+            statusBadge = statusBadge,
+            status = status,
+            selfLabel = selfLabelText,
+            cafeteriaFieldName = cafeteriaFieldName,
+            cafeteriaOptions = cafeteriaOptions,
+            selectedCafeteria = selectedCafeteria,
+            dietOptions = dietOptions,
+            commentFieldName = commentFieldName
+        )
+    }
+
+    private fun containsAny(needle: String, vararg texts: String?): Boolean =
+        texts.any { it != null && it.contains(needle) }
+
+    private fun parseDietOption(table: Element, radio: Element): DietOption {
+        val name = radio.attr("name")
+        val checked = radio.hasAttr("checked")
+        val disabled = radio.hasAttr("disabled")
+        val radioId = radio.attr("id")
+        val labelEl = table.selectFirst("label[for='$radioId']")
+        val rawText = labelEl?.text().orEmpty()
+        val (foodName, priceRial) = parseDietLabelText(rawText)
+
+        // The cancel button (an <input type="image"> whose name ends in btnCancel)
+        // lives in the same row as the checked radio, when cancellation is allowed.
+        val row = radio.parents().firstOrNull { it.tagName() == "tr" }
+        val cancelBtn = row?.selectFirst("input[type=image][name~=btnCancel$]")
+        val cancelFieldName = if (checked) cancelBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+
+        return DietOption(
+            fieldName = name,
+            label = foodName,
+            priceRial = priceRial,
+            priceToman = priceRial?.let { formatRialAsToman(it) },
+            checked = checked,
+            disabled = disabled,
+            cancelFieldName = cancelFieldName
+        )
+    }
+
     /**
-     * A nav button (next/last week) can be: absent entirely, present but disabled, or
-     * present and clickable. We treat only the last case as usable.
+     * Splits a diet radio's label text (e.g. "\u0686\u0644\u0648 \u06a9\u0628\u0627\u0628 \u06a9\u0648\u0628\u06cc\u062f\u0647 -  (\u06a9\u0627\u0644\u0631\u06cc : 1050) ( \u0642\u06cc\u0645\u062a : 160000 \u0631\u06cc\u0627\u0644)")
+     * into the food name (calories dropped entirely, per requirements) and the Rial
+     * price. Both "\u0642\u06cc\u0645\u062a" and "\u0642\u06cc\u0645\u062a" spelling variants seen on the site are handled,
+     * as is the optional trailing "\u0631\u06cc\u0627\u0644" unit and the presence/absence of a "-" separator.
+     */
+    private fun parseDietLabelText(rawText: String): Pair<String, Long?> {
+        val priceRegex = Regex("(\u0642\u06cc\u0645\u062a|\u0642\u064a\u0645\u062a)\\s*[:\uff1a]?\\s*([0-9\u06f0-\u06f9,\u066c]+)")
+        val priceMatch = priceRegex.find(rawText)
+        val price = priceMatch?.groupValues?.get(2)
+            ?.replace(",", "")
+            ?.replace("\u066c", "")
+            ?.let { normalizePersianDigits(it) }
+            ?.toLongOrNull()
+
+        // Name = everything before the first "(" (calorie/price parenthetical),
+        // with a trailing dash/space trimmed off.
+        val name = rawText.substringBefore("(").trim().trimEnd('-', ' ').trim()
+
+        return name to price
+    }
+
+    private fun normalizePersianDigits(s: String): String {
+        val sb = StringBuilder(s.length)
+        for (c in s) {
+            sb.append(
+                when (c) {
+                    in '\u06F0'..'\u06F9' -> ('0' + (c - '\u06F0'))
+                    in '\u0660'..'\u0669' -> ('0' + (c - '\u0660'))
+                    else -> c
+                }
+            )
+        }
+        return sb.toString()
+    }
+
+    /** e.g. "12,510,000" (Rial, as shown on the site) -> "1,251,000T" (Toman). */
+    private fun parseRialTextToTomanLabel(rialText: String): String? {
+        val digitsOnly = normalizePersianDigits(rialText.replace(",", "").replace("\u066c", "").trim())
+        val rial = digitsOnly.toLongOrNull() ?: return null
+        return formatRialAsToman(rial)
+    }
+
+    private fun formatRialAsToman(rial: Long): String {
+        val toman = rial / 10
+        return String.format(Locale.US, "%,d", toman) + "T"
+    }
+
+    /**
+     * A nav button (Today / Next week / Previous week) can be: absent entirely,
+     * present but disabled, or present and clickable. We treat only the last case as
+     * usable.
      */
     private fun parseButtonState(doc: Document, fieldName: String): ButtonState {
         val btn = doc.selectFirst("input[name='$fieldName']") ?: return ButtonState(exists = false, isUsable = false)
@@ -383,24 +500,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         return ButtonState(exists = true, isUsable = !disabled)
     }
 
-    /** Best-effort scrape of an error/help message near a disabled control. */
-    private fun findNearbyReasonText(container: Element?, dropdown: Element): String? {
-        val candidates = listOfNotNull(container, dropdown.parent(), dropdown.nextElementSibling())
-        for (el in candidates) {
-            val text = el?.select("span, small, [class*=error], [class*=Error], [class*=message], [class*=Message]")
-                ?.map { it.text().trim() }
-                ?.firstOrNull { it.isNotBlank() && it.length < 200 }
-            if (!text.isNullOrBlank()) return text
-        }
-        return null
-    }
-
     /**
      * Generic ASP.NET-postback-style form snapshot: every hidden/text input's value,
      * every select's currently-selected option, every checked radio/checkbox. Submit
-     * buttons and the file input are deliberately excluded (buttons are added back
-     * explicitly only when "clicked"; the file input is sent separately as an empty
-     * file part).
+     * and image buttons are deliberately excluded (they're added back explicitly only
+     * when "clicked"); the file input is sent separately as an empty file part.
      */
     private fun snapshotForm(doc: Document): Map<String, String> {
         val result = LinkedHashMap<String, String>()
@@ -453,6 +557,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     data class ReservationPage(
         val fieldSnapshot: Map<String, String>,
         val mealOptions: List<Pair<String, String>>,
+        /** "0" means the placeholder ("\u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0645\u0627\u06cc\u06cc\u062f") is selected — i.e. nothing chosen. */
+        val selectedMeal: String,
+        /** Pre-formatted balance, e.g. "1,251,000T" — null if it couldn't be found. */
+        val creditToman: String?,
+        val today: ButtonState,
         val nextWeek: ButtonState,
         val lastWeek: ButtonState,
         val days: List<DayInfo>
@@ -461,21 +570,61 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     /** exists = the button is present in the DOM at all; isUsable = present AND not disabled. */
     data class ButtonState(val exists: Boolean, val isUsable: Boolean)
 
-    data class DayInfo(
-        val index: Int,
+    enum class DayStatus {
+        /** Cafeteria hasn't been picked yet for this day. */
+        SELECT_CAFETERIA,
+        /** Cafeteria picked; pick a diet to reserve. */
+        SELECT_DIET,
+        /** A diet is reserved and (usually) still changeable / cancellable. */
+        RESERVED,
+        /** Past day, food was picked up. */
+        RECEIVED,
+        /** Past day, a reservation existed but food wasn't picked up. */
+        NOT_RECEIVED,
+        /** Past (or otherwise closed) day with no reservation at all. */
+        NOT_RESERVED,
+        /** Not allowed to reserve food for this day. */
+        NOT_ALLOWED,
+        /** Future day whose menu hasn't been published yet. */
+        NO_FOOD_DEFINED,
+        UNKNOWN
+    }
+
+    data class DietOption(
+        /** Full ASP.NET field name of this radio — send it back with value "rdoDiet" to select it. */
         val fieldName: String,
-        val dietOptions: List<Pair<String, String>>,
-        /** The value currently selected on the server for this day. */
-        val currentValue: String,
-        val dayLabel: String,
-        /** False if this day's dropdown is disabled/locked/has no options right now. */
-        val isUsable: Boolean,
-        /** Best-effort human-readable reason it's locked, if we could find one. */
-        val lockedReason: String?
+        /** Food name only — calories are intentionally dropped. */
+        val label: String,
+        val priceRial: Long?,
+        /** Pre-formatted Toman price, e.g. "16,000T" — null if it couldn't be parsed. */
+        val priceToman: String?,
+        val checked: Boolean,
+        val disabled: Boolean,
+        /** Non-null (and usable) only when this checked option can currently be cancelled. */
+        val cancelFieldName: String?
     )
 
-    sealed class ReservationResult {
-        data class Success(val finalPage: ReservationPage, val skipped: List<String> = emptyList()) : ReservationResult()
-        data class Failure(val message: String) : ReservationResult()
+    data class DayInfo(
+        val index: Int,
+        /** e.g. "1405/05/19 - \u062f\u0648\u0634\u0646\u0628\u0647" */
+        val dateLabel: String,
+        /** Raw status message from the page, if any (parentheses stripped). */
+        val message: String?,
+        /** Human label derived from the header's CSS status class, if recognized. */
+        val statusBadge: String?,
+        val status: DayStatus,
+        /** Informational label shown for read-only / locked days (no select present). */
+        val selfLabel: String?,
+        val cafeteriaFieldName: String?,
+        val cafeteriaOptions: List<Pair<String, String>>,
+        val selectedCafeteria: String?,
+        val dietOptions: List<DietOption>,
+        val commentFieldName: String?
+    ) {
+        val canPickCafeteria: Boolean get() = status == DayStatus.SELECT_CAFETERIA && cafeteriaFieldName != null
+        val canPickDiet: Boolean get() = status == DayStatus.SELECT_DIET || status == DayStatus.RESERVED
+        val reservedOption: DietOption? get() = dietOptions.firstOrNull { it.checked }
+        val isReadOnly: Boolean get() = status == DayStatus.RECEIVED || status == DayStatus.NOT_RECEIVED ||
+            status == DayStatus.NOT_RESERVED || status == DayStatus.NOT_ALLOWED
     }
 }
