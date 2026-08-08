@@ -5,6 +5,8 @@ import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -40,20 +42,6 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val html = response.use { it.body?.string().orEmpty() }
         val doc = Jsoup.parse(html, baseUrl)
 
-        val allHiddenFields = doc.select("input[type=hidden]").associate {
-            it.attr("name") to (it.attr("value") ?: "")
-        }
-
-        val usernameName = nameById(doc, "body_txtUsername", default = "body_txtUsername")
-        val passwordName = nameById(doc, "body_txtPassword", default = "body_txtPassword")
-        val captchaInputName = nameById(doc, "body_txtCaptcha", default = "body_txtCaptcha")
-
-        val loginBtn = doc.selectFirst("#btnLogin")
-            ?: doc.selectFirst("input[type=submit]")
-            ?: doc.selectFirst("#ctl01")
-        val loginBtnName = loginBtn?.attr("name").orEmpty()
-        val loginBtnValue = loginBtn?.attr("value").orEmpty().ifEmpty { "Login" }
-
         val captchaSrcRaw = doc.selectFirst("#body_imgCaptcha")?.attr("src").orEmpty()
         val captchaSrc = if (captchaSrcRaw.startsWith("http")) captchaSrcRaw else "$baseUrl/$captchaSrcRaw"
 
@@ -63,67 +51,43 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             } catch (_: Exception) { null }
         } else null
 
-        LoginPageData(
-            hiddenFields = allHiddenFields,
-            usernameName = usernameName,
-            passwordName = passwordName,
-            captchaInputName = captchaInputName,
-            loginBtnName = loginBtnName,
-            loginBtnValue = loginBtnValue,
-            captchaImage = captchaBytes
-        )
+        LoginPageData(captchaImage = captchaBytes)
     }
 
-    suspend fun login(username: String, password: String, captcha: String, page: LoginPageData): LoginResult = withClient {
-        // Fields we manage ourselves — exclude from hiddenFields to avoid duplicates.
-        val skipFields = setOf(
-            "__EVENTTARGET", "__EVENTARGUMENT",
-            "__VIEWSTATE", "__EVENTVALIDATION", "__VIEWSTATEGENERATOR"
-        )
-
-        val builder = FormBody.Builder()
-
-        // 1. Known ASP.NET hidden fields (explicit control)
-        builder.add("__EVENTTARGET", "")
-        builder.add("__EVENTARGUMENT", "")
-        builder.add("__VIEWSTATE", page.hiddenFields["__VIEWSTATE"].orEmpty())
-        builder.add("__EVENTVALIDATION", page.hiddenFields["__EVENTVALIDATION"].orEmpty())
-        builder.add("__VIEWSTATEGENERATOR", page.hiddenFields["__VIEWSTATEGENERATOR"].orEmpty())
-
-        // 2. Any OTHER hidden fields the page has that we don't know about
-        page.hiddenFields.forEach { (name, value) ->
-            if (name !in skipFields) {
-                builder.add(name, value)
+    suspend fun login(
+        username: String, 
+        password: String, 
+        captcha: String
+    ): LoginResult = withClient {
+        val jsonPayload = """
+            {
+                "username": "$username",
+                "password": "$password",
+                "captcha": "$captcha"
             }
-        }
+        """.trimIndent()
 
-        // 3. User inputs + login button
-        builder.add(page.usernameName, username)
-        builder.add(page.passwordName, password)
-        builder.add(page.captchaInputName, captcha)
-
-        if (page.loginBtnName.isNotEmpty()) {
-            builder.add(page.loginBtnName, page.loginBtnValue)
-        }
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = jsonPayload.toRequestBody(mediaType)
 
         val request = Request.Builder()
-            .url("$baseUrl/Default.aspx")
+            .url("$baseUrl/Default.aspx/login2")
+            .header("Content-Type", "application/json; charset=utf-8")
+            .header("X-Requested-With", "XMLHttpRequest")
             .header("Referer", "$baseUrl/Default.aspx")
-            .post(builder.build())
+            .header("Origin", baseUrl)
+            .post(body)
             .build()
 
         val response = client.newCall(request).execute()
-        val body = response.use { it.body?.string().orEmpty() }
-        val finalUrl = response.request.url.toString()
+        val responseText = response.use { it.body?.string().orEmpty() }
 
-        val stillOnLoginPage = finalUrl.contains("Default.aspx", ignoreCase = true) &&
-                body.contains("body_txtUsername", ignoreCase = true)
+        val isSuccess = responseText.contains(""""Key":true""") || responseText.contains(""""Key": true""")
 
-        if (stillOnLoginPage) {
-            val errorText = extractServerError(body)
-            LoginResult.Failure(errorText ?: "Login failed. URL=$finalUrl Body=${body.take(3000)}")
-        } else {
+        if (isSuccess) {
             LoginResult.Success
+        } else {
+            LoginResult.Failure("Login failed: $responseText")
         }
     }
 
@@ -355,12 +319,6 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     data class LoginPageData(
-        val hiddenFields: Map<String, String>,
-        val usernameName: String,
-        val passwordName: String,
-        val captchaInputName: String,
-        val loginBtnName: String,
-        val loginBtnValue: String,
         val captchaImage: ByteArray?
     )
 

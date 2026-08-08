@@ -93,7 +93,6 @@ class LoginViewModel(
 
     /** Submits the login form. On success, calls onLoggedIn(). */
     fun submit(onLoggedIn: () -> Unit) {
-        val page = currentPageData ?: return
         val user = _username.value.trim()
         val pass = _password.value
         val cap = _captcha.value.trim()
@@ -109,7 +108,8 @@ class LoginViewModel(
                 // Save / clear saved credentials based on the checkbox.
                 prefs.saveCredentials(user, pass, _rememberMe.value)
 
-                when (val result = repo.login(user, pass, cap, page)) {
+                // FIXED: Called repo.login with 3 parameters instead of 4
+                when (val result = repo.login(user, pass, cap)) {
                     is StufoodRepository.LoginResult.Success -> {
                         _errorMessage.value = null
                         _captcha.value = ""
