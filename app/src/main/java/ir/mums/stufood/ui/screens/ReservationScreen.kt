@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -23,7 +24,7 @@ import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.Button
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -54,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.data.StufoodRepository
@@ -128,9 +130,9 @@ fun ReservationScreen(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.height(24.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Loading…")
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Loading…", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
                 is ReservationUiState.Working -> {
@@ -156,8 +158,12 @@ private fun ReservationContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         if (dimmed && status != null) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CircularProgressIndicator(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text(status, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -174,7 +180,7 @@ private fun ReservationContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "\u0645\u0648\u062a\u062f\u06cc \u062d\u0633\u0627\u0628", // "موجودی حساب"
+                        "Credit Balance",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -204,9 +210,10 @@ private fun ReservationContent(
                     Spacer(Modifier.height(12.dp))
                 }
 
-                // Previous week / Next week / Jump to today. Each may be absent
-                // entirely (e.g. no earlier week to go back to) or present but
-                // greyed out — that can change from one page load to the next.
+                // Previous week / Next week side by side, Jump to today below as a
+                // full-width button. Each may be absent entirely (e.g. no earlier
+                // week to go back to) or present but greyed out — that can change
+                // from one page load to the next.
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -220,15 +227,6 @@ private fun ReservationContent(
                         Text("Previous week")
                     }
                     OutlinedButton(
-                        onClick = { vm.today() },
-                        enabled = !dimmed && page.today.isUsable,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.height(18.dp))
-                        Spacer(Modifier.width(4.dp))
-                        Text("Jump to today")
-                    }
-                    OutlinedButton(
                         onClick = { vm.nextWeek() },
                         enabled = !dimmed && page.nextWeek.isUsable,
                         modifier = Modifier.weight(1f)
@@ -237,13 +235,24 @@ private fun ReservationContent(
                         Icon(Icons.Default.ChevronRight, contentDescription = null)
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { vm.today() },
+                    enabled = !dimmed && page.today.isUsable,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Jump to today")
+                }
             }
         }
 
         // ---- Per-day cards ----
+        val mealSelected = page.selectedMeal != "0"
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             page.days.forEach { day ->
-                DayCard(day = day, enabled = !dimmed, vm = vm)
+                DayCard(day = day, enabled = !dimmed, mealSelected = mealSelected, vm = vm)
             }
             if (page.days.isEmpty()) {
                 Text(
@@ -257,26 +266,26 @@ private fun ReservationContent(
 }
 
 @Composable
-private fun DayCard(day: DayInfo, enabled: Boolean, vm: ReservationViewModel) {
+private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: ReservationViewModel) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            // ---- Header: date + status badge/message ----
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
-                if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED) {
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Locked",
-                        tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.height(16.dp)
-                    )
+            // ---- Header: date (+ lock icon) on the left, status badge pinned to
+            // the top-right corner where there's room for it. ----
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
+                    if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = "Locked",
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.height(16.dp)
+                        )
+                    }
                 }
-            }
-            day.statusBadge?.let { badge ->
-                AssistChip(onClick = {}, enabled = false, label = { Text(badge, style = MaterialTheme.typography.labelSmall) })
-            }
-            day.message?.let { msg ->
-                Text(msg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                day.statusBadge?.let { badge ->
+                    StatusBadgeChip(text = badge, modifier = Modifier.align(Alignment.TopEnd))
+                }
             }
 
             when (day.status) {
@@ -284,59 +293,56 @@ private fun DayCard(day: DayInfo, enabled: Boolean, vm: ReservationViewModel) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            "\u0641\u0630\u0627\u06cc\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0631\u0648\u0632 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a", // غذایی برای این روز تعریف نشده است
+                            "\u063a\u0630\u0627\u06cc\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0631\u0648\u0632 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a", // غذایی برای این روز تعریف نشده است
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
                 }
 
                 DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
-                    Text(
-                        day.selfLabel ?: day.message ?: "\u0646\u0627\u0645\u0634\u062e\u0635", // نامشخص
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    // Intentionally no extra text here — the status badge in the
+                    // top-right corner already says everything there is to say.
                 }
 
                 DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
-                    day.selfLabel?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
                     DietList(options = day.dietOptions, selectable = false, onSelect = {}, onCancel = {})
                 }
 
                 DayStatus.SELECT_CAFETERIA -> {
-                    DropdownField(
-                        label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
-                        options = day.cafeteriaOptions,
-                        selectedValue = day.selectedCafeteria ?: "0",
-                        enabled = enabled,
-                        onSelected = { vm.selectCafeteria(day, it) }
-                    )
+                    if (mealSelected) {
+                        DropdownField(
+                            label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
+                            options = day.cafeteriaOptions,
+                            selectedValue = day.selectedCafeteria ?: "0",
+                            enabled = enabled,
+                            onSelected = { vm.selectCafeteria(day, it) }
+                        )
+                    } else {
+                        // No meal chosen yet — nothing meaningful to show, so leave
+                        // blank space instead of a dead "0 / no options" dropdown.
+                        Spacer(Modifier.height(48.dp))
+                    }
                 }
 
                 DayStatus.SELECT_DIET, DayStatus.RESERVED -> {
-                    DropdownField(
-                        label = "\u0633\u0644\u0641 / \u0631\u0648\u0632 \u0627\u0646\u062a\u062e\u0627\u0628\u06cc", // سلف / روز انتخابی
-                        options = day.cafeteriaOptions,
-                        selectedValue = day.selectedCafeteria ?: "0",
-                        enabled = enabled,
-                        onSelected = { vm.selectCafeteria(day, it) }
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    day.reservedOption?.let { reserved ->
-                        Text(
-                            "\u0627\u0646\u062a\u062e\u0627\u0628 \u0641\u0639\u0644\u06cc: ${reserved.label} \u2014 ${reserved.priceToman ?: ""}", // انتخاب فعلی: <name> — <price>
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary
+                    if (mealSelected) {
+                        DropdownField(
+                            label = "\u0633\u0644\u0641 / \u0631\u0648\u0632 \u0627\u0646\u062a\u062e\u0627\u0628\u06cc", // سلف / روز انتخابی
+                            options = day.cafeteriaOptions,
+                            selectedValue = day.selectedCafeteria ?: "0",
+                            enabled = enabled,
+                            onSelected = { vm.selectCafeteria(day, it) }
                         )
+                        Spacer(Modifier.height(4.dp))
+                        DietList(
+                            options = day.dietOptions,
+                            selectable = enabled,
+                            onSelect = { vm.selectDiet(it) },
+                            onCancel = { vm.requestCancel(it) }
+                        )
+                    } else {
+                        Spacer(Modifier.height(48.dp))
                     }
-                    DietList(
-                        options = day.dietOptions,
-                        selectable = enabled,
-                        onSelect = { vm.selectDiet(it) },
-                        onCancel = { vm.requestCancel(it) }
-                    )
                 }
 
                 DayStatus.UNKNOWN -> {
@@ -349,6 +355,36 @@ private fun DayCard(day: DayInfo, enabled: Boolean, vm: ReservationViewModel) {
             }
         }
     }
+}
+
+/**
+ * Small colored pill for a day's header-class status (e.g. "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a",
+ * "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647" / "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647", etc). Not-received is tinted red,
+ * received is tinted green; everything else uses a neutral tone.
+ */
+@Composable
+private fun StatusBadgeChip(text: String, modifier: Modifier = Modifier) {
+    val notReceivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647" // دریافت نکرده
+    val receivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647" // دریافت کرده
+
+    val (container, content) = when (text) {
+        notReceivedLabel -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
+        receivedLabel -> Color(0xFFC8E6C9) to Color(0xFF1B5E20)
+        else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    AssistChip(
+        onClick = {},
+        enabled = false,
+        modifier = modifier,
+        label = { Text(text, style = MaterialTheme.typography.labelSmall) },
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = container,
+            labelColor = content,
+            disabledContainerColor = container,
+            disabledLabelColor = content
+        )
+    )
 }
 
 @Composable
