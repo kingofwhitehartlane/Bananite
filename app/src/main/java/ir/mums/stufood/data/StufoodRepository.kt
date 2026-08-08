@@ -80,14 +80,14 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     //   NotRecivedFood, RecivedFood, DaySeal, ChangeFood, OnlineDaySaleReserve,
     //   NoReserve, NoFoodChange, OnlineDaySaleWaitingReserve
     private val statusBadgeLabels = mapOf(
-        "NotRecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647",
-        "RecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647",
-        "DaySeal" to "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634",
-        "ChangeFood" to "\u0627\u0645\u06a9\u0627\u0646 \u062a\u0642\u06cc\u06cc\u0631 \u0642\u0630\u0627",
-        "OnlineDaySaleReserve" to "\u0631\u0648\u0632\u0641\u0631\u0648\u0634 \u0622\u0646\u0644\u0627\u06cc\u0646",
-        "NoReserve" to "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a",
-        "NoFoodChange" to "\u0639\u062f\u0645 \u0627\u0645\u06a9\u0627\u0646 \u062a\u0642\u06cc\u06cc\u0631 \u0642\u0630\u0627",
-        "OnlineDaySaleWaitingReserve" to "\u062f\u0631 \u0644\u06cc\u0633\u062a \u0627\u0646\u062a\u0638\u0627\u0631 \u062a\u0627\u06cc\u06cc\u062f \u0631\u0648\u0632\u0641\u0631\u0648\u0634"
+        "NotRecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647", // دریافت نکرده
+        "RecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647", // دریافت کرده
+        "DaySeal" to "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634", // روز فروش
+        "ChangeFood" to "\u0627\u0645\u06a9\u0627\u0646 \u062a\u063a\u06cc\u06cc\u0631 \u063a\u0630\u0627", // امکان تغییر غذا (اصلاح شد)
+        "OnlineDaySaleReserve" to "\u0631\u0648\u0632\u0641\u0631\u0648\u0634 \u0622\u0646\u0644\u0627\u06cc\u0646", // روزفروش آنلاین
+        "NoReserve" to "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a", // مهلت رزرو گذشته است
+        "NoFoodChange" to "\u0639\u062f\u0645 \u0627\u0645\u06a9\u0627\u0646 \u062a\u063a\u06cc\u06cc\u0631 \u063a\u0630\u0627", // عدم امکان تغییر غذا (اصلاح شد)
+        "OnlineDaySaleWaitingReserve" to "\u062f\u0631 \u0644\u06cc\u0633\u062a \u0627\u0646\u062a\u0638\u0627\u0631 \u062a\u0627\u06cc\u06cc\u062f \u0631\u0648\u0632\u0641\u0631\u0648\u0634" // در لیست انتظار تایید روزفروش
     )
 
     // ----------------------------------------------------------------------

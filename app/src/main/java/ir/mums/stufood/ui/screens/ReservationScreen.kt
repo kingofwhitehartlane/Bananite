@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
@@ -221,17 +222,30 @@ private fun ReservationContent(
                     OutlinedButton(
                         onClick = { vm.lastWeek() },
                         enabled = !dimmed && page.lastWeek.isUsable,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
                         Icon(Icons.Default.ChevronLeft, contentDescription = null)
-                        Text("Previous week")
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = "Previous week",
+                            maxLines = 1,
+                            softWrap = false
+                        )
                     }
+
                     OutlinedButton(
                         onClick = { vm.nextWeek() },
                         enabled = !dimmed && page.nextWeek.isUsable,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
                     ) {
-                        Text("Next week")
+                        Text(
+                            text = "Next week",
+                            maxLines = 1,
+                            softWrap = false
+                        )
+                        Spacer(Modifier.width(4.dp))
                         Icon(Icons.Default.ChevronRight, contentDescription = null)
                     }
                 }
@@ -271,8 +285,15 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             // ---- Header: date (+ lock icon) on the left, status badge pinned to
             // the top-right corner where there's room for it. ----
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, 
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
                     if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED) {
                         Icon(
@@ -284,7 +305,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                     }
                 }
                 day.statusBadge?.let { badge ->
-                    StatusBadgeChip(text = badge, modifier = Modifier.align(Alignment.TopEnd))
+                    StatusBadgeChip(text = badge)
                 }
             }
 
@@ -327,7 +348,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                 DayStatus.SELECT_DIET, DayStatus.RESERVED -> {
                     if (mealSelected) {
                         DropdownField(
-                            label = "\u0633\u0644\u0641 / \u0631\u0648\u0632 \u0627\u0646\u062a\u062e\u0627\u0628\u06cc", // سلف / روز انتخابی
+                            label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647", // سلف انتخاب شده
                             options = day.cafeteriaOptions,
                             selectedValue = day.selectedCafeteria ?: "0",
                             enabled = enabled,
@@ -373,18 +394,18 @@ private fun StatusBadgeChip(text: String, modifier: Modifier = Modifier) {
         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-    AssistChip(
-        onClick = {},
-        enabled = false,
-        modifier = modifier,
-        label = { Text(text, style = MaterialTheme.typography.labelSmall) },
-        colors = AssistChipDefaults.assistChipColors(
-            containerColor = container,
-            labelColor = content,
-            disabledContainerColor = container,
-            disabledLabelColor = content
+    androidx.compose.material3.Surface(
+        color = container,
+        contentColor = content,
+        shape = MaterialTheme.shapes.extraSmall,
+        modifier = modifier
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
-    )
+    }
 }
 
 @Composable
