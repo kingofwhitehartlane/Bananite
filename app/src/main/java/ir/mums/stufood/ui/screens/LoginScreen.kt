@@ -28,10 +28,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -56,6 +54,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.ui.components.LoadingDots
 
 /**
  * Login screen.
@@ -64,7 +63,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * reload button, and the answer field now sit on a single tight row instead of
  * a label + a wide image + a full-width text field stacked on three lines.
  */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     onLoggedIn: () -> Unit,
@@ -167,7 +166,7 @@ fun LoginScreen(
                         ) {
                             when (state) {
                                 is LoginUiState.Loading, LoginUiState.Submitting -> {
-                                    LoadingIndicator(modifier = Modifier.size(22.dp))
+                                    LoadingDots(dotSize = 6.dp)
                                 }
                                 is LoginUiState.PageReady -> {
                                     val bitmap = (state as LoginUiState.PageReady).captcha

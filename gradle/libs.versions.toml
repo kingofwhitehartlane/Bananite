@@ -5,11 +5,7 @@ coreKtx = "1.15.0"
 lifecycleRuntimeKtx = "2.8.7"
 activityCompose = "1.9.3"
 composeBom = "2024.12.01"
-# Bumped from 1.3.1 -> 1.4.0: this is the version that ships the Material 3
-# "Expressive" components (LoadingIndicator / ContainedLoadingIndicator) used
-# below. If Gradle can't resolve 1.4.0 yet on your machine, drop it back to
-# 1.3.1 and swap LoadingIndicator() calls back to CircularProgressIndicator().
-material3 = "1.4.0"
+material3 = "1.3.1"
 navigationCompose = "2.8.5"
 okhttp = "4.12.0"
 jsoup = "1.18.3"
