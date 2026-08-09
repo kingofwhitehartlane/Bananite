@@ -34,9 +34,20 @@ class ReservationViewModel(
     private val _pendingCancel = MutableStateFlow<StufoodRepository.DietOption?>(null)
     val pendingCancel: StateFlow<StufoodRepository.DietOption?> = _pendingCancel
 
+    /**
+     * Loads (or reloads) the reservation page. If we already have a page on screen,
+     * we keep it visible (as a [ReservationUiState.Working] snapshot) while the fresh
+     * copy comes in — this is what lets a pull-to-refresh gesture show its spinner
+     * over live content instead of blanking the screen.
+     */
     fun load() {
-        _uiState.value = ReservationUiState.Loading
+        val existing = (_uiState.value as? ReservationUiState.Ready)?.page
         _statusText.value = "\u062f\u0631 \u062d\u0627\u0644 \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0635\u0641\u062d\u0647\u2026" // Loading reservation page…
+        _uiState.value = if (existing != null) {
+            ReservationUiState.Working(existing)
+        } else {
+            ReservationUiState.Loading
+        }
         viewModelScope.launch {
             try {
                 val page = repo.fetchReservationPage()
@@ -44,7 +55,8 @@ class ReservationViewModel(
                 _statusText.value = null
             } catch (t: Throwable) {
                 _errorMessage.value = "Failed to load page: ${t.message}"
-                _uiState.value = ReservationUiState.Idle
+                _statusText.value = null
+                _uiState.value = existing?.let { ReservationUiState.Ready(it) } ?: ReservationUiState.Idle
             }
         }
     }
@@ -76,13 +88,13 @@ class ReservationViewModel(
 
     fun nextWeek() = withPage { page ->
         if (!page.nextWeek.isUsable) return@withPage page
-        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0628\u0639\u062f\u2026" // Going to next week…
+        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0628\u0639\u062f\u2026"
         repo.clickNextWeek(page).also { _statusText.value = null }
     }
 
     fun lastWeek() = withPage { page ->
         if (!page.lastWeek.isUsable) return@withPage page
-        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0642\u0628\u0644\u2026" // Going to previous week…
+        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0642\u0628\u0644\u2026"
         repo.clickLastWeek(page).also { _statusText.value = null }
     }
 

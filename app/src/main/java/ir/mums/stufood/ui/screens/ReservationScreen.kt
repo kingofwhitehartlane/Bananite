@@ -1,5 +1,23 @@
 package ir.mums.stufood.ui.screens
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,8 +30,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.animateContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -24,18 +44,17 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RemoveCircle
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -43,13 +62,16 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,8 +94,20 @@ import ir.mums.stufood.data.StufoodRepository.ReservationPage
  * server just sent — none of it is assumed to be a fixed shape, since the site
  * adds/removes days and locks/unlocks them (cutoffs, already-reserved, admin
  * changes, published/unpublished menus, etc.) on its own schedule.
+ *
+ * Animation notes:
+ * - The credit balance card and the small credit chip in the top bar share a single
+ *   "credit-balance" shared-element key. Scrolling past a threshold flips which one
+ *   is visible, and SharedTransitionLayout morphs one into the other instead of a
+ *   plain crossfade.
+ * - Each day card's inner content is wrapped in an AnimatedContent keyed on the whole
+ *   [DayInfo], so when a postback brings back new info for that day, the card resizes
+ *   (with a light spring bounce) and the new content fades/scales in.
+ * - Pulling down on the list re-triggers vm.load() without blanking the screen.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+private val CreditBalanceKey = "credit-balance"
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ReservationScreen(
     onBack: () -> Unit,
@@ -87,6 +121,16 @@ fun ReservationScreen(
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it) } }
     LaunchedEffect(Unit) { vm.load() }
+
+    val scrollState = rememberScrollState()
+    // Once you've scrolled far enough that the big balance card would be out of
+    // view, the small chip takes over in the top bar.
+    val creditInBar by remember { derivedStateOf { scrollState.value > 160 } }
+    val currentCredit = when (val s = state) {
+        is ReservationUiState.Ready -> s.page.creditToman
+        is ReservationUiState.Working -> s.previousPage.creditToman
+        else -> null
+    }
 
     pendingCancel?.let { option ->
         AlertDialog(
@@ -102,57 +146,117 @@ fun ReservationScreen(
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Reserve Food") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface
+    SharedTransitionLayout {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Reserve Food") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    },
+                    actions = {
+                        AnimatedVisibility(
+                            visible = creditInBar && currentCredit != null,
+                            enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.6f),
+                            exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.6f)
+                        ) {
+                            currentCredit?.let { credit ->
+                                Surface(
+                                    modifier = with(this@SharedTransitionLayout) {
+                                        Modifier.sharedElement(
+                                            rememberSharedContentState(key = CreditBalanceKey),
+                                            animatedVisibilityScope = this@AnimatedVisibility
+                                        )
+                                    }.padding(end = 12.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    AnimatedContent(
+                                        targetState = credit,
+                                        transitionSpec = {
+                                            (slideInVertically(tween(200)) { h -> h / 2 } + fadeIn())
+                                                .togetherWith(slideOutVertically(tween(200)) { h -> -h / 2 } + fadeOut())
+                                        },
+                                        label = "creditRollTopBar"
+                                    ) { c ->
+                                        Text(
+                                            text = c,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHost) }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-        ) {
-            when (val s = state) {
-                is ReservationUiState.Loading, ReservationUiState.Idle -> {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+            },
+            snackbarHost = { SnackbarHost(snackbarHost) }
+        ) { padding ->
+            PullToRefreshBox(
+                isRefreshing = state is ReservationUiState.Working,
+                onRefresh = { vm.load() },
+                modifier = Modifier.fillMaxSize().padding(padding)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                ) {
+                    when (val s = state) {
+                        is ReservationUiState.Loading, ReservationUiState.Idle -> {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(32.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                LoadingIndicator(modifier = Modifier.size(36.dp))
+                                Spacer(Modifier.width(12.dp))
+                                Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                        is ReservationUiState.Working -> {
+                            ReservationContent(
+                                page = s.previousPage,
+                                dimmed = true,
+                                status = status,
+                                vm = vm,
+                                creditInBar = creditInBar,
+                                sharedScope = this@SharedTransitionLayout
+                            )
+                        }
+                        is ReservationUiState.Ready -> {
+                            ReservationContent(
+                                page = s.page,
+                                dimmed = false,
+                                status = status,
+                                vm = vm,
+                                creditInBar = creditInBar,
+                                sharedScope = this@SharedTransitionLayout
+                            )
+                        }
                     }
-                }
-                is ReservationUiState.Working -> {
-                    ReservationContent(page = s.previousPage, dimmed = true, status = status, vm = vm)
-                }
-                is ReservationUiState.Ready -> {
-                    ReservationContent(page = s.page, dimmed = false, status = status, vm = vm)
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ReservationContent(
     page: ReservationPage,
     dimmed: Boolean,
     status: String?,
-    vm: ReservationViewModel
+    vm: ReservationViewModel,
+    creditInBar: Boolean,
+    sharedScope: SharedTransitionScope
 ) {
     Column(
         modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -164,39 +268,59 @@ private fun ReservationContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                LoadingIndicator(modifier = Modifier.size(18.dp))
                 Text(status, style = MaterialTheme.typography.bodySmall)
             }
         }
 
-        // ---- Balance box ----
+        // ---- Balance box: shares its bounds with the top-bar chip ----
         page.creditToman?.let { credit ->
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(0.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            AnimatedVisibility(
+                visible = !creditInBar,
+                enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.85f),
+                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.85f)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Card(
+                    modifier = with(sharedScope) {
+                        Modifier.sharedElement(
+                            sharedScope.rememberSharedContentState(key = CreditBalanceKey),
+                            animatedVisibilityScope = this@AnimatedVisibility
+                        )
+                    }.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                 ) {
-                    Text(
-                        "Credit Balance",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                    Text(
-                        credit,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Credit Balance",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        AnimatedContent(
+                            targetState = credit,
+                            transitionSpec = {
+                                (slideInVertically(tween(220)) { h -> h / 2 } + fadeIn())
+                                    .togetherWith(slideOutVertically(tween(220)) { h -> -h / 2 } + fadeOut())
+                            },
+                            label = "creditRollCard"
+                        ) { c ->
+                            Text(
+                                c,
+                                style = MaterialTheme.typography.headlineSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
                 }
             }
         }
 
         // ---- Meal + week navigation ----
         Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(16.dp).animateContentSize()) {
                 Text("Meal & week", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(12.dp))
 
@@ -265,8 +389,20 @@ private fun ReservationContent(
         // ---- Per-day cards ----
         val mealSelected = page.selectedMeal != "0"
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            page.days.forEach { day ->
-                DayCard(day = day, enabled = !dimmed, mealSelected = mealSelected, vm = vm)
+            page.days.forEachIndexed { index, day ->
+                // Plays once when a card first enters the composition (e.g. after a
+                // week-nav postback brings in a fresh set of days) — a light staggered
+                // fade + rise, not replayed on every recomposition of the same day.
+                val entryState = remember(day.index, day.dateLabel) {
+                    MutableTransitionState(false).apply { targetState = true }
+                }
+                AnimatedVisibility(
+                    visibleState = entryState,
+                    enter = fadeIn(tween(320, delayMillis = index * 50)) +
+                        slideInVertically(tween(320, delayMillis = index * 50)) { h -> h / 6 }
+                ) {
+                    DayCard(day = day, enabled = !dimmed, mealSelected = mealSelected, vm = vm)
+                }
             }
             if (page.days.isEmpty()) {
                 Text(
@@ -281,7 +417,17 @@ private fun ReservationContent(
 
 @Composable
 private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: ReservationViewModel) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            ),
+        elevation = CardDefaults.cardElevation(4.dp)
+    ) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -293,7 +439,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically, 
+                    verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
@@ -311,82 +457,104 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
                 }
             }
 
-            when (day.status) {
-                DayStatus.NO_FOOD_DEFINED -> {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            "\u063a\u0630\u0627\u06cc\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0631\u0648\u0632 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a", // غذایی برای این روز تعریف نشده است
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                }
-
-                DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
-                    // Header badge handles status display
-                }
-
-                DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
-                    DietList(options = day.dietOptions, selectable = false, onSelect = {}, onCancel = {})
-                }
-
-                DayStatus.SELECT_CAFETERIA -> {
-                    if (mealSelected) {
-                        val onlyPlaceholder = day.cafeteriaOptions.size <= 1
-                        if (onlyPlaceholder) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = "Locked",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.height(16.dp)
-                                )
-                                Text(
-                                    "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+            // Reacts to whatever comes back from the server: when this day's data
+            // changes (new status, new options, etc.) the old content fades+shrinks
+            // out and the new content springs in, resizing the card as it goes.
+            AnimatedContent(
+                targetState = day,
+                transitionSpec = {
+                    (fadeIn(tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f))
+                        .togetherWith(fadeOut(tween(90)))
+                        .using(
+                            SizeTransform(clip = false) { _, _ ->
+                                spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessLow
                                 )
                             }
-                        } else {
-                            DropdownField(
-                                label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
-                                options = day.cafeteriaOptions,
-                                selectedValue = day.selectedCafeteria ?: "0",
-                                enabled = enabled,
-                                onSelected = { vm.selectCafeteria(day, it) }
+                        )
+                },
+                label = "dayCardContent"
+            ) { animatedDay ->
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    when (animatedDay.status) {
+                        DayStatus.NO_FOOD_DEFINED -> {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Text(
+                                    "\u063a\u0630\u0627\u06cc\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0631\u0648\u0632 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a", // غذایی برای این روز تعریف نشده است
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+
+                        DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
+                            // Header badge handles status display
+                        }
+
+                        DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
+                            DietList(options = animatedDay.dietOptions, selectable = false, onSelect = {}, onCancel = {})
+                        }
+
+                        DayStatus.SELECT_CAFETERIA -> {
+                            if (mealSelected) {
+                                val onlyPlaceholder = animatedDay.cafeteriaOptions.size <= 1
+                                if (onlyPlaceholder) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Lock,
+                                            contentDescription = "Locked",
+                                            tint = MaterialTheme.colorScheme.error,
+                                            modifier = Modifier.height(16.dp)
+                                        )
+                                        Text(
+                                            "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    DropdownField(
+                                        label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641", // انتخاب سلف
+                                        options = animatedDay.cafeteriaOptions,
+                                        selectedValue = animatedDay.selectedCafeteria ?: "0",
+                                        enabled = enabled,
+                                        onSelected = { vm.selectCafeteria(animatedDay, it) }
+                                    )
+                                }
+                            }
+                        }
+
+                        DayStatus.SELECT_DIET, DayStatus.RESERVED -> {
+                            if (mealSelected) {
+                                DropdownField(
+                                    label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647", // سلف انتخاب شده
+                                    options = animatedDay.cafeteriaOptions,
+                                    selectedValue = animatedDay.selectedCafeteria ?: "0",
+                                    enabled = enabled,
+                                    onSelected = { vm.selectCafeteria(animatedDay, it) }
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                DietList(
+                                    options = animatedDay.dietOptions,
+                                    selectable = enabled,
+                                    onSelect = { vm.selectDiet(it) },
+                                    onCancel = { vm.requestCancel(it) }
+                                )
+                            }
+                        }
+
+                        DayStatus.UNKNOWN -> {
+                            Text(
+                                "Couldn't determine this day's state — check for site changes.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                     }
-                }
-
-                DayStatus.SELECT_DIET, DayStatus.RESERVED -> {
-                    if (mealSelected) {
-                        DropdownField(
-                            label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647", // سلف انتخاب شده
-                            options = day.cafeteriaOptions,
-                            selectedValue = day.selectedCafeteria ?: "0",
-                            enabled = enabled,
-                            onSelected = { vm.selectCafeteria(day, it) }
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        DietList(
-                            options = day.dietOptions,
-                            selectable = enabled,
-                            onSelect = { vm.selectDiet(it) },
-                            onCancel = { vm.requestCancel(it) }
-                        )
-                    }
-                }
-
-                DayStatus.UNKNOWN -> {
-                    Text(
-                        "Couldn't determine this day's state — check for site changes.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
                 }
             }
         }
@@ -396,30 +564,35 @@ private fun DayCard(day: DayInfo, enabled: Boolean, mealSelected: Boolean, vm: R
 /**
  * Small colored pill for a day's header-class status (e.g. "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a",
  * "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647" / "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647", etc). Not-received is tinted red,
- * received is tinted green; everything else uses a neutral tone.
+ * received is tinted green; everything else uses a neutral tone. Colors animate
+ * smoothly when the badge text (and therefore its status) changes.
  */
 @Composable
 private fun StatusBadgeChip(text: String, modifier: Modifier = Modifier) {
     val notReceivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647" // دریافت نکرده
     val receivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647" // دریافت کرده
 
-    val (container, content) = when (text) {
+    val (targetContainer, targetContent) = when (text) {
         notReceivedLabel -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
         receivedLabel -> Color(0xFFC8E6C9) to Color(0xFF1B5E20)
         else -> MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
+    val container by animateColorAsState(targetContainer, label = "badgeContainer")
+    val content by animateColorAsState(targetContent, label = "badgeContent")
 
-    androidx.compose.material3.Surface(
+    Surface(
         color = container,
         contentColor = content,
         shape = MaterialTheme.shapes.extraSmall,
         modifier = modifier
     ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-        )
+        AnimatedContent(targetState = text, label = "badgeText") { t ->
+            Text(
+                text = t,
+                style = MaterialTheme.typography.labelSmall,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
     }
 }
 
@@ -500,7 +673,7 @@ private fun DropdownField(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor()
         )
-        ExposedDropdownMenu(
+        androidx.compose.material3.ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {

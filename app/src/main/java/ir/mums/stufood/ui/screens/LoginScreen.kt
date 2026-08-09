@@ -1,6 +1,7 @@
 package ir.mums.stufood.ui.screens
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -26,8 +28,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -56,13 +60,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 /**
  * Login screen.
  *
- * Layout: a vertically scrolling card containing username / password / captcha image
- * (with refresh button) / captcha text field / remember-me checkbox / submit button.
- *
- * The captcha image is rendered from the bytes the repository fetched — the user solves
- * it by typing into the captcha field, no AI involved.
+ * Captcha row: the site's captchas are always 4 characters, so the image, the
+ * reload button, and the answer field now sit on a single tight row instead of
+ * a label + a wide image + a full-width text field stacked on three lines.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoginScreen(
     onLoggedIn: () -> Unit,
@@ -149,21 +151,23 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // ---- Captcha row ----
-                    Text("Captcha", style = MaterialTheme.typography.titleMedium)
+                    // ---- Captcha row: image | reload | 4-char code, all inline ----
                     Row(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(width = 140.dp, height = 50.dp)
-                                .clip(RoundedCornerShape(8.dp)),
+                                .height(48.dp)
+                                .width(96.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             when (state) {
                                 is LoginUiState.Loading, LoginUiState.Submitting -> {
-                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    LoadingIndicator(modifier = Modifier.size(22.dp))
                                 }
                                 is LoginUiState.PageReady -> {
                                     val bitmap = (state as LoginUiState.PageReady).captcha
@@ -176,8 +180,8 @@ fun LoginScreen(
                                         )
                                     } else {
                                         Text(
-                                            "Failed to load",
-                                            style = MaterialTheme.typography.bodySmall
+                                            "Failed",
+                                            style = MaterialTheme.typography.labelSmall
                                         )
                                     }
                                 }
@@ -185,18 +189,28 @@ fun LoginScreen(
                             }
                         }
 
-                        IconButton(onClick = { vm.loadLoginPage() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "Refresh captcha")
+                        IconButton(
+                            onClick = { vm.loadLoginPage() },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = "Refresh captcha",
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                    }
 
-                    OutlinedTextField(
-                        value = captcha,
-                        onValueChange = vm::updateCaptcha,
-                        label = { Text("Captcha answer") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                        OutlinedTextField(
+                            value = captcha,
+                            onValueChange = { if (it.length <= 4) vm.updateCaptcha(it) },
+                            label = { Text("Code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            modifier = Modifier
+                                .weight(1f)
+                                .widthIn(min = 80.dp)
+                        )
+                    }
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
