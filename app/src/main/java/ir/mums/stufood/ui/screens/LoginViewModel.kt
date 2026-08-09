@@ -1,10 +1,14 @@
 package ir.mums.stufood.ui.screens
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import ir.mums.stufood.StufoodApp
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.data.UserPrefs
@@ -31,8 +35,6 @@ class LoginViewModel(
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Loading)
     val uiState: StateFlow<LoginUiState> = _uiState
 
-    // Editable fields exposed separately so the UI can bind them with two-way binding
-    // without recomposing the whole state tree on every keystroke.
     private val _username = MutableStateFlow("")
     val username: StateFlow<String> = _username
 
@@ -71,15 +73,25 @@ class LoginViewModel(
     /** Re-fetches the login page (which gives us a fresh captcha). */
     fun loadLoginPage() {
         _uiState.value = LoginUiState.Loading
+        _captcha.value = "" // Clear any previous or stale captcha text
+        
         viewModelScope.launch {
             try {
                 val data = repo.fetchLoginPage()
                 currentPageData = data
-                val bitmap = data.captchaImage?.let { bytes ->
-                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                
+                // Keep the standard Android Bitmap to pass to ML Kit
+                val androidBitmap = data.captchaImage?.let { bytes ->
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
                 }
-                if (bitmap != null) {
-                    _uiState.value = LoginUiState.PageReady(captcha = bitmap)
+                
+                if (androidBitmap != null) {
+                    _uiState.value = LoginUiState.PageReady(captcha = androidBitmap.asImageBitmap())
+                    
+                    // Trigger the ML Kit solver to auto-fill the text box
+                    recognizeTextCaptcha(androidBitmap) { solvedText ->
+                        _captcha.value = solvedText
+                    }
                 } else {
                     _errorMessage.value = "Couldn't load captcha image. Tap retry."
                     _uiState.value = LoginUiState.PageReady(captcha = null)
@@ -108,7 +120,6 @@ class LoginViewModel(
                 // Save / clear saved credentials based on the checkbox.
                 prefs.saveCredentials(user, pass, _rememberMe.value)
 
-                // FIXED: Called repo.login with 3 parameters instead of 4
                 when (val result = repo.login(user, pass, cap)) {
                     is StufoodRepository.LoginResult.Success -> {
                         _errorMessage.value = null
@@ -127,6 +138,22 @@ class LoginViewModel(
                 loadLoginPage()
             }
         }
+    }
+
+    /** ML Kit OCR Integration */
+    private fun recognizeTextCaptcha(bitmap: Bitmap, onResult: (String) -> Unit) {
+        val image = InputImage.fromBitmap(bitmap, 0)
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+        recognizer.process(image)
+            .addOnSuccessListener { visionText ->
+                // Sanitize text by stripping unexpected spaces or line breaks
+                val cleanText = visionText.text.replace("\\s+".toRegex(), "")
+                onResult(cleanText)
+            }
+            .addOnFailureListener {
+                onResult("")
+            }
     }
 }
 

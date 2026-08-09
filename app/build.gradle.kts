@@ -68,5 +68,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
 
+    // Google ML Kit for CAPTCHA solving
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     debugImplementation(libs.androidx.ui.tooling)
 }
