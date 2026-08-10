@@ -2,6 +2,7 @@ package ir.mums.stufood.ui.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,10 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -48,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -59,9 +61,14 @@ import ir.mums.stufood.ui.components.LoadingDots
 /**
  * Login screen.
  *
- * Captcha row: the site's captchas are always 4 characters, so the image, the
- * reload button, and the answer field now sit on a single tight row instead of
- * a label + a wide image + a full-width text field stacked on three lines.
+ * Captcha row: image + reload + a narrow 4-char code field, all inline, ~10% bigger
+ * than the previous pass for the image/reload button, with the image itself given a
+ * border and a slight zoom/crop to eat the few pixels of blank margin the site's
+ * captcha images tend to have.
+ *
+ * `.imePadding()` on the scrolling container plus `Arrangement.Center` (rather than
+ * pinning to the very center of the *whole* screen) means the card rides up with the
+ * keyboard instead of being covered by it.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -96,6 +103,7 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .imePadding() // pushes content up above the keyboard instead of hiding behind it
                 .verticalScroll(rememberScrollState()),
             contentAlignment = Alignment.Center
         ) {
@@ -150,18 +158,19 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // ---- Captcha row: image | reload | 4-char code, all inline ----
+                    // ---- Captcha row: image | reload | narrow 4-char code ----
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
                     ) {
                         Box(
                             modifier = Modifier
-                                .height(48.dp)
-                                .width(96.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                                .height(58.dp) // ~48dp -> ~10% bigger, then a bit more for the border
+                                .width(116.dp) // ~96dp -> ~10% bigger, then a bit more for the border
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             when (state) {
@@ -174,8 +183,12 @@ fun LoginScreen(
                                         Image(
                                             bitmap = bitmap,
                                             contentDescription = "Captcha image",
-                                            contentScale = ContentScale.Fit,
-                                            modifier = Modifier.fillMaxSize()
+                                            contentScale = ContentScale.Crop,
+                                            // Crops the blank margin the site's captcha
+                                            // images tend to have around the actual code.
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .scale(1.18f)
                                         )
                                     } else {
                                         Text(
@@ -190,12 +203,12 @@ fun LoginScreen(
 
                         IconButton(
                             onClick = { vm.loadLoginPage() },
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(40.dp) // ~36dp -> ~10% bigger
                         ) {
                             Icon(
                                 Icons.Default.Refresh,
                                 contentDescription = "Refresh captcha",
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
@@ -205,9 +218,7 @@ fun LoginScreen(
                             label = { Text("Code") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                            modifier = Modifier
-                                .weight(1f)
-                                .widthIn(min = 80.dp)
+                            modifier = Modifier.width(76.dp) // narrower — it's only ever 4 chars
                         )
                     }
 
