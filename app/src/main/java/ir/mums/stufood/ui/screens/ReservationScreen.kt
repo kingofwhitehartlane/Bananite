@@ -2,10 +2,14 @@ package ir.mums.stufood.ui.screens
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -70,6 +74,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +85,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.data.StufoodRepository
@@ -88,6 +94,8 @@ import ir.mums.stufood.data.StufoodRepository.DayInfo
 import ir.mums.stufood.data.StufoodRepository.DayStatus
 import ir.mums.stufood.data.StufoodRepository.DietOption
 import ir.mums.stufood.data.StufoodRepository.ReservationPage
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * Reservation screen.
@@ -104,7 +112,9 @@ import ir.mums.stufood.data.StufoodRepository.ReservationPage
  *   only once the list has been scrolled all the way back to its own top and has
  *   nothing left to give back. That's what keeps the top-bar pill from fading on
  *   every little upward wobble deep in the list: it can only react right at the edge
- *   where the big card would become visible again.
+ *   where the big card would become visible again. While actively dragging it can sit
+ *   at any partial collapse; `onPreFling` (fired the moment the drag ends) eases it
+ *   the rest of the way to whichever end is closer, so it never stops half-collapsed.
  * - [ReservationScreen] always renders the day list through the *same* call to
  *   [ReservationContent], with `page`/`dimmed` as plain parameters that change value
  *   — never two different branches of a `when`. Two different branches are two
@@ -113,8 +123,12 @@ import ir.mums.stufood.data.StufoodRepository.ReservationPage
  *   entrance transition). Keeping one call site means a loading transition just
  *   updates parameters in place; nothing remounts, so nothing flashes.
  * - Each day card's inner content is wrapped in an AnimatedContent keyed on the whole
- *   [DayInfo]. The view model guarantees only the day you actually interacted with
- *   ever gets a new [DayInfo] instance, so this only ever animates that one card.
+ *   [DayInfo]. Its transitionSpec checks whether it's still the *same* day (same
+ *   date/index — a per-day action just updated its content, so the nice fade+scale+
+ *   resize plays) or a *different* day now occupying this slot (page reload, week
+ *   nav, meal change bringing in a fresh set of days — the outer entrance stagger
+ *   already animates that arrival, so this skips its own transition entirely rather
+ *   than stacking a second animation on top of it).
  */
 private val CreditCollapseRange = 76.dp
 
@@ -150,12 +164,15 @@ fun ReservationScreen(
 
     var collapsedPx by remember { mutableStateOf(0f) }
     val collapseFraction by remember { derivedStateOf { (collapsedPx / collapseRangePx).coerceIn(0f, 1f) } }
+    val settleScope = rememberCoroutineScope()
+    var settleJob: Job? by remember { mutableStateOf(null) }
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             // Collapsing: intercepted BEFORE the list moves, so the list stays at its
             // own offset 0 for as long as there's still header left to collapse.
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                settleJob?.cancel() // a new drag always takes over from any in-progress settle
                 val delta = available.y
                 if (delta >= 0f) return Offset.Zero // upward drag: let the list have first go (see onPostScroll)
                 if (collapsedPx >= collapseRangePx) return Offset.Zero
@@ -175,6 +192,27 @@ fun ReservationScreen(
                 val consumed2 = target - collapsedPx
                 collapsedPx = target
                 return Offset(0f, -consumed2)
+            }
+
+            // Fired once the drag ends and the list is about to fling. If the header
+            // was left mid-collapse, ease it the rest of the way to whichever end is
+            // closer instead of leaving it stuck in between. This doesn't consume any
+            // of the fling velocity, so the list's own momentum scroll is unaffected.
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (collapsedPx > 0f && collapsedPx < collapseRangePx) {
+                    val target = if (collapsedPx > collapseRangePx / 2f) collapseRangePx else 0f
+                    settleJob = settleScope.launch {
+                        animate(
+                            initialValue = collapsedPx,
+                            targetValue = target,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioNoBouncy,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        ) { value, _ -> collapsedPx = value }
+                    }
+                }
+                return Velocity.Zero
             }
         }
     }
@@ -487,22 +525,32 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
 
             // Reacts to whatever comes back from the server: when this day's data
             // changes (new status, new options, etc.) the old content fades+shrinks
-            // out and the new content springs in, resizing the card as it goes. The
-            // view model guarantees this AnimatedContent only ever sees a new `day`
-            // value for the day the user actually interacted with.
+            // out and the new content springs in, resizing the card as it goes — but
+            // only when it's genuinely the same day being updated. If a different day
+            // now occupies this slot (page reload / week nav / meal change), the outer
+            // entrance stagger already animates its arrival, so this snaps instantly
+            // instead of piling a second animation on top of it.
             AnimatedContent(
                 targetState = day,
                 transitionSpec = {
-                    (fadeIn(tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f))
-                        .togetherWith(fadeOut(tween(90)))
-                        .using(
-                            SizeTransform(clip = false) { _, _ ->
-                                spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessLow
-                                )
-                            }
-                        )
+                    val sameDay = initialState.index == targetState.index &&
+                        initialState.dateLabel == targetState.dateLabel
+                    if (sameDay) {
+                        (fadeIn(tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f))
+                            .togetherWith(fadeOut(tween(90)))
+                            .using(
+                                SizeTransform(clip = false) { _, _ ->
+                                    spring(
+                                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                                        stiffness = Spring.StiffnessLow
+                                    )
+                                }
+                            )
+                    } else {
+                        EnterTransition.None
+                            .togetherWith(ExitTransition.None)
+                            .using(SizeTransform(clip = false) { _, _ -> snap() })
+                    }
                 },
                 label = "dayCardContent"
             ) { animatedDay ->
