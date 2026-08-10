@@ -109,7 +109,7 @@ fun LoginScreen(
         ) {
             Card(
                 modifier = Modifier
-                    .padding(13.dp)
+                    .padding(10.dp)
                     // Extra bottom padding shifts the visual center of the centered
                     // card upward, so it sits a bit higher even before the keyboard
                     // opens, and further above it once it does.
@@ -131,7 +131,7 @@ fun LoginScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(2.dp))
 
                     OutlinedTextField(
                         value = username,
@@ -171,7 +171,7 @@ fun LoginScreen(
                     ) {
                         Box(
                             modifier = Modifier
-                                .padding(top = 2.dp)
+                                .padding(top = 4.dp)
                                 .height(58.dp) // ~48dp -> ~10% bigger, then a bit more for the border
                                 .width(116.dp) // ~96dp -> ~10% bigger, then a bit more for the border
                                 .clip(RoundedCornerShape(10.dp))
@@ -210,7 +210,7 @@ fun LoginScreen(
                         IconButton(
                             onClick = { vm.loadLoginPage() },
                             modifier = Modifier
-                                .padding(top = 2.dp)
+                                .padding(top = 4.dp)
                                 .size(46.dp) // bumped up again — a bit bigger to tap
                         ) {
                             Icon(
@@ -243,7 +243,7 @@ fun LoginScreen(
                         Text("Remember me on this device")
                     }
 
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(2.dp))
                     Button(
                         onClick = { vm.submit(onLoggedIn) },
                         enabled = state !is LoginUiState.Submitting &&
