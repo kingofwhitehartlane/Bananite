@@ -109,11 +109,11 @@ fun LoginScreen(
         ) {
             Card(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(13.dp)
                     // Extra bottom padding shifts the visual center of the centered
                     // card upward, so it sits a bit higher even before the keyboard
                     // opens, and further above it once it does.
-                    .padding(bottom = 56.dp)
+                    .padding(bottom = 60.dp)
                     .fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(20.dp)
@@ -131,7 +131,7 @@ fun LoginScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(3.dp))
 
                     OutlinedTextField(
                         value = username,
@@ -171,6 +171,7 @@ fun LoginScreen(
                     ) {
                         Box(
                             modifier = Modifier
+                                .padding(top = 2.dp)
                                 .height(58.dp) // ~48dp -> ~10% bigger, then a bit more for the border
                                 .width(116.dp) // ~96dp -> ~10% bigger, then a bit more for the border
                                 .clip(RoundedCornerShape(10.dp))
@@ -208,7 +209,9 @@ fun LoginScreen(
 
                         IconButton(
                             onClick = { vm.loadLoginPage() },
-                            modifier = Modifier.size(46.dp) // bumped up again — a bit bigger to tap
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(46.dp) // bumped up again — a bit bigger to tap
                         ) {
                             Icon(
                                 Icons.Default.Refresh,
@@ -220,7 +223,7 @@ fun LoginScreen(
                         OutlinedTextField(
                             value = captcha,
                             onValueChange = { if (it.length <= 4) vm.updateCaptcha(it) },
-                            label = { Text("Code") },
+                            label = { Text("Captcha") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             // Fills whatever's left in the row — matches the full
@@ -240,7 +243,7 @@ fun LoginScreen(
                         Text("Remember me on this device")
                     }
 
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(3.dp))
                     Button(
                         onClick = { vm.submit(onLoggedIn) },
                         enabled = state !is LoginUiState.Submitting &&
