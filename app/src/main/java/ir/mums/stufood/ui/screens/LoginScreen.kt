@@ -110,6 +110,10 @@ fun LoginScreen(
             Card(
                 modifier = Modifier
                     .padding(16.dp)
+                    // Extra bottom padding shifts the visual center of the centered
+                    // card upward, so it sits a bit higher even before the keyboard
+                    // opens, and further above it once it does.
+                    .padding(bottom = 56.dp)
                     .fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 shape = RoundedCornerShape(20.dp)
@@ -158,11 +162,12 @@ fun LoginScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    // ---- Captcha row: image | reload | narrow 4-char code ----
+                    // ---- Captcha row: image | reload | code field that fills the
+                    // rest of the row, so it lines up with the fields above it ----
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -203,12 +208,12 @@ fun LoginScreen(
 
                         IconButton(
                             onClick = { vm.loadLoginPage() },
-                            modifier = Modifier.size(40.dp) // ~36dp -> ~10% bigger
+                            modifier = Modifier.size(46.dp) // bumped up again — a bit bigger to tap
                         ) {
                             Icon(
                                 Icons.Default.Refresh,
                                 contentDescription = "Refresh captcha",
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(24.dp)
                             )
                         }
 
@@ -218,7 +223,9 @@ fun LoginScreen(
                             label = { Text("Code") },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                            modifier = Modifier.width(76.dp) // narrower — it's only ever 4 chars
+                            // Fills whatever's left in the row — matches the full
+                            // width of the fields above instead of looking cramped.
+                            modifier = Modifier.weight(1f)
                         )
                     }
 

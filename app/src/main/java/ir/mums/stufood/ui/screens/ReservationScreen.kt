@@ -80,7 +80,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.data.StufoodRepository
@@ -99,15 +98,23 @@ import ir.mums.stufood.data.StufoodRepository.ReservationPage
  * changes, published/unpublished menus, etc.) on its own schedule.
  *
  * Animation notes:
- * - The credit balance card collapses into a small top-bar chip using a plain
- *   [androidx.compose.ui.input.nestedscroll.NestedScrollConnection]: scrolling
- *   consumes the same pixels that shrink the card, so there's nothing left to "jump" —
- *   the collapse *is* the scroll, frame for frame, exactly like Material3's own
- *   collapsing top bars.
+ * - The credit header lives OUTSIDE the scrollable list (a sibling above it, not the
+ *   list's first item). A [NestedScrollConnection] collapses it in `onPreScroll`
+ *   (before the list itself moves) and only expands it back in `onPostScroll` — i.e.
+ *   only once the list has been scrolled all the way back to its own top and has
+ *   nothing left to give back. That's what keeps the top-bar pill from fading on
+ *   every little upward wobble deep in the list: it can only react right at the edge
+ *   where the big card would become visible again.
+ * - [ReservationScreen] always renders the day list through the *same* call to
+ *   [ReservationContent], with `page`/`dimmed` as plain parameters that change value
+ *   — never two different branches of a `when`. Two different branches are two
+ *   different composition slots, so switching between them tears down and rebuilds
+ *   the whole subtree (losing every day card's animation state and replaying its
+ *   entrance transition). Keeping one call site means a loading transition just
+ *   updates parameters in place; nothing remounts, so nothing flashes.
  * - Each day card's inner content is wrapped in an AnimatedContent keyed on the whole
  *   [DayInfo]. The view model guarantees only the day you actually interacted with
  *   ever gets a new [DayInfo] instance, so this only ever animates that one card.
- * - Pulling down on the list re-triggers vm.load() without blanking the screen.
  */
 private val CreditCollapseRange = 76.dp
 
@@ -127,34 +134,52 @@ fun ReservationScreen(
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it) } }
     LaunchedEffect(Unit) { vm.load() }
 
+    // A single source of truth for "what page to show" and "are we mid page-wide
+    // refresh" — this is what lets ReservationContent be called from exactly one
+    // place below, instead of one call per `when` branch.
+    val displayPage: ReservationPage? = when (val s = state) {
+        is ReservationUiState.Ready -> s.page
+        is ReservationUiState.Working -> s.previousPage
+        else -> null
+    }
+    val dimmed = state is ReservationUiState.Working
+
     val scrollState = rememberScrollState()
-    val density = LocalDensity.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
     val collapseRangePx = with(density) { CreditCollapseRange.toPx() }
 
-    // Scrolling consumes these pixels directly (see the NestedScrollConnection below),
-    // so this value and the scroll gesture are always perfectly in sync — no separate
-    // reflow event, so nothing can visually "pop".
     var collapsedPx by remember { mutableStateOf(0f) }
     val collapseFraction by remember { derivedStateOf { (collapsedPx / collapseRangePx).coerceIn(0f, 1f) } }
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
+            // Collapsing: intercepted BEFORE the list moves, so the list stays at its
+            // own offset 0 for as long as there's still header left to collapse.
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 val delta = available.y
-                if (delta == 0f) return Offset.Zero
+                if (delta >= 0f) return Offset.Zero // upward drag: let the list have first go (see onPostScroll)
+                if (collapsedPx >= collapseRangePx) return Offset.Zero
                 val target = (collapsedPx - delta).coerceIn(0f, collapseRangePx)
-                val actualChange = target - collapsedPx
+                val consumed = target - collapsedPx
                 collapsedPx = target
-                return Offset(0f, -actualChange)
+                return Offset(0f, -consumed)
+            }
+
+            // Expanding: only the LEFTOVER after the list already consumed everything
+            // it could — i.e. only once the list is already at its own top.
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                val leftover = available.y
+                if (leftover <= 0f) return Offset.Zero
+                if (collapsedPx <= 0f) return Offset.Zero
+                val target = (collapsedPx - leftover).coerceIn(0f, collapseRangePx)
+                val consumed2 = target - collapsedPx
+                collapsedPx = target
+                return Offset(0f, -consumed2)
             }
         }
     }
 
-    val currentCredit = when (val s = state) {
-        is ReservationUiState.Ready -> s.page.creditToman
-        is ReservationUiState.Working -> s.previousPage.creditToman
-        else -> null
-    }
+    val currentCredit = displayPage?.creditToman
 
     pendingCancel?.let { pending ->
         AlertDialog(
@@ -181,9 +206,6 @@ fun ReservationScreen(
                 },
                 actions = {
                     currentCredit?.let { credit ->
-                        // Always composed; fades in as the big card fades out, driven
-                        // by the very same collapseFraction — never a separate,
-                        // independently-timed transition.
                         Surface(
                             modifier = Modifier
                                 .alpha(collapseFraction)
@@ -208,46 +230,90 @@ fun ReservationScreen(
         snackbarHost = { SnackbarHost(snackbarHost) }
     ) { padding ->
         PullToRefreshBox(
-            isRefreshing = state is ReservationUiState.Working,
+            isRefreshing = dimmed,
             onRefresh = { vm.load() },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .nestedScroll(nestedScrollConnection)
-                    .verticalScroll(scrollState)
-            ) {
-                when (val s = state) {
-                    is ReservationUiState.Loading, ReservationUiState.Idle -> {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(32.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
+            if (displayPage == null) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LoadingDots()
+                        Spacer(Modifier.width(12.dp))
+                        Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .nestedScroll(nestedScrollConnection)
+                ) {
+                    // ---- Collapsing credit header: a sibling ABOVE the scrollable
+                    // list, not part of its content — this is what lets the nested
+                    // scroll connection gate expand/collapse on the list's own top,
+                    // instead of the header's height fighting with the list's own
+                    // scroll offset. ----
+                    displayPage.creditToman?.let { credit ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = if (collapseFraction < 1f) 8.dp else 0.dp)
+                                .height(CreditCollapseRange * (1f - collapseFraction))
+                                .clipToBounds()
                         ) {
-                            LoadingDots()
-                            Spacer(Modifier.width(12.dp))
-                            Text("Loading…", style = MaterialTheme.typography.bodyLarge)
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .wrapContentHeight(unbounded = true, align = Alignment.Top)
+                                    .alpha(1f - collapseFraction),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Credit Balance",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                    AnimatedContent(
+                                        targetState = credit,
+                                        transitionSpec = {
+                                            (slideInVertically(tween(220)) { h -> h / 2 } + fadeIn())
+                                                .togetherWith(slideOutVertically(tween(220)) { h -> -h / 2 } + fadeOut())
+                                        },
+                                        label = "creditRollCard"
+                                    ) { c ->
+                                        Text(
+                                            c,
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
-                    is ReservationUiState.Working -> {
+
+                    // ---- Scrollable body: meal/week card + day cards. One single
+                    // call site regardless of dimmed/busy state — see the doc comment
+                    // at the top of this file for why that matters. ----
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .verticalScroll(scrollState)
+                    ) {
                         ReservationContent(
-                            page = s.previousPage,
-                            dimmed = true,
-                            busyDayIndex = null,
+                            page = displayPage,
+                            dimmed = dimmed,
+                            busyDayIndex = if (dimmed) null else busyDayIndex,
                             status = status,
-                            vm = vm,
-                            collapseFraction = collapseFraction
-                        )
-                    }
-                    is ReservationUiState.Ready -> {
-                        ReservationContent(
-                            page = s.page,
-                            dimmed = false,
-                            busyDayIndex = busyDayIndex,
-                            status = status,
-                            vm = vm,
-                            collapseFraction = collapseFraction
+                            vm = vm
                         )
                     }
                 }
@@ -262,8 +328,7 @@ private fun ReservationContent(
     dimmed: Boolean,
     busyDayIndex: Int?,
     status: String?,
-    vm: ReservationViewModel,
-    collapseFraction: Float
+    vm: ReservationViewModel
 ) {
     // Any postback in flight — page-wide or single-day — disables the day-level
     // controls so two postbacks can never race each other, even though only the
@@ -282,52 +347,6 @@ private fun ReservationContent(
             ) {
                 LoadingDots(dotSize = 5.dp)
                 Text(status, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-
-        // ---- Balance box: height and alpha both driven by collapseFraction, the
-        // exact same number the scroll gesture is consuming — so it shrinks in
-        // lockstep with your finger instead of popping out of the layout. ----
-        page.creditToman?.let { credit ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(CreditCollapseRange * (1f - collapseFraction))
-                    .clipToBounds()
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .wrapContentHeight(unbounded = true, align = Alignment.Top)
-                        .alpha(1f - collapseFraction),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            "Credit Balance",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                        AnimatedContent(
-                            targetState = credit,
-                            transitionSpec = {
-                                (slideInVertically(tween(220)) { h -> h / 2 } + fadeIn())
-                                    .togetherWith(slideOutVertically(tween(220)) { h -> -h / 2 } + fadeOut())
-                            },
-                            label = "creditRollCard"
-                        ) { c ->
-                            Text(
-                                c,
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
-                    }
-                }
             }
         }
 
