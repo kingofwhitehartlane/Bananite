@@ -579,17 +579,6 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                 }
             }
 
-            // A short explanatory note from the server (e.g. "فقط امکان تغییر سلف می
-            // باشد" — "only changing the cafeteria is possible") — shown for any day
-            // that has one, right under the header, regardless of status.
-            day.message?.let { message ->
-                Text(
-                    message,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
             // Reacts to whatever comes back from the server: when this day's data
             // changes (new status, new options, etc.) the old content fades+shrinks
             // out and the new content springs in, resizing the card as it goes — but
@@ -774,7 +763,7 @@ private fun DietList(
 
                 // ---- Cancel reservation outright (only when the site allows it) ----
                 if (option.checked && option.cancelFieldName != null) {
-                    IconButton(onClick = { onCancel(option) }, enabled = selectable) {
+                    IconButton(onClick = { onCancel(option) }) {
                         Icon(
                             Icons.Default.RemoveCircle,
                             contentDescription = "\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648", // کنسل رزرو
@@ -786,7 +775,7 @@ private fun DietList(
                 // ---- Food exchange: offer it ("درخواست تبادل با دانشجویان"), or
                 // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
                 if (option.checked && option.exchangeFieldName != null && !option.exchangePending) {
-                    IconButton(onClick = { onRequestExchange(option) }, enabled = selectable) {
+                    IconButton(onClick = { onRequestExchange(option) }) {
                         Icon(
                             Icons.Default.SwapHoriz,
                             contentDescription = "\u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644 \u0628\u0627 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646", // درخواست تبادل با دانشجویان
@@ -795,7 +784,7 @@ private fun DietList(
                     }
                 }
                 if (option.checked && option.exchangePending) {
-                    IconButton(onClick = { onCancelExchange(option) }, enabled = selectable) {
+                    IconButton(onClick = { onCancelExchange(option) }) {
                         Icon(
                             Icons.Default.SwapHoriz,
                             contentDescription = "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627", // انصراف از تبادل غذا
