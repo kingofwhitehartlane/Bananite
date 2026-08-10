@@ -1,6 +1,7 @@
 package ir.mums.stufood.ui.screens
 
 import android.graphics.BitmapFactory
+import android.util.Log
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
@@ -13,15 +14,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
+private const val TAG = "LoginViewModel"
+private const val FRIENDLY_NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
+
 /**
  * Holds the state of the login screen.
  *
  * State machine:
- *   Idle -> (user taps "Load captcha" or just opens screen) -> LoadingPage
+ *   Idle -> (screen enters composition) -> LoadingPage
  *        -> PageReady (captcha image shown) -> (user submits) -> Submitting
  *        -> Success  OR  Failure (back to PageReady with error)
  *
  * We also pre-fill username/password from DataStore if "remember me" was ticked last time.
+ *
+ * NOTE: [loadLoginPage] is intentionally *not* called from [init] anymore. This
+ * ViewModel is shared by both the initial Login screen and the screen you land on
+ * after logging out (see [ir.mums.stufood.ui.navigation.Screen.Login] and
+ * [ir.mums.stufood.ui.navigation.Screen.Logout] in `MainActivity`) — `init` only
+ * ever runs once for the lifetime of this ViewModel, so relying on it meant the
+ * captcha silently never refreshed after a logout. `LoginScreen` now calls
+ * [loadLoginPage] itself via a `LaunchedEffect(Unit)` every time it enters
+ * composition, which covers both cold start and "logged out, back at Login" the
+ * same way.
  */
 class LoginViewModel(
     private val repo: StufoodRepository = StufoodApp.instance.repository,
@@ -49,9 +63,11 @@ class LoginViewModel(
     val errorMessage: StateFlow<String?> = _errorMessage
 
     private var currentPageData: StufoodRepository.LoginPageData? = null
+    private var prefsLoaded = false
 
     init {
-        // Pre-fill from saved prefs, then fetch the login page + captcha.
+        // Pre-fill from saved prefs (once). The actual login-page/captcha fetch is
+        // triggered by the screen itself — see the class doc comment above.
         viewModelScope.launch {
             val savedUser = prefs.username.first()
             val savedPass = prefs.password.first()
@@ -59,7 +75,7 @@ class LoginViewModel(
             _username.value = savedUser
             _password.value = savedPass
             _rememberMe.value = savedRemember
-            loadLoginPage()
+            prefsLoaded = true
         }
     }
 
@@ -68,7 +84,7 @@ class LoginViewModel(
     fun updateCaptcha(v: String) { _captcha.value = v }
     fun updateRememberMe(v: Boolean) { _rememberMe.value = v }
 
-    /** Re-fetches the login page (which gives us a fresh captcha). */
+    /** Re-fetches the login page (which gives us a fresh captcha). Safe to call repeatedly. */
     fun loadLoginPage() {
         _uiState.value = LoginUiState.Loading
         viewModelScope.launch {
@@ -85,7 +101,8 @@ class LoginViewModel(
                     _uiState.value = LoginUiState.PageReady(captcha = null)
                 }
             } catch (t: Throwable) {
-                _errorMessage.value = "Network error: ${t.message}"
+                Log.e(TAG, "Failed to load login page", t)
+                _errorMessage.value = FRIENDLY_NETWORK_ERROR
                 _uiState.value = LoginUiState.PageReady(captcha = null)
             }
         }
@@ -108,7 +125,6 @@ class LoginViewModel(
                 // Save / clear saved credentials based on the checkbox.
                 prefs.saveCredentials(user, pass, _rememberMe.value)
 
-                // FIXED: Called repo.login with 3 parameters instead of 4
                 when (val result = repo.login(user, pass, cap)) {
                     is StufoodRepository.LoginResult.Success -> {
                         _errorMessage.value = null
@@ -117,13 +133,16 @@ class LoginViewModel(
                         onLoggedIn()
                     }
                     is StufoodRepository.LoginResult.Failure -> {
+                        // repo.login() already extracts just the human-readable
+                        // server message (never raw JSON) — safe to show as-is.
                         _errorMessage.value = result.message
                         // Refresh the captcha — the old one is single-use.
                         loadLoginPage()
                     }
                 }
             } catch (t: Throwable) {
-                _errorMessage.value = "Network error: ${t.message}"
+                Log.e(TAG, "Login request failed", t)
+                _errorMessage.value = FRIENDLY_NETWORK_ERROR
                 loadLoginPage()
             }
         }

@@ -43,6 +43,8 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.RemoveCircle
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -85,6 +87,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -93,6 +97,7 @@ import ir.mums.stufood.ui.components.LoadingDots
 import ir.mums.stufood.data.StufoodRepository.DayInfo
 import ir.mums.stufood.data.StufoodRepository.DayStatus
 import ir.mums.stufood.data.StufoodRepository.DietOption
+import ir.mums.stufood.data.StufoodRepository.ExchangeDialogData
 import ir.mums.stufood.data.StufoodRepository.ReservationPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -113,8 +118,13 @@ import kotlinx.coroutines.launch
  *   nothing left to give back. That's what keeps the top-bar pill from fading on
  *   every little upward wobble deep in the list: it can only react right at the edge
  *   where the big card would become visible again. While actively dragging it can sit
- *   at any partial collapse; `onPreFling` (fired the moment the drag ends) eases it
- *   the rest of the way to whichever end is closer, so it never stops half-collapsed.
+ *   at any partial collapse; the moment the drag/scroll ends — whether or not that
+ *   happens to be a fling — a `LaunchedEffect` watching `scrollState.isScrollInProgress`
+ *   snaps it the rest of the way to whichever end is closer, so it can never come to
+ *   rest half-collapsed. `onPreFling` still gives it a head start on that snap the
+ *   instant a fling begins (so it doesn't wait for the fling to fully finish), but the
+ *   `isScrollInProgress` effect is what guarantees it always actually lands on a hard
+ *   edge, fling or not.
  * - [ReservationScreen] always renders the day list through the *same* call to
  *   [ReservationContent], with `page`/`dimmed` as plain parameters that change value
  *   — never two different branches of a `when`. Two different branches are two
@@ -129,6 +139,13 @@ import kotlinx.coroutines.launch
  *   nav, meal change bringing in a fresh set of days — the outer entrance stagger
  *   already animates that arrival, so this skips its own transition entirely rather
  *   than stacking a second animation on top of it).
+ *
+ * Food exchange ("تبادل غذا"): a checked-but-locked diet option can offer
+ * `exchangeFieldName` (show "درخواست تبادل با دانشجویان") or, once a request has
+ * already been placed, `cancelExchangeFieldName` (show "انصراف از تبادل غذا") — see
+ * [DietList]. Opening the dialog shows [ExchangeDialogSheet]; withdrawing a pending
+ * request goes through a confirm [AlertDialog] first, same pattern as cancelling a
+ * plain reservation.
  */
 private val CreditCollapseRange = 76.dp
 
@@ -142,6 +159,8 @@ fun ReservationScreen(
     val status by vm.statusText.collectAsState()
     val error by vm.errorMessage.collectAsState()
     val pendingCancel by vm.pendingCancel.collectAsState()
+    val pendingCancelExchange by vm.pendingCancelExchange.collectAsState()
+    val exchangeDialog by vm.exchangeDialog.collectAsState()
     val busyDayIndex by vm.busyDayIndex.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
@@ -167,6 +186,22 @@ fun ReservationScreen(
     val settleScope = rememberCoroutineScope()
     var settleJob: Job? by remember { mutableStateOf(null) }
 
+    fun settleToNearestEdge() {
+        if (collapsedPx > 0f && collapsedPx < collapseRangePx) {
+            val target = if (collapsedPx > collapseRangePx / 2f) collapseRangePx else 0f
+            settleJob = settleScope.launch {
+                animate(
+                    initialValue = collapsedPx,
+                    targetValue = target,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioNoBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) { value, _ -> collapsedPx = value }
+            }
+        }
+    }
+
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             // Collapsing: intercepted BEFORE the list moves, so the list stays at its
@@ -185,6 +220,7 @@ fun ReservationScreen(
             // Expanding: only the LEFTOVER after the list already consumed everything
             // it could — i.e. only once the list is already at its own top.
             override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                settleJob?.cancel() // a new drag always takes over from any in-progress settle
                 val leftover = available.y
                 if (leftover <= 0f) return Offset.Zero
                 if (collapsedPx <= 0f) return Offset.Zero
@@ -194,30 +230,30 @@ fun ReservationScreen(
                 return Offset(0f, -consumed2)
             }
 
-            // Fired once the drag ends and the list is about to fling. If the header
-            // was left mid-collapse, ease it the rest of the way to whichever end is
-            // closer instead of leaving it stuck in between. This doesn't consume any
-            // of the fling velocity, so the list's own momentum scroll is unaffected.
+            // Gives the snap a head start the instant a fling begins, rather than
+            // waiting for the fling to fully settle. This doesn't consume any of the
+            // fling velocity, so the list's own momentum scroll is unaffected. The
+            // `isScrollInProgress` effect below is the one that actually *guarantees*
+            // the header always ends up on a hard edge — this is just an optimization
+            // so it doesn't look laggy on a fast fling.
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (collapsedPx > 0f && collapsedPx < collapseRangePx) {
-                    val target = if (collapsedPx > collapseRangePx / 2f) collapseRangePx else 0f
-                    settleJob = settleScope.launch {
-                        animate(
-                            initialValue = collapsedPx,
-                            targetValue = target,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioNoBouncy,
-                                stiffness = Spring.StiffnessMediumLow
-                            )
-                        ) { value, _ -> collapsedPx = value }
-                    }
-                }
+                settleToNearestEdge()
                 return Velocity.Zero
             }
         }
     }
 
-    val currentCredit = displayPage?.creditToman
+    // Belt-and-suspenders for "no middle ground": whenever the list's own scroll
+    // gesture ends — drag released with no fling, fling finished, programmatic
+    // scroll, anything — and the header was left mid-collapse, snap it the rest of
+    // the way. onPreFling only fires for flings with enough velocity; a slow,
+    // deliberate drag-and-release can end without ever triggering it, which is
+    // exactly the "stuck half-faded" case this closes.
+    LaunchedEffect(scrollState.isScrollInProgress) {
+        if (!scrollState.isScrollInProgress) {
+            settleToNearestEdge()
+        }
+    }
 
     pendingCancel?.let { pending ->
         AlertDialog(
@@ -232,6 +268,26 @@ fun ReservationScreen(
             }
         )
     }
+
+    pendingCancelExchange?.let { pending ->
+        AlertDialog(
+            onDismissRequest = vm::dismissCancelExchangeRequest,
+            title = { Text("\u0644\u0641\u0648 \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644") }, // "لغو درخواست تبادل"
+            text = { Text("\u0622\u06cc\u0627 \u0627\u0632 \u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0627\u06cc\u0646 \u0648\u0639\u062f\u0647 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f") },
+            confirmButton = {
+                TextButton(onClick = vm::confirmCancelExchange) { Text("\u0628\u0644\u0647") }
+            },
+            dismissButton = {
+                TextButton(onClick = vm::dismissCancelExchangeRequest) { Text("\u062e\u06cc\u0631") }
+            }
+        )
+    }
+
+    exchangeDialog?.let { dialogState ->
+        ExchangeDialogSheet(state = dialogState, vm = vm)
+    }
+
+    val currentCredit = displayPage?.creditToman
 
     Scaffold(
         topBar = {
@@ -505,7 +561,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
-                    if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED) {
+                    if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED || day.dietLocked) {
                         Icon(
                             Icons.Default.Lock,
                             contentDescription = "Locked",
@@ -521,6 +577,17 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                         StatusBadgeChip(text = badge)
                     }
                 }
+            }
+
+            // A short explanatory note from the server (e.g. "فقط امکان تغییر سلف می
+            // باشد" — "only changing the cafeteria is possible") — shown for any day
+            // that has one, right under the header, regardless of status.
+            day.message?.let { message ->
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             // Reacts to whatever comes back from the server: when this day's data
@@ -620,7 +687,9 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                     options = animatedDay.dietOptions,
                                     selectable = enabled,
                                     onSelect = { vm.selectDiet(animatedDay, it) },
-                                    onCancel = { vm.requestCancel(animatedDay, it) }
+                                    onCancel = { vm.requestCancel(animatedDay, it) },
+                                    onRequestExchange = { vm.openExchangeDialog(animatedDay, it) },
+                                    onCancelExchange = { vm.requestCancelExchange(animatedDay, it) }
                                 )
                             }
                         }
@@ -673,7 +742,9 @@ private fun DietList(
     options: List<DietOption>,
     selectable: Boolean,
     onSelect: (DietOption) -> Unit,
-    onCancel: (DietOption) -> Unit
+    onCancel: (DietOption) -> Unit,
+    onRequestExchange: (DietOption) -> Unit = {},
+    onCancelExchange: (DietOption) -> Unit = {}
 ) {
     if (options.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -700,11 +771,34 @@ private fun DietList(
                         Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+
+                // ---- Cancel reservation outright (only when the site allows it) ----
                 if (option.checked && option.cancelFieldName != null) {
-                    IconButton(onClick = { onCancel(option) }) {
+                    IconButton(onClick = { onCancel(option) }, enabled = selectable) {
                         Icon(
                             Icons.Default.RemoveCircle,
-                            contentDescription = "\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648",
+                            contentDescription = "\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648", // کنسل رزرو
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                // ---- Food exchange: offer it ("درخواست تبادل با دانشجویان"), or
+                // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
+                if (option.checked && option.exchangeFieldName != null && !option.exchangePending) {
+                    IconButton(onClick = { onRequestExchange(option) }, enabled = selectable) {
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "\u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644 \u0628\u0627 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646", // درخواست تبادل با دانشجویان
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                if (option.checked && option.exchangePending) {
+                    IconButton(onClick = { onCancelExchange(option) }, enabled = selectable) {
+                        Icon(
+                            Icons.Default.SwapHoriz,
+                            contentDescription = "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627", // انصراف از تبادل غذا
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -713,6 +807,129 @@ private fun DietList(
             HorizontalDivider()
         }
     }
+}
+
+/**
+ * The "تبادل غذا" (food exchange) dialog. Mirrors the real site's modal: a radio
+ * group picking the exchange kind, then either a pair of dropdowns (specific food)
+ * or a student-number search (specific student), then a confirm button.
+ *
+ * The dropdown options and the show/hide state of the two extra sections all come
+ * straight from [ExchangeDialogData] as parsed off the server's response to each
+ * step — nothing here is hardcoded, so if the site adds/removes an exchange type or
+ * changes which fields go with which type, this follows along automatically.
+ */
+@Composable
+private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiState, vm: ReservationViewModel) {
+    val dialog = state.dialog
+    var studentNumber by remember(dialog.studentNumber) { mutableStateOf(dialog.studentNumber.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
+        title = { Text("\u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627") }, // تبادل غذا
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // ---- Exchange type ----
+                dialog.exchangeTypes.forEach { (label, value) ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = dialog.selectedExchangeType == value,
+                                enabled = !state.busy,
+                                onClick = { vm.selectExchangeType(value) }
+                            ),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = dialog.selectedExchangeType == value,
+                            onClick = { vm.selectExchangeType(value) },
+                            enabled = !state.busy
+                        )
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+
+                Text(
+                    // آیا از درخواست تبادل/تعویض اطمینان دارید؟ فقط در صورت لغو
+                    // تبادل/تعویض، امکان دریافت غذای خود را دارید. در صورت عدم
+                    // تبادل/تعویض و عدم دریافت غذا، طبق قوانین جریمه خواهید شد.
+                    "\u0622\u06cc\u0627 \u0627\u0632 \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f " +
+                        "\u0641\u0642\u0637 \u062f\u0631 \u0635\u0648\u0631\u062a \u0644\u0642\u0648 \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636\u060c \u0627\u0645\u06a9\u0627\u0646 \u062f\u0631\u06cc\u0627\u0641\u062a \u0642\u0630\u0627\u06cc \u062e\u0648\u062f \u0631\u0627 \u062f\u0627\u0631\u06cc\u062f. " +
+                        "\u062f\u0631 \u0635\u0648\u0631\u062a \u0639\u062f\u0645 \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636 \u0648 \u0639\u062f\u0645 \u062f\u0631\u06cc\u0627\u0641\u062a \u0642\u0630\u0627\u060c \u0637\u0628\u0642 \u0642\u0648\u0627\u0646\u06cc\u0646 \u062c\u0631\u06cc\u0645\u0647 \u062e\u0648\u0627\u0647\u06cc\u062f \u0634\u062f.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // ---- "تعویض غذا": swap for a specific cafeteria + food ----
+                if (dialog.showChangeFoodFields) {
+                    DropdownField(
+                        label = "\u0633\u0644\u0641", // سلف
+                        options = dialog.selfOptions,
+                        selectedValue = dialog.selectedSelf ?: "0",
+                        enabled = !state.busy,
+                        onSelected = { vm.selectExchangeSelf(it) }
+                    )
+                    DropdownField(
+                        label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0641\u0648\u062f \u0628\u0631\u0627\u06cc \u0645\u0639\u0627\u0648\u0636\u0647", // انتخاب فود برای معاوضه
+                        options = dialog.foodOptions,
+                        selectedValue = dialog.selectedFood ?: "0",
+                        enabled = !state.busy,
+                        onSelected = { vm.selectExchangeFood(it) }
+                    )
+                }
+
+                // ---- "تعویض غذا با سایرین": swap with a specific student ----
+                if (dialog.showStudentSearchFields) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = studentNumber,
+                            onValueChange = { if (it.length <= 14) studentNumber = it },
+                            label = { Text("\u0634\u0645\u0627\u0631\u0647 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc \u0645\u0642\u0635\u062f") }, // شماره دانشجوی مقصد
+                            singleLine = true,
+                            enabled = !state.busy,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(
+                            onClick = { vm.searchDestinationStudent(studentNumber) },
+                            enabled = !state.busy && studentNumber.isNotBlank()
+                        ) {
+                            Icon(Icons.Default.Search, contentDescription = "\u062c\u0633\u062a\u062c\u0648") // جستجو
+                        }
+                    }
+                    dialog.destStudentLabel?.let {
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
+                if (state.busy) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        LoadingDots(dotSize = 5.dp)
+                        Text("\u062f\u0631 \u062d\u0627\u0644 \u0627\u0631\u0633\u0627\u0644\u2026", style = MaterialTheme.typography.bodySmall) // در حال ارسال…
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { vm.confirmExchange() }, enabled = !state.busy) {
+                Text("\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a") // تایید و ثبت درخواست
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = vm::dismissExchangeDialog, enabled = !state.busy) {
+                Text("\u0627\u0646\u0635\u0631\u0627\u0641") // انصراف
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

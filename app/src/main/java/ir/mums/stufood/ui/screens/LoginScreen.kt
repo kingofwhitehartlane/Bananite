@@ -69,6 +69,11 @@ import ir.mums.stufood.ui.components.LoadingDots
  * `.imePadding()` on the scrolling container plus `Arrangement.Center` (rather than
  * pinning to the very center of the *whole* screen) means the card rides up with the
  * keyboard instead of being covered by it.
+ *
+ * The `LaunchedEffect(Unit)` below is what makes sure a fresh captcha is fetched
+ * every time this screen is actually entered — including right after logging out,
+ * not just on the very first cold-start composition (see the doc comment on
+ * [LoginViewModel] for why this can't live in the ViewModel's `init` alone).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,6 +81,10 @@ fun LoginScreen(
     onLoggedIn: () -> Unit,
     vm: LoginViewModel = viewModel()
 ) {
+    LaunchedEffect(Unit) {
+        vm.loadLoginPage()
+    }
+
     val state by vm.uiState.collectAsState()
     val username by vm.username.collectAsState()
     val password by vm.password.collectAsState()

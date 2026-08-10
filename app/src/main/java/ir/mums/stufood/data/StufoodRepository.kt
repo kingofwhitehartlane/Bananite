@@ -33,8 +33,36 @@ import java.util.concurrent.TimeUnit
  * day's state (not-allowed, needs-cafeteria, needs-diet, already-reserved, received,
  * not-received, not-reserved, or "no food defined yet"), so it's the one reliable
  * anchor we can enumerate days from. Everything else for that day (cafeteria select,
- * diet table, "no food defined" banner, comment button, cancel button) is looked up
- * by the same `<N>` suffix and may or may not be present, depending on state.
+ * diet table, "no food defined" banner, comment button, cancel button, exchange
+ * button) is looked up by the same `<N>` suffix and may or may not be present,
+ * depending on state.
+ *
+ * FOOD EXCHANGE ("تبادل غذا") — read this before touching the exchange functions:
+ *
+ * When a day's diet is locked (deadline passed, radio disabled) but the site still
+ * allows offering the food for exchange, a `btnSellFood` image button appears next to
+ * the checked option. Clicking it (site JS: `sellFood(this)`) opens a modal with:
+ *   - a radio group (`ctl00$body$rbList`, values 1/2/3) choosing the exchange kind
+ *   - two dropdowns (`dpSelectSelf` / `dpFoodForExchange`) shown for one kind
+ *   - a student-number search (`txtSearchStuNum` / `btnSearchStuFood`) shown for another
+ *   - a confirm button (`btnExchangeFood`)
+ * Once a request is placed, the button is replaced by `btnCancelSellFood`.
+ *
+ * We model this the same way as everything else on this page: clicking `btnSellFood`
+ * is submitted as an image-button click (x/y coordinates, same convention as the diet
+ * cancel button), and every subsequent step (changing the radio, changing a dropdown,
+ * searching for a student, confirming) is submitted as a normal postback carrying the
+ * whole form snapshot, exactly like `selectMeal`/`selectCafeteria` do.
+ *
+ * ASSUMPTION FLAG: `sellFood(this)` is a JS function name, which raises the
+ * possibility the real site actually populates the two dropdowns and toggles the
+ * modal's sections via a client-side AJAX/PageMethod call rather than a full
+ * postback. This code assumes a normal postback (consistent with how every other
+ * control on this page behaves). If the exchange dialog renders empty or the
+ * dropdowns don't show up correctly in the app, capture a HAR of clicking through
+ * the exchange flow on the real site (the same way the login fields were captured)
+ * and send it over — the field names above are already correct, only the
+ * request/response shape around them might need adjusting.
  */
 class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
@@ -74,6 +102,14 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         // "انتخاب نمایید" / "انتخاب سلف" placeholder value used by both the meal
         // dropdown and every per-day cafeteria dropdown to mean "nothing chosen yet".
         const val PLACEHOLDER_VALUE = "0"
+
+        // ---- Food exchange ("تبادل غذا") modal ----
+        const val EXCHANGE_TYPE = "ctl00\$body\$rbList"
+        const val EXCHANGE_SELF = "ctl00\$body\$dpSelectSelf"
+        const val EXCHANGE_FOOD = "ctl00\$body\$dpFoodForExchange"
+        const val EXCHANGE_STUDENT_NUM = "ctl00\$body\$txtSearchStuNum"
+        const val EXCHANGE_STUDENT_SEARCH_BTN = "ctl00\$body\$btnSearchStuFood"
+        const val EXCHANGE_CONFIRM_BTN = "ctl00\$body\$btnExchangeFood"
     }
 
     // Badge labels for the header <div>'s CSS class, per the legend on the site:
@@ -135,9 +171,29 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val response = client.newCall(request).execute()
         val responseText = response.use { it.body?.string().orEmpty() }
 
-        val isSuccess = responseText.contains(""""Key":true""") || responseText.contains(""""Key": true""")
+        parseLoginResponse(responseText)
+    }
 
-        if (isSuccess) LoginResult.Success else LoginResult.Failure("Login failed: $responseText")
+    /**
+     * The endpoint replies with an ASP.NET-style AJAX envelope, e.g.
+     * `{"d":{"Key":false,"Value":"ERROR MESSAGE HERE"}}`. We only ever want to show
+     * the person the human-readable `Value` — never the surrounding JSON — and we
+     * fall back to a generic message if the shape doesn't match what we expect (site
+     * change, empty body, etc.) rather than leaking raw JSON/text into the UI.
+     */
+    private fun parseLoginResponse(responseText: String): LoginResult {
+        val d = try {
+            org.json.JSONObject(responseText).optJSONObject("d")
+        } catch (_: Exception) {
+            null
+        }
+
+        val key = d?.optBoolean("Key", false) ?: false
+        if (key) return LoginResult.Success
+
+        val value = d?.optString("Value")?.trim()
+        val message = if (!value.isNullOrEmpty()) value else "Login failed. Please check your credentials and try again."
+        return LoginResult.Failure(message)
     }
 
     fun isLoggedIn(): Boolean = cookieJar.hasSessionFor("stufood.mums.ac.ir")
@@ -211,10 +267,78 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
      * `<input type="image">` button, which browsers submit as `name.x` / `name.y`
      * coordinate fields rather than a normal `__doPostBack` — we mirror that here.
      * Always re-check [DietOption.cancelFieldName] against the freshest page; it's
-     * null whenever cancellation isn't available for that option.
+     * null whenever cancellation isn't available for that option (e.g. once the diet
+     * is locked, the site only exposes the exchange flow — see [openExchangeDialog]).
      */
     suspend fun cancelDiet(current: ReservationPage, option: DietOption): ReservationPage? {
         val cancelField = option.cancelFieldName ?: return null
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = emptyMap(),
+            extraFields = mapOf("$cancelField.x" to "1", "$cancelField.y" to "1")
+        )
+    }
+
+    // ----------------------------------------------------------------------
+    // FOOD EXCHANGE ("تبادل غذا") — see the class-level doc comment for the model
+    // ----------------------------------------------------------------------
+
+    /**
+     * Opens the exchange dialog for a locked-but-exchangeable [option] (the
+     * `btnSellFood` image button). The returned page's [ReservationPage.exchangeDialog]
+     * carries the dialog's current fields, or is null if the server didn't render one
+     * (which would mean [option] can no longer be exchanged, or the click needs a
+     * different request shape — see the class-level ASSUMPTION FLAG).
+     */
+    suspend fun openExchangeDialog(current: ReservationPage, option: DietOption): ReservationPage? {
+        val fieldName = option.exchangeFieldName ?: return null
+        return postForm(
+            current,
+            eventTarget = "",
+            overrides = emptyMap(),
+            extraFields = mapOf("$fieldName.x" to "1", "$fieldName.y" to "1")
+        )
+    }
+
+    /** Switches the exchange-type radio (\u062a\u0628\u0627\u062f\u0644 / \u062a\u0639\u0648\u06cc\u0636 / \u062a\u0639\u0648\u06cc\u0636 \u0628\u0627 \u0633\u0627\u06cc\u0631\u06cc\u0646). */
+    suspend fun selectExchangeType(current: ReservationPage, value: String): ReservationPage =
+        postForm(current, eventTarget = Fields.EXCHANGE_TYPE, overrides = mapOf(Fields.EXCHANGE_TYPE to value))
+
+    /** Picks which cafeteria the desired food should come from, for the "swap for a specific food" flow. */
+    suspend fun selectExchangeSelf(current: ReservationPage, value: String): ReservationPage =
+        postForm(current, eventTarget = Fields.EXCHANGE_SELF, overrides = mapOf(Fields.EXCHANGE_SELF to value))
+
+    /** Picks the desired food, for the "swap for a specific food" flow. */
+    suspend fun selectExchangeFood(current: ReservationPage, value: String): ReservationPage =
+        postForm(current, eventTarget = Fields.EXCHANGE_FOOD, overrides = mapOf(Fields.EXCHANGE_FOOD to value))
+
+    /** Looks up a destination student by number, for the "swap with a specific student" flow. */
+    suspend fun searchDestinationStudent(current: ReservationPage, studentNumber: String): ReservationPage =
+        postForm(
+            current,
+            eventTarget = "",
+            overrides = mapOf(Fields.EXCHANGE_STUDENT_NUM to studentNumber),
+            extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "\u062c\u0633\u062a\u062c\u0648") // جستجو
+        )
+
+    /** Confirms & submits whichever exchange request is currently configured in the dialog. */
+    suspend fun confirmExchange(current: ReservationPage): ReservationPage =
+        postForm(
+            current,
+            eventTarget = "",
+            overrides = emptyMap(),
+            extraFields = mapOf(
+                Fields.EXCHANGE_CONFIRM_BTN to "\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a" // تایید و ثبت درخواست
+            )
+        )
+
+    /**
+     * Withdraws a pending exchange offer for [option] (the `btnCancelSellFood` image
+     * button that replaces `btnSellFood` once a request has been placed).
+     */
+    suspend fun cancelExchange(current: ReservationPage, option: DietOption): ReservationPage? {
+        val cancelField = option.cancelExchangeFieldName ?: return null
         return postForm(
             current,
             eventTarget = "",
@@ -320,7 +444,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             today = today,
             nextWeek = nextWeek,
             lastWeek = lastWeek,
-            days = days
+            days = days,
+            exchangeDialog = parseExchangeDialog(doc)
         )
     }
 
@@ -385,11 +510,19 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             // Cafeteria chosen but nothing chosen yet, still needs to pick a cafeteria.
             hasSelect && !hasTable -> DayStatus.SELECT_CAFETERIA
 
-            // Cafeteria chosen, diet table showing.
+            // Cafeteria select is present alongside the diet table. A *disabled*
+            // checked radio here does NOT mean "received" by itself — the deadline for
+            // changing the diet may simply have passed while the reservation (and
+            // possibly the cafeteria choice, or an exchange offer) is still active;
+            // the real "received" / "not received" distinction only ever shows up via
+            // the day's message text, exactly like the branch above. Treating disabled
+            // as RECEIVED here used to hide the cafeteria dropdown and the exchange
+            // controls on days like "( فقط امکان تغییر سلف می باشد )" — fixed.
             hasSelect && hasTable -> {
                 when {
                     checkedOption == null -> DayStatus.SELECT_DIET
-                    checkedOption.disabled -> DayStatus.RECEIVED
+                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0634\u062f\u0647", message) -> DayStatus.NOT_RECEIVED
+                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0634\u062f\u0647", message) -> DayStatus.RECEIVED
                     else -> DayStatus.RESERVED
                 }
             }
@@ -424,11 +557,23 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val rawText = labelEl?.text().orEmpty()
         val (foodName, priceRial) = parseDietLabelText(rawText)
 
+        val row = radio.parents().firstOrNull { it.tagName() == "tr" }
+
         // The cancel button (an <input type="image"> whose name ends in btnCancel)
         // lives in the same row as the checked radio, when cancellation is allowed.
-        val row = radio.parents().firstOrNull { it.tagName() == "tr" }
         val cancelBtn = row?.selectFirst("input[type=image][name~=btnCancel$]")
         val cancelFieldName = if (checked) cancelBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+
+        // "درخواست تبادل با دانشجویان" — offered when the diet is locked (or otherwise
+        // not directly cancellable) but the site still allows putting it up for
+        // exchange. Lives in the same row as the checked radio.
+        val exchangeBtn = row?.selectFirst("input[type=image][name~=btnSellFood$]")
+        val exchangeFieldName = if (checked) exchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+
+        // Once an exchange request has been placed, the site swaps btnSellFood for
+        // btnCancelSellFood in the same spot — "انصراف از تبادل غذا".
+        val cancelExchangeBtn = row?.selectFirst("input[type=image][name~=btnCancelSellFood$]")
+        val cancelExchangeFieldName = if (checked) cancelExchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
 
         return DietOption(
             fieldName = name,
@@ -437,7 +582,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             priceToman = priceRial?.let { formatRialAsToman(it) },
             checked = checked,
             disabled = disabled,
-            cancelFieldName = cancelFieldName
+            cancelFieldName = cancelFieldName,
+            exchangeFieldName = exchangeFieldName,
+            cancelExchangeFieldName = cancelExchangeFieldName
         )
     }
 
@@ -498,6 +645,64 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val btn = doc.selectFirst("input[name='$fieldName']") ?: return ButtonState(exists = false, isUsable = false)
         val disabled = btn.hasAttr("disabled")
         return ButtonState(exists = true, isUsable = !disabled)
+    }
+
+    /**
+     * Parses the "تبادل غذا" (food exchange) modal, if it's present in this response.
+     * The modal's controls (`rbList`, `dpSelectSelf`, `dpFoodForExchange`,
+     * `txtSearchStuNum`, `dvChangeFood`, `dvChangeFoodWidthStudent`,
+     * `lblDestStudent`) are page-level, singleton controls — there's exactly one
+     * modal, regardless of which day/option opened it, so we just look for `rbList`
+     * to decide whether the dialog is currently showing.
+     */
+    private fun parseExchangeDialog(doc: Document): ExchangeDialogData? {
+        val radios = doc.select("input[name='${Fields.EXCHANGE_TYPE}']")
+        if (radios.isEmpty()) return null
+
+        val types = radios.map { radio ->
+            val id = radio.attr("id")
+            val label = doc.selectFirst("label[for='$id']")?.text()?.trim().orEmpty()
+            label to radio.attr("value")
+        }
+        val selectedType = radios.firstOrNull { it.hasAttr("checked") }?.attr("value")
+            ?: types.firstOrNull()?.second.orEmpty()
+
+        val selfSelect = doc.getElementById("dpSelectSelf")
+        val selfOptions = selfSelect?.select("option")?.map { it.text().trim() to it.attr("value") } ?: emptyList()
+        val selectedSelf = selfSelect?.select("option[selected]")?.firstOrNull()?.attr("value")
+            ?: selfOptions.firstOrNull()?.second
+
+        val foodSelect = doc.getElementById("dpFoodForExchange")
+        val foodOptions = foodSelect?.select("option")?.map { it.text().trim() to it.attr("value") } ?: emptyList()
+        val selectedFood = foodSelect?.select("option[selected]")?.firstOrNull()?.attr("value")
+            ?: foodOptions.firstOrNull()?.second
+
+        val changeFoodDiv = doc.getElementById("dvChangeFood")
+        val showChangeFoodFields = changeFoodDiv != null && !isHidden(changeFoodDiv)
+
+        val studentDiv = doc.getElementById("dvChangeFoodWidthStudent")
+        val showStudentSearchFields = studentDiv != null && !isHidden(studentDiv)
+
+        val destLabel = doc.getElementById("body_lblDestStudent")?.text()?.trim()?.ifEmpty { null }
+        val studentNumber = doc.getElementById("body_txtSearchStuNum")?.attr("value")?.ifEmpty { null }
+
+        return ExchangeDialogData(
+            exchangeTypes = types,
+            selectedExchangeType = selectedType,
+            selfOptions = selfOptions,
+            selectedSelf = selectedSelf,
+            foodOptions = foodOptions,
+            selectedFood = selectedFood,
+            showChangeFoodFields = showChangeFoodFields,
+            showStudentSearchFields = showStudentSearchFields,
+            studentNumber = studentNumber,
+            destStudentLabel = destLabel
+        )
+    }
+
+    private fun isHidden(el: Element): Boolean {
+        val style = el.attr("style").replace(" ", "").lowercase()
+        return style.contains("display:none")
     }
 
     /**
@@ -564,7 +769,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val today: ButtonState,
         val nextWeek: ButtonState,
         val lastWeek: ButtonState,
-        val days: List<DayInfo>
+        val days: List<DayInfo>,
+        /** Non-null only while the food-exchange modal is showing in this response. */
+        val exchangeDialog: ExchangeDialogData?
     )
 
     /** exists = the button is present in the DOM at all; isUsable = present AND not disabled. */
@@ -575,7 +782,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         SELECT_CAFETERIA,
         /** Cafeteria picked; pick a diet to reserve. */
         SELECT_DIET,
-        /** A diet is reserved and (usually) still changeable / cancellable. */
+        /** A diet is reserved and (usually) still changeable / cancellable / exchangeable. */
         RESERVED,
         /** Past day, food was picked up. */
         RECEIVED,
@@ -600,8 +807,33 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val priceToman: String?,
         val checked: Boolean,
         val disabled: Boolean,
-        /** Non-null (and usable) only when this checked option can currently be cancelled. */
-        val cancelFieldName: String?
+        /** Non-null (and usable) only when this checked option can currently be cancelled outright. */
+        val cancelFieldName: String?,
+        /** Non-null only when this checked option can currently be offered for exchange ("درخواست تبادل با دانشجویان"). */
+        val exchangeFieldName: String? = null,
+        /** Non-null only when an exchange request is already pending for this checked option. */
+        val cancelExchangeFieldName: String? = null
+    ) {
+        /** True once an exchange offer has been placed for this option. */
+        val exchangePending: Boolean get() = cancelExchangeFieldName != null
+    }
+
+    /** Snapshot of the "تبادل غذا" (food exchange) modal, when it's showing. */
+    data class ExchangeDialogData(
+        /** e.g. "تبادل غذا" -> "1", "تعویض غذا" -> "2", "تعویض غذا با سایرین" -> "3". */
+        val exchangeTypes: List<Pair<String, String>>,
+        val selectedExchangeType: String,
+        val selfOptions: List<Pair<String, String>>,
+        val selectedSelf: String?,
+        val foodOptions: List<Pair<String, String>>,
+        val selectedFood: String?,
+        /** True when the cafeteria/food dropdowns should be shown ("تعویض غذا" flow). */
+        val showChangeFoodFields: Boolean,
+        /** True when the destination-student search should be shown ("تعویض غذا با سایرین" flow). */
+        val showStudentSearchFields: Boolean,
+        val studentNumber: String?,
+        /** Result label once a destination student has been found, if any. */
+        val destStudentLabel: String?
     )
 
     data class DayInfo(
@@ -626,5 +858,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val reservedOption: DietOption? get() = dietOptions.firstOrNull { it.checked }
         val isReadOnly: Boolean get() = status == DayStatus.RECEIVED || status == DayStatus.NOT_RECEIVED ||
             status == DayStatus.NOT_RESERVED || status == DayStatus.NOT_ALLOWED
+        /** True when the reserved diet is locked (deadline passed) but the day itself is still active. */
+        val dietLocked: Boolean get() = status == DayStatus.RESERVED && reservedOption?.disabled == true
     }
 }

@@ -1,5 +1,6 @@
 package ir.mums.stufood.ui.screens
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.StufoodApp
@@ -7,6 +8,12 @@ import ir.mums.stufood.data.StufoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+
+private const val TAG = "ReservationViewModel"
+
+/** Generic, user-facing message — we never show raw exception/server text in the UI. */
+private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a moment."
+private const val FRIENDLY_LOAD_ERROR = "Couldn't load the reservation page. Pull down to try again."
 
 /**
  * Reservation screen state.
@@ -16,11 +23,19 @@ import kotlinx.coroutines.launch
  * - Page-wide actions (meal change, week navigation, "today", pull-to-refresh) can
  *   legitimately change most or all days — a full dimmed [ReservationUiState.Working]
  *   refresh is correct and expected here.
- * - Per-day actions (picking a cafeteria/diet, cancelling) only ever intend to touch
- *   one day. Those go through [withDay] instead: the page stays in [ReservationUiState.Ready]
- *   the whole time (nothing else on screen moves), only [busyDayIndex] changes so the UI
- *   can show a small spinner on that one card, and the response is merged back in a way
- *   that preserves every *other* day's object identity — see [mergeDay].
+ * - Per-day actions (picking a cafeteria/diet, cancelling, opening/confirming the
+ *   exchange flow) only ever intend to touch one day. Those go through [withDay]
+ *   instead: the page stays in [ReservationUiState.Ready] the whole time (nothing
+ *   else on screen moves), only [busyDayIndex] changes so the UI can show a small
+ *   spinner on that one card, and the response is merged back in a way that
+ *   preserves every *other* day's object identity — see [mergeDay].
+ *
+ * The food-exchange ("تبادل غذا") flow lives in its own small state machine
+ * ([exchangeDialog]) layered on top of the same page state: opening the dialog is a
+ * per-day action (goes through [withDay]) that also stashes the parsed dialog fields;
+ * every subsequent step inside the dialog (switching type, picking a cafeteria/food,
+ * searching a student, confirming) goes through [withExchangeDialog], which keeps
+ * re-merging the *day* that owns the dialog the same way [withDay] does.
  */
 class ReservationViewModel(
     private val repo: StufoodRepository = StufoodApp.instance.repository
@@ -38,10 +53,16 @@ class ReservationViewModel(
     private val _pendingCancel = MutableStateFlow<PendingCancel?>(null)
     val pendingCancel: StateFlow<PendingCancel?> = _pendingCancel
 
+    private val _pendingCancelExchange = MutableStateFlow<PendingCancelExchange?>(null)
+    val pendingCancelExchange: StateFlow<PendingCancelExchange?> = _pendingCancelExchange
+
+    private val _exchangeDialog = MutableStateFlow<ExchangeDialogUiState?>(null)
+    val exchangeDialog: StateFlow<ExchangeDialogUiState?> = _exchangeDialog
+
     /**
-     * Index of the single day currently mid-postback (cafeteria/diet/cancel pick).
-     * Only this day shows a busy spinner or animates when the response lands — every
-     * other card on the page stays completely still.
+     * Index of the single day currently mid-postback (cafeteria/diet/cancel/exchange
+     * pick). Only this day shows a busy spinner or animates when the response lands —
+     * every other card on the page stays completely still.
      */
     private val _busyDayIndex = MutableStateFlow<Int?>(null)
     val busyDayIndex: StateFlow<Int?> = _busyDayIndex
@@ -70,7 +91,8 @@ class ReservationViewModel(
                 _uiState.value = ReservationUiState.Ready(page)
                 _statusText.value = null
             } catch (t: Throwable) {
-                _errorMessage.value = "Failed to load page: ${t.message}"
+                Log.e(TAG, "Failed to load reservation page", t)
+                _errorMessage.value = FRIENDLY_LOAD_ERROR
                 _statusText.value = null
                 _uiState.value = existing?.let { ReservationUiState.Ready(it) } ?: ReservationUiState.Idle
             }
@@ -89,7 +111,8 @@ class ReservationViewModel(
                 val updated = block(page)
                 _uiState.value = ReservationUiState.Ready(updated ?: page)
             } catch (t: Throwable) {
-                _errorMessage.value = "Network error: ${t.message}"
+                Log.e(TAG, "Page-wide action failed", t)
+                _errorMessage.value = FRIENDLY_ERROR
                 _uiState.value = ReservationUiState.Ready(page)
             }
         }
@@ -133,7 +156,8 @@ class ReservationViewModel(
                     if (updated != null) mergeDay(previous = page, updated = updated, dayIndex = dayIndex) else page
                 )
             } catch (t: Throwable) {
-                _errorMessage.value = "Network error: ${t.message}"
+                Log.e(TAG, "Per-day action failed (day=$dayIndex)", t)
+                _errorMessage.value = FRIENDLY_ERROR
             } finally {
                 _busyDayIndex.value = null
             }
@@ -185,9 +209,110 @@ class ReservationViewModel(
         withDay(pending.day.index) { page -> repo.cancelDiet(page, pending.option) }
     }
 
+    // ---------------------------------------------------------------------
+    // Food exchange ("تبادل غذا")
+    // ---------------------------------------------------------------------
+
+    /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
+    fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
+        if (option.exchangeFieldName == null) return
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        _busyDayIndex.value = day.index
+        viewModelScope.launch {
+            try {
+                val updated = repo.openExchangeDialog(page, option)
+                val dialogData = updated?.exchangeDialog
+                if (updated != null && dialogData != null) {
+                    _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, day.index))
+                    _exchangeDialog.value = ExchangeDialogUiState(day = day, option = option, dialog = dialogData)
+                } else {
+                    _errorMessage.value = FRIENDLY_ERROR
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to open exchange dialog (day=${day.index})", t)
+                _errorMessage.value = FRIENDLY_ERROR
+            } finally {
+                _busyDayIndex.value = null
+            }
+        }
+    }
+
+    fun dismissExchangeDialog() {
+        _exchangeDialog.value = null
+    }
+
+    fun selectExchangeType(value: String) = withExchangeDialog { page -> repo.selectExchangeType(page, value) }
+
+    fun selectExchangeSelf(value: String) = withExchangeDialog { page -> repo.selectExchangeSelf(page, value) }
+
+    fun selectExchangeFood(value: String) = withExchangeDialog { page -> repo.selectExchangeFood(page, value) }
+
+    fun searchDestinationStudent(studentNumber: String) =
+        withExchangeDialog { page -> repo.searchDestinationStudent(page, studentNumber) }
+
+    /** Taps "تایید و ثبت درخواست" inside the exchange dialog. */
+    fun confirmExchange() = withExchangeDialog(closeOnSuccess = true) { page -> repo.confirmExchange(page) }
+
+    private inline fun withExchangeDialog(
+        closeOnSuccess: Boolean = false,
+        crossinline block: suspend (StufoodRepository.ReservationPage) -> StufoodRepository.ReservationPage?
+    ) {
+        val current = _exchangeDialog.value ?: return
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        _exchangeDialog.value = current.copy(busy = true)
+        viewModelScope.launch {
+            try {
+                val updated = block(page)
+                if (updated != null) {
+                    _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
+                    val dialogData = updated.exchangeDialog
+                    _exchangeDialog.value = if (closeOnSuccess || dialogData == null) {
+                        null
+                    } else {
+                        current.copy(dialog = dialogData, busy = false)
+                    }
+                } else {
+                    _exchangeDialog.value = current.copy(busy = false)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "Exchange dialog action failed (day=${current.day.index})", t)
+                _errorMessage.value = FRIENDLY_ERROR
+                _exchangeDialog.value = current.copy(busy = false)
+            }
+        }
+    }
+
+    /** Taps the "انصراف از تبادل غذا" icon — shows the confirm dialog. */
+    fun requestCancelExchange(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
+        if (option.cancelExchangeFieldName == null) return
+        _pendingCancelExchange.value = PendingCancelExchange(day, option)
+    }
+
+    fun dismissCancelExchangeRequest() {
+        _pendingCancelExchange.value = null
+    }
+
+    fun confirmCancelExchange() {
+        val pending = _pendingCancelExchange.value ?: return
+        _pendingCancelExchange.value = null
+        withDay(pending.day.index) { page -> repo.cancelExchange(page, pending.option) }
+    }
+
     data class PendingCancel(
         val day: StufoodRepository.DayInfo,
         val option: StufoodRepository.DietOption
+    )
+
+    data class PendingCancelExchange(
+        val day: StufoodRepository.DayInfo,
+        val option: StufoodRepository.DietOption
+    )
+
+    data class ExchangeDialogUiState(
+        val day: StufoodRepository.DayInfo,
+        val option: StufoodRepository.DietOption,
+        val dialog: StufoodRepository.ExchangeDialogData,
+        val busy: Boolean = false
     )
 }
 
