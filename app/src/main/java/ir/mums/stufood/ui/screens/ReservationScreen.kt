@@ -599,14 +599,25 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                 transitionSpec = {
                     val sameDay = initialState.index == targetState.index &&
                         initialState.dateLabel == targetState.dateLabel
+
                     if (sameDay) {
-                        (fadeIn(tween(220, delayMillis = 90)) + scaleIn(initialScale = 0.92f))
+                        // Reusable soft spring spec for both scale and size change
+                        val softSpring = spring<Float>(
+                            dampingRatio = Spring.DampingRatioLowBouncy, // Subtle spring overshoot
+                            stiffness = Spring.StiffnessMediumLow        // Settles faster, prevents floating
+                        )
+
+                        (fadeIn(tween(220, delayMillis = 90)) + 
+                        scaleIn(
+                            animationSpec = softSpring,
+                            initialScale = 0.95f // Reduced zoom displacement (5% vs 8%)
+                        ))
                             .togetherWith(fadeOut(tween(90)))
                             .using(
                                 SizeTransform(clip = false) { _, _ ->
                                     spring(
-                                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                                        stiffness = Spring.StiffnessLow
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
                                     )
                                 }
                             )
