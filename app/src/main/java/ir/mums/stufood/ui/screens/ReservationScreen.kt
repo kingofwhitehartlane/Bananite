@@ -811,7 +811,6 @@ private fun DietList(
 @Composable
 private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiState, vm: ReservationViewModel) {
     val dialog = state.dialog
-    var studentNumber by remember(dialog.studentNumber) { mutableStateOf(dialog.studentNumber.orEmpty()) }
 
     AlertDialog(
         onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
@@ -880,8 +879,8 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
-                            value = studentNumber,
-                            onValueChange = { if (it.length <= 14) studentNumber = it },
+                            value = state.studentNumber,
+                            onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
                             label = { Text("\u0634\u0645\u0627\u0631\u0647 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc \u0645\u0642\u0635\u062f") }, // شماره دانشجوی مقصد
                             singleLine = true,
                             enabled = !state.busy,
@@ -889,8 +888,8 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(
-                            onClick = { vm.searchDestinationStudent(studentNumber) },
-                            enabled = !state.busy && studentNumber.isNotBlank()
+                            onClick = { vm.searchDestinationStudent(state.studentNumber) },
+                            enabled = !state.busy && state.studentNumber.isNotBlank()
                         ) {
                             Icon(Icons.Default.Search, contentDescription = "\u062c\u0633\u062a\u062c\u0648") // جستجو
                         }

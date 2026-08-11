@@ -216,66 +216,177 @@ class ReservationViewModel(
     /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
         if (option.exchangeFieldName == null) return
-        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
-        _busyDayIndex.value = day.index
-        viewModelScope.launch {
-            try {
-                val updated = repo.openExchangeDialog(page, option)
-                val dialogData = updated?.exchangeDialog
-                if (updated != null && dialogData != null) {
-                    _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, day.index))
-                    _exchangeDialog.value = ExchangeDialogUiState(day = day, option = option, dialog = dialogData)
-                } else {
-                    _errorMessage.value = FRIENDLY_ERROR
-                }
-            } catch (t: Throwable) {
-                Log.e(TAG, "Failed to open exchange dialog (day=${day.index})", t)
-                _errorMessage.value = FRIENDLY_ERROR
-            } finally {
-                _busyDayIndex.value = null
-            }
+        val foodId = option.exchangeFoodId ?: run {
+            _errorMessage.value = FRIENDLY_ERROR
+            return
         }
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+        val dialogData = page.exchangeDialog ?: run {
+            _errorMessage.value = FRIENDLY_ERROR
+            return
+        }
+
+        // No postback — the modal is already in the page HTML. The site's JS
+        // (sellFood) just sets hdnSelectFood and shows the modal client-side.
+        // We do the equivalent: stash the food ID and show the parsed dialog.
+        _exchangeDialog.value = ExchangeDialogUiState(
+            day = day,
+            option = option,
+            dialog = dialogData,
+            foodId = foodId,
+            mealValue = page.selectedMeal
+        )
     }
 
     fun dismissExchangeDialog() {
         _exchangeDialog.value = null
     }
 
-    fun selectExchangeType(value: String) = withExchangeDialog { page -> repo.selectExchangeType(page, value) }
-
-    fun selectExchangeSelf(value: String) = withExchangeDialog { page -> repo.selectExchangeSelf(page, value) }
-
-    fun selectExchangeFood(value: String) = withExchangeDialog { page -> repo.selectExchangeFood(page, value) }
-
-    fun searchDestinationStudent(studentNumber: String) =
-        withExchangeDialog { page -> repo.searchDestinationStudent(page, studentNumber) }
-
-    /** Taps "تایید و ثبت درخواست" inside the exchange dialog. */
-    fun confirmExchange() = withExchangeDialog(closeOnSuccess = true) { page -> repo.confirmExchange(page) }
-
-    private inline fun withExchangeDialog(
-        closeOnSuccess: Boolean = false,
-        crossinline block: suspend (StufoodRepository.ReservationPage) -> StufoodRepository.ReservationPage?
-    ) {
+    fun selectExchangeType(value: String) {
         val current = _exchangeDialog.value ?: return
-        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
         _exchangeDialog.value = current.copy(busy = true)
+
         viewModelScope.launch {
             try {
-                val updated = block(page)
-                if (updated != null) {
-                    _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
-                    val dialogData = updated.exchangeDialog
-                    _exchangeDialog.value = if (closeOnSuccess || dialogData == null) {
-                        null
-                    } else {
-                        current.copy(dialog = dialogData, busy = false)
-                    }
+                val showChangeFood = value == "2"
+                val showStudentSearch = value == "3"
+
+                var updatedDialog = current.dialog.copy(
+                    selectedExchangeType = value,
+                    showChangeFoodFields = showChangeFood,
+                    showStudentSearchFields = showStudentSearch
+                )
+
+                if (showChangeFood) {
+                    // Type "2": fetch cafeteria options via AJAX PageMethod,
+                    // exactly like the site's getSeachSelfData() JS function.
+                    val selfOptions = repo.fetchExchangeSelfOptions(current.mealValue, current.foodId)
+                    updatedDialog = updatedDialog.copy(
+                        selfOptions = selfOptions,
+                        selectedSelf = "0",
+                        foodOptions = emptyList(),
+                        selectedFood = "0"
+                    )
+                } else {
+                    // Type "1" or "3": no AJAX needed, just hide the dropdown sections.
+                    updatedDialog = updatedDialog.copy(
+                        foodOptions = emptyList(),
+                        selectedSelf = null,
+                        selectedFood = null
+                    )
+                }
+
+                _exchangeDialog.value = current.copy(dialog = updatedDialog, busy = false)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to select exchange type", t)
+                _errorMessage.value = FRIENDLY_ERROR
+                _exchangeDialog.value = current.copy(busy = false)
+            }
+        }
+    }
+
+    fun selectExchangeSelf(value: String) {
+        val current = _exchangeDialog.value ?: return
+        if (value == "0") return
+        _exchangeDialog.value = current.copy(busy = true)
+
+        viewModelScope.launch {
+            try {
+                // Fetch food options via AJAX PageMethod, exactly like the site's
+                // dpSelectSelf.change JS handler.
+                val foodOptions = repo.fetchExchangeFoodOptions(current.mealValue, current.foodId, value)
+                val updatedDialog = current.dialog.copy(
+                    selectedSelf = value,
+                    foodOptions = foodOptions,
+                    selectedFood = "0"
+                )
+                _exchangeDialog.value = current.copy(dialog = updatedDialog, busy = false)
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to fetch exchange food options", t)
+                _errorMessage.value = FRIENDLY_ERROR
+                _exchangeDialog.value = current.copy(busy = false)
+            }
+        }
+    }
+
+    fun selectExchangeFood(value: String) {
+        val current = _exchangeDialog.value ?: return
+        // No postback — on the site, picking a food from the dropdown is purely
+        // client-side. The value is read by btnExchangeFood() JS at confirm time.
+        val updatedDialog = current.dialog.copy(selectedFood = value)
+        _exchangeDialog.value = current.copy(dialog = updatedDialog)
+    }
+
+    /** Updates the locally-tracked student number as the user types. */
+    fun updateExchangeStudentNumber(value: String) {
+        val current = _exchangeDialog.value ?: return
+        _exchangeDialog.value = current.copy(studentNumber = value)
+    }
+
+    fun searchDestinationStudent(studentNumber: String) {
+        val current = _exchangeDialog.value ?: return
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+
+        val request = StufoodRepository.ExchangeRequest(
+            foodId = current.foodId,
+            exchangeType = current.dialog.selectedExchangeType,
+            studentNumber = studentNumber
+        )
+
+        _exchangeDialog.value = current.copy(busy = true, studentNumber = studentNumber)
+
+        viewModelScope.launch {
+            try {
+                val updated = repo.searchDestinationStudent(page, request)
+                _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
+
+                // The server re-renders the whole page, so the parsed dialog will have
+                // reset show/hide flags and selected type back to their initial HTML
+                // state. We keep the user's current dialog state and only pull the
+                // destination student label from the response.
+                val dialogData = updated.exchangeDialog
+                if (dialogData != null) {
+                    _exchangeDialog.value = current.copy(
+                        dialog = current.dialog.copy(
+                            destStudentLabel = dialogData.destStudentLabel
+                        ),
+                        studentNumber = studentNumber,
+                        busy = false
+                    )
                 } else {
                     _exchangeDialog.value = current.copy(busy = false)
                 }
             } catch (t: Throwable) {
-                Log.e(TAG, "Exchange dialog action failed (day=${current.day.index})", t)
+                Log.e(TAG, "Failed to search destination student", t)
+                _errorMessage.value = FRIENDLY_ERROR
+                _exchangeDialog.value = current.copy(busy = false)
+            }
+        }
+    }
+
+    /** Taps "تایید و ثبت درخواست" inside the exchange dialog. */
+    fun confirmExchange() {
+        val current = _exchangeDialog.value ?: return
+        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
+
+        val request = StufoodRepository.ExchangeRequest(
+            foodId = current.foodId,
+            exchangeType = current.dialog.selectedExchangeType,
+            selectedSelf = current.dialog.selectedSelf ?: "0",
+            selectedFood = current.dialog.selectedFood ?: "0",
+            studentNumber = current.studentNumber
+        )
+
+        _exchangeDialog.value = current.copy(busy = true)
+
+        viewModelScope.launch {
+            try {
+                val updated = repo.confirmExchange(page, request)
+                _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
+                // Close the dialog — the page now reflects the new exchange state.
+                _exchangeDialog.value = null
+            } catch (t: Throwable) {
+                Log.e(TAG, "Failed to confirm exchange", t)
                 _errorMessage.value = FRIENDLY_ERROR
                 _exchangeDialog.value = current.copy(busy = false)
             }
@@ -312,7 +423,14 @@ class ReservationViewModel(
         val day: StufoodRepository.DayInfo,
         val option: StufoodRepository.DietOption,
         val dialog: StufoodRepository.ExchangeDialogData,
-        val busy: Boolean = false
+        val busy: Boolean = false,
+        /** The "attre" value from btnSellFood — needed for AJAX calls and the confirm postback. */
+        val foodId: String = "",
+        /** Current meal value — needed as a parameter for the AJAX PageMethods. */
+        val mealValue: String = "",
+        /** Student number typed by the user for type "3" — tracked locally since there's
+         *  no postback until the search button is tapped. */
+        val studentNumber: String = ""
     )
 }
 

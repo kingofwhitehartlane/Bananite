@@ -98,9 +98,6 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val TODAY_BTN = "ctl00\$body\$btnToday"
         const val FILE_UPLOAD = "ctl00\$body\$fuAttachment"
         const val CREDIT_ELEMENT_ID = "body_lblStuCredit"
-
-        // "انتخاب نمایید" / "انتخاب سلف" placeholder value used by both the meal
-        // dropdown and every per-day cafeteria dropdown to mean "nothing chosen yet".
         const val PLACEHOLDER_VALUE = "0"
 
         // ---- Food exchange ("تبادل غذا") modal ----
@@ -110,6 +107,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val EXCHANGE_STUDENT_NUM = "ctl00\$body\$txtSearchStuNum"
         const val EXCHANGE_STUDENT_SEARCH_BTN = "ctl00\$body\$btnSearchStuFood"
         const val EXCHANGE_CONFIRM_BTN = "ctl00\$body\$btnExchangeFood"
+
+        // ---- NEW: Hidden fields that the site's JS populates before a postback ----
+        const val SELECTED_FOOD_ID = "ctl00\$body\$hdnSelectFood"
+        const val SELECTED_SELF_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedSelfForExchange"
+        const val SELECTED_FOOD_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedFoodForExchange"
     }
 
     // Badge labels for the header <div>'s CSS class, per the legend on the site:
@@ -285,53 +287,141 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     /**
-     * Opens the exchange dialog for a locked-but-exchangeable [option] (the
-     * `btnSellFood` image button). The returned page's [ReservationPage.exchangeDialog]
-     * carries the dialog's current fields, or is null if the server didn't render one
-     * (which would mean [option] can no longer be exchanged, or the click needs a
-     * different request shape — see the class-level ASSUMPTION FLAG).
+     * Opens the exchange dialog for a locked-but-exchangeable [option].
+     *
+     * IMPORTANT: On the real site, clicking btnSellFood does NOT cause a postback.
+     * The JS handler `sellFood(this)` sets a hidden field (`hdnSelectFood`) and shows
+     * the modal client-side via Bootstrap. The modal HTML is already present in every
+     * page response (just hidden), so [ReservationPage.exchangeDialog] is always
+     * populated after parsing. We just return the current page unchanged — the
+     * ViewModel reads the already-parsed dialog data and shows it.
+     *
+     * The food ID from the button's `attre` attribute (stored in
+     * [DietOption.exchangeFoodId]) is needed later for AJAX calls and the confirm
+     * postback, but is NOT sent in a postback here.
      */
-    suspend fun openExchangeDialog(current: ReservationPage, option: DietOption): ReservationPage? {
-        val fieldName = option.exchangeFieldName ?: return null
-        return postForm(
-            current,
-            eventTarget = "",
-            overrides = emptyMap(),
-            extraFields = mapOf("$fieldName.x" to "1", "$fieldName.y" to "1")
-        )
+    suspend fun openExchangeDialog(current: ReservationPage, option: DietOption): ReservationPage {
+        // No postback — the modal is already in the page HTML.
+        return current
     }
 
-    /** Switches the exchange-type radio (\u062a\u0628\u0627\u062f\u0644 / \u062a\u0639\u0648\u06cc\u0636 / \u062a\u0639\u0648\u06cc\u0636 \u0628\u0627 \u0633\u0627\u06cc\u0631\u06cc\u0646). */
-    suspend fun selectExchangeType(current: ReservationPage, value: String): ReservationPage =
-        postForm(current, eventTarget = Fields.EXCHANGE_TYPE, overrides = mapOf(Fields.EXCHANGE_TYPE to value))
+    /**
+     * Fetches the list of cafeterias available for food exchange, via the site's
+     * `GetSelfData` PageMethod (AJAX, not a full postback). Called when the user
+     * selects exchange type "2" (تعویض غذا). The site's JS function is
+     * `getSeachSelfData()`.
+     */
+    suspend fun fetchExchangeSelfOptions(foodMeal: String, foodId: String): List<Pair<String, String>> = withClient {
+        val payload = org.json.JSONObject().apply {
+            put("_foodMeal", foodMeal)
+            put("_fid", foodId)
+        }.toString()
 
-    /** Picks which cafeteria the desired food should come from, for the "swap for a specific food" flow. */
-    suspend fun selectExchangeSelf(current: ReservationPage, value: String): ReservationPage =
-        postForm(current, eventTarget = Fields.EXCHANGE_SELF, overrides = mapOf(Fields.EXCHANGE_SELF to value))
+        val request = Request.Builder()
+            .url("$reservationUrl/GetSelfData")
+            .header("Content-Type", "application/json; charset=utf-8")
+            .header("X-Requested-With", "XMLHttpRequest")
+            .header("Referer", reservationUrl)
+            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .build()
 
-    /** Picks the desired food, for the "swap for a specific food" flow. */
-    suspend fun selectExchangeFood(current: ReservationPage, value: String): ReservationPage =
-        postForm(current, eventTarget = Fields.EXCHANGE_FOOD, overrides = mapOf(Fields.EXCHANGE_FOOD to value))
+        val response = client.newCall(request).execute()
+        val text = response.use { it.body?.string().orEmpty() }
+        parseAjaxOptionsResponse(text)
+    }
 
-    /** Looks up a destination student by number, for the "swap with a specific student" flow. */
-    suspend fun searchDestinationStudent(current: ReservationPage, studentNumber: String): ReservationPage =
+    /**
+     * Fetches the list of foods available for exchange at a given cafeteria, via the
+     * site's `GetFoodData` PageMethod (AJAX). Called when the user picks a cafeteria
+     * in the "تعویض غذا" flow. The site's JS is the `dpSelectSelf.change` handler.
+     */
+    suspend fun fetchExchangeFoodOptions(foodMeal: String, foodId: String, selfId: String): List<Pair<String, String>> = withClient {
+        val payload = org.json.JSONObject().apply {
+            put("_foodMeal", foodMeal)
+            put("_fid", foodId)
+            put("_sid", selfId)
+        }.toString()
+
+        val request = Request.Builder()
+            .url("$reservationUrl/GetFoodData")
+            .header("Content-Type", "application/json; charset=utf-8")
+            .header("X-Requested-With", "XMLHttpRequest")
+            .header("Referer", reservationUrl)
+            .post(payload.toRequestBody("application/json; charset=utf-8".toMediaType()))
+            .build()
+
+        val response = client.newCall(request).execute()
+        val text = response.use { it.body?.string().orEmpty() }
+        parseAjaxOptionsResponse(text)
+    }
+
+    /**
+     * Parses the JSON response from an ASP.NET PageMethod, which wraps the result
+     * in a `d` property. The exchange dropdowns return arrays of
+     * `{ "Value": "...", "Text": "..." }` objects.
+     */
+    private fun parseAjaxOptionsResponse(text: String): List<Pair<String, String>> {
+        val arr = try {
+            org.json.JSONObject(text).optJSONArray("d")
+        } catch (_: Exception) { null } ?: return emptyList()
+
+        val result = mutableListOf<Pair<String, String>>()
+        for (i in 0 until arr.length()) {
+            val item = arr.optJSONObject(i)
+            val label = item?.optString("Text")?.trim().orEmpty()
+            val value = item?.optString("Value")?.trim().orEmpty()
+            result.add(label to value)
+        }
+        return result
+    }
+
+    /**
+     * Looks up a destination student by number, for the "تعویض غذا با سایرین" flow.
+     * This IS a real postback (the search button is a submit button), but it must
+     * carry `hdnSelectFood` and `rbList` so the server knows which food and which
+     * exchange type the request belongs to.
+     */
+    suspend fun searchDestinationStudent(current: ReservationPage, request: ExchangeRequest): ReservationPage =
         postForm(
             current,
             eventTarget = "",
-            overrides = mapOf(Fields.EXCHANGE_STUDENT_NUM to studentNumber),
+            overrides = mapOf(
+                Fields.SELECTED_FOOD_ID to request.foodId,
+                Fields.EXCHANGE_TYPE to request.exchangeType,
+                Fields.EXCHANGE_STUDENT_NUM to request.studentNumber
+            ),
             extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "\u062c\u0633\u062a\u062c\u0648") // جستجو
         )
 
-    /** Confirms & submits whichever exchange request is currently configured in the dialog. */
-    suspend fun confirmExchange(current: ReservationPage): ReservationPage =
-        postForm(
+    /**
+     * Confirms & submits whichever exchange request is currently configured in the dialog.
+     * This is a real postback (the confirm button is a submit button). The site's JS
+     * `btnExchangeFood()` function sets hidden fields from the dropdowns before allowing
+     * the submit — we do the same via [ExchangeRequest].
+     */
+    suspend fun confirmExchange(current: ReservationPage, request: ExchangeRequest): ReservationPage {
+        val overrides = mutableMapOf(
+            Fields.SELECTED_FOOD_ID to request.foodId,
+            Fields.EXCHANGE_TYPE to request.exchangeType
+        )
+        if (request.exchangeType == "2") {
+            // The JS sets these hidden fields from the dropdown values before submitting.
+            overrides[Fields.SELECTED_SELF_FOR_EXCHANGE] = request.selectedSelf
+            overrides[Fields.SELECTED_FOOD_FOR_EXCHANGE] = request.selectedFood
+            // Also send the dropdown values themselves, as the browser would.
+            overrides[Fields.EXCHANGE_SELF] = request.selectedSelf
+            overrides[Fields.EXCHANGE_FOOD] = request.selectedFood
+        }
+        if (request.exchangeType == "3") {
+            overrides[Fields.EXCHANGE_STUDENT_NUM] = request.studentNumber
+        }
+        return postForm(
             current,
             eventTarget = "",
-            overrides = emptyMap(),
-            extraFields = mapOf(
-                Fields.EXCHANGE_CONFIRM_BTN to "\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a" // تایید و ثبت درخواست
-            )
+            overrides = overrides,
+            extraFields = mapOf(Fields.EXCHANGE_CONFIRM_BTN to "\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a") // تایید و ثبت درخواست
         )
+    }
 
     /**
      * Withdraws a pending exchange offer for [option] (the `btnCancelSellFood` image
@@ -569,6 +659,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         // exchange. Lives in the same row as the checked radio.
         val exchangeBtn = row?.selectFirst("input[type=image][name~=btnSellFood$]")
         val exchangeFieldName = if (checked) exchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+        val exchangeFoodId = exchangeBtn?.attr("attre")?.takeIf { it.isNotBlank() }  // NEW
 
         // Once an exchange request has been placed, the site swaps btnSellFood for
         // btnCancelSellFood in the same spot — "انصراف از تبادل غذا".
@@ -585,6 +676,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             cancelFieldName = cancelFieldName,
             exchangeFieldName = exchangeFieldName,
             cancelExchangeFieldName = cancelExchangeFieldName
+            exchangeFoodId = exchangeFoodId  // NEW
         )
     }
 
@@ -813,6 +905,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val exchangeFieldName: String? = null,
         /** Non-null only when an exchange request is already pending for this checked option. */
         val cancelExchangeFieldName: String? = null
+        val exchangeFoodId: String? = null  // NEW: the "attre" attribute, e.g. "23621;3"
     ) {
         /** True once an exchange offer has been placed for this option. */
         val exchangePending: Boolean get() = cancelExchangeFieldName != null
@@ -834,6 +927,26 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val studentNumber: String?,
         /** Result label once a destination student has been found, if any. */
         val destStudentLabel: String?
+    )
+
+    /**
+     * Carries all the parameters the server needs to process an exchange-related
+     * postback (student search or confirm). On the real site, the JS `btnExchangeFood()`
+     * function populates the hidden fields (`hdnSelectFood`, `hdnSelectedSelfForExchange`,
+     * `hdnSelectedFoodForExchange`) from the modal's UI controls right before submitting.
+     * We mirror that here.
+     */
+    data class ExchangeRequest(
+        /** The "attre" value from btnSellFood, e.g. "23621;3". Goes into hdnSelectFood. */
+        val foodId: String,
+        /** Selected radio value: "1" (تبادل), "2" (تعویض), "3" (تعویض با سایرین). Goes into rbList. */
+        val exchangeType: String,
+        /** For type "2": selected cafeteria value. Goes into hdnSelectedSelfForExchange. */
+        val selectedSelf: String = "0",
+        /** For type "2": selected food value. Goes into hdnSelectedFoodForExchange. */
+        val selectedFood: String = "0",
+        /** For type "3": destination student number. Goes into txtSearchStuNum. */
+        val studentNumber: String = ""
     )
 
     data class DayInfo(
