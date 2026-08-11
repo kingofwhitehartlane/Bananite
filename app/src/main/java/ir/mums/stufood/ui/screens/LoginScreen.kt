@@ -243,11 +243,17 @@ fun LoginScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = rememberMe,
+                                onValueChange = vm::updateRememberMe,
+                                role = Role.Checkbox
+                            )
                     ) {
                         Checkbox(
                             checked = rememberMe,
-                            onCheckedChange = vm::updateRememberMe
+                            onCheckedChange = null // Set to null so the Row handles the touch state
                         )
                         Text("Remember me on this device")
                     }
