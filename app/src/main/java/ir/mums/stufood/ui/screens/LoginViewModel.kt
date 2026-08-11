@@ -89,6 +89,19 @@ class LoginViewModel(
         _uiState.value = LoginUiState.Loading
         viewModelScope.launch {
             try {
+                // FIX: landing on the Login screen (including the ↻ retry button)
+                // used to GET Default.aspx with whatever cookies were already sitting
+                // in the (Application-scoped, process-lifetime) cookie jar — e.g. a
+                // half-expired session left over from before the app was backgrounded.
+                // The server can respond to that with a different page shape (no
+                // #body_imgCaptcha at all), so captchaSrc came back empty and every
+                // subsequent ↻ tap kept re-requesting with those same stale cookies —
+                // it never recovered without a full force-close (which happened to
+                // wipe the in-memory jar). Reaching this screen at all means we're
+                // treating the session as not-usable, so always start the request as
+                // a clean, cookie-less client.
+                repo.clearSession()
+
                 val data = repo.fetchLoginPage()
                 currentPageData = data
                 val bitmap = data.captchaImage?.let { bytes ->

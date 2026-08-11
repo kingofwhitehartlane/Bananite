@@ -2,6 +2,7 @@ package ir.mums.stufood
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedContent
@@ -39,9 +40,27 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun App() {
-    // We start at Login. After a successful login we hop to Home; from Home we can
-    // navigate to Reservation or back to Login (logout).
-    var currentScreen by remember { mutableStateOf<Screen>(Screen.Login) }
+    // FIX: previously this always started at Screen.Login, regardless of whether we
+    // already had a live session. The Activity (and this whole composable tree) can
+    // get torn down and recreated by Android just from backgrounding the app — the
+    // process itself survives, so StufoodApp.instance.repository (and its cookies)
+    // are untouched, but `currentScreen` used to reset to Login anyway, which made it
+    // *look* like the session was lost. Seeding the initial value from the actual
+    // session state fixes that: if we're still logged in, go straight to Home.
+    var currentScreen by remember {
+        mutableStateOf<Screen>(
+            if (StufoodApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
+        )
+    }
+
+    // FIX: there was no BackHandler at all, so the system back button had nothing to
+    // intercept inside the app and fell through to the default Activity behavior —
+    // finishing (and thus closing) the app, even from Reservation or Home.
+    // This makes back navigate one level up ("menus") instead, and only lets it fall
+    // through to the default close-app behavior once we're already at Home.
+    BackHandler(enabled = currentScreen == Screen.Reservation) {
+        currentScreen = Screen.Home
+    }
 
     AnimatedContent(
         targetState = currentScreen,
