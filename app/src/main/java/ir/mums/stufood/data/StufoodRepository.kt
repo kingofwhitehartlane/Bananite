@@ -661,13 +661,13 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         // not directly cancellable) but the site still allows putting it up for
         // exchange. Lives in the same row as the checked radio.
         val exchangeBtn = row?.selectFirst("input[type=image][name\$=btnSellFood]")
-        val exchangeFieldName = if (checked) exchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
-        val exchangeFoodId = if (checked) exchangeBtn?.attr("attre")?.takeIf { it.isNotBlank() } else null
+        val exchangeFieldName = exchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+        val exchangeFoodId = exchangeBtn?.attr("attre")?.takeIf { it.isNotBlank() } else null
 
         // Once an exchange request has been placed, the site swaps btnSellFood for
         // btnCancelSellFood in the same spot — "انصراف از تبادل غذا".
         val cancelExchangeBtn = row?.selectFirst("input[type=image][name\$=btnCancelSellFood]")
-        val cancelExchangeFieldName = if (checked) cancelExchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
+        val cancelExchangeFieldName = cancelExchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
 
         return DietOption(
             fieldName = name,
