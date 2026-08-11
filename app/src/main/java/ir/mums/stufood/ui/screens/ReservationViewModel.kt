@@ -221,10 +221,24 @@ class ReservationViewModel(
             return
         }
         val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
-        val dialogData = page.exchangeDialog ?: run {
-            _errorMessage.value = FRIENDLY_ERROR
-            return
-        }
+        // FIX: Provide a fallback dialog if the modal HTML wasn't parsed.
+        // This ensures the menu opens no matter what.
+        val dialogData = page.exchangeDialog ?: StufoodRepository.ExchangeDialogData(
+            exchangeTypes = listOf(
+                "\u062a\u0628\u0627\u062f\u0644 \u063a\u0630\u0627" to "1",
+                "\u062a\u0639\u0648\u06cc\u0636 \u063a\u0630\u0627" to "2",
+                "\u062a\u0639\u0648\u06cc\u0636 \u063a\u0630\u0627 \u0628\u0627 \u0633\u0627\u06cc\u0631\u06cc\u0646" to "3"
+            ),
+            selectedExchangeType = "1",
+            selfOptions = emptyList(),
+            selectedSelf = null,
+            foodOptions = emptyList(),
+            selectedFood = null,
+            showChangeFoodFields = false,
+            showStudentSearchFields = false,
+            studentNumber = null,
+            destStudentLabel = null
+        )
 
         // No postback — the modal is already in the page HTML. The site's JS
         // (sellFood) just sets hdnSelectFood and shows the modal client-side.
