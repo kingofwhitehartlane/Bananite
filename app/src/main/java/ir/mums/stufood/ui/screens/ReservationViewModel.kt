@@ -215,7 +215,11 @@ class ReservationViewModel(
 
     /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
-        if (option.exchangeFieldName == null) return
+        // if (option.exchangeFieldName == null) return
+        
+        // The exchange button (btnSellFood) is present when the diet is locked but
+        // exchange is allowed. We need the food ID from the button's attre attribute
+        // to proceed with the exchange flow.
         val foodId = option.exchangeFoodId ?: run {
             _errorMessage.value = FRIENDLY_ERROR
             return
