@@ -675,7 +675,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             disabled = disabled,
             cancelFieldName = cancelFieldName,
             exchangeFieldName = exchangeFieldName,
-            cancelExchangeFieldName = cancelExchangeFieldName
+            cancelExchangeFieldName = cancelExchangeFieldName,
             exchangeFoodId = exchangeFoodId  // NEW
         )
     }
@@ -904,7 +904,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         /** Non-null only when this checked option can currently be offered for exchange ("درخواست تبادل با دانشجویان"). */
         val exchangeFieldName: String? = null,
         /** Non-null only when an exchange request is already pending for this checked option. */
-        val cancelExchangeFieldName: String? = null
+        val cancelExchangeFieldName: String? = null,
         val exchangeFoodId: String? = null  // NEW: the "attre" attribute, e.g. "23621;3"
     ) {
         /** True once an exchange offer has been placed for this option. */
