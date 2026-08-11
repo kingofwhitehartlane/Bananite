@@ -47,8 +47,21 @@ class ReservationViewModel(
     private val _statusText = MutableStateFlow<String?>(null)
     val statusText: StateFlow<String?> = _statusText
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage
+    // FIX: errorMessage used to be a plain MutableStateFlow<String?> that was never
+    // reset to null. StateFlow conflates equal values, so the *second* (and every
+    // subsequent) identical error string was silently swallowed — the snackbar's
+    // LaunchedEffect(error) never re-fired because, as far as the StateFlow was
+    // concerned, nothing had changed. Wrapping each error in a small event object
+    // with its own nonce/id guarantees every call to postError() is a distinct value,
+    // so the snackbar shows every time, even for back-to-back identical failures.
+    data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
+
+    private val _errorMessage = MutableStateFlow<ErrorEvent?>(null)
+    val errorMessage: StateFlow<ErrorEvent?> = _errorMessage
+
+    private fun postError(message: String) {
+        _errorMessage.value = ErrorEvent(message)
+    }
 
     private val _pendingCancel = MutableStateFlow<PendingCancel?>(null)
     val pendingCancel: StateFlow<PendingCancel?> = _pendingCancel
@@ -92,7 +105,7 @@ class ReservationViewModel(
                 _statusText.value = null
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load reservation page", t)
-                _errorMessage.value = FRIENDLY_LOAD_ERROR
+                postError(FRIENDLY_LOAD_ERROR)
                 _statusText.value = null
                 _uiState.value = existing?.let { ReservationUiState.Ready(it) } ?: ReservationUiState.Idle
             }
@@ -112,7 +125,7 @@ class ReservationViewModel(
                 _uiState.value = ReservationUiState.Ready(updated ?: page)
             } catch (t: Throwable) {
                 Log.e(TAG, "Page-wide action failed", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
                 _uiState.value = ReservationUiState.Ready(page)
             }
         }
@@ -157,7 +170,7 @@ class ReservationViewModel(
                 )
             } catch (t: Throwable) {
                 Log.e(TAG, "Per-day action failed (day=$dayIndex)", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
             } finally {
                 _busyDayIndex.value = null
             }
@@ -215,15 +228,20 @@ class ReservationViewModel(
 
     /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
-        // if (option.exchangeFieldName == null) return
-        
-        // The exchange button (btnSellFood) is present when the diet is locked but
-        // exchange is allowed. We need the food ID from the button's attre attribute
-        // to proceed with the exchange flow.
-        val foodId = option.exchangeFoodId ?: run {
-            _errorMessage.value = FRIENDLY_ERROR
+        // FIX: this used to bail out based on option.exchangeFoodId, which is a
+        // *different* field than the one DietList checks to decide whether to show
+        // the icon in the first place (option.exchangeFieldName). The two normally
+        // travel together (both come off the same btnSellFood element's `name` and
+        // `attre` attributes), but that's incidental, not guaranteed — if `attre`
+        // is ever missing while `name` isn't, the icon would show and tapping it
+        // would silently do nothing. Guard on the same field the icon uses, and
+        // fall back to an empty foodId rather than aborting outright so the dialog
+        // still opens (the confirm step will simply have less to prefill).
+        if (option.exchangeFieldName == null) {
+            postError(FRIENDLY_ERROR)
             return
         }
+        val foodId = option.exchangeFoodId.orEmpty()
         val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
 
         // The modal HTML isn't always present in the response — fall back to a
@@ -300,7 +318,7 @@ class ReservationViewModel(
                 _exchangeDialog.value = current.copy(dialog = updatedDialog, busy = false)
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to select exchange type", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
                 _exchangeDialog.value = current.copy(busy = false)
             }
         }
@@ -324,7 +342,7 @@ class ReservationViewModel(
                 _exchangeDialog.value = current.copy(dialog = updatedDialog, busy = false)
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to fetch exchange food options", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
                 _exchangeDialog.value = current.copy(busy = false)
             }
         }
@@ -379,7 +397,7 @@ class ReservationViewModel(
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to search destination student", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
                 _exchangeDialog.value = current.copy(busy = false)
             }
         }
@@ -408,7 +426,7 @@ class ReservationViewModel(
                 _exchangeDialog.value = null
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to confirm exchange", t)
-                _errorMessage.value = FRIENDLY_ERROR
+                postError(FRIENDLY_ERROR)
                 _exchangeDialog.value = current.copy(busy = false)
             }
         }
@@ -416,7 +434,16 @@ class ReservationViewModel(
 
     /** Taps the "انصراف از تبادل غذا" icon — shows the confirm dialog. */
     fun requestCancelExchange(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
-        if (option.cancelExchangeFieldName == null) return
+        // FIX: this used to `return` with zero feedback when cancelExchangeFieldName
+        // was null — a pure no-op tap. The icon that triggers this is only shown
+        // when exchangePending (== cancelExchangeFieldName != null) is true, so this
+        // branch should be rare, but if it's ever hit (stale option reference, a
+        // parsing gap, etc.) the user deserves to see *something* instead of the
+        // tap silently doing nothing.
+        if (option.cancelExchangeFieldName == null) {
+            postError(FRIENDLY_ERROR)
+            return
+        }
         _pendingCancelExchange.value = PendingCancelExchange(day, option)
     }
 

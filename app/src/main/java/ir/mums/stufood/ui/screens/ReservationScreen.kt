@@ -157,6 +157,14 @@ fun ReservationScreen(
 ) {
     val state by vm.uiState.collectAsState()
     val status by vm.statusText.collectAsState()
+    // FIX: vm.errorMessage now emits an ErrorEvent(message, id) instead of a raw
+    // String — each call to postError() carries a unique id, so this LaunchedEffect
+    // re-fires for every error, even when the message text is identical to the
+    // previous one. Previously, a plain String StateFlow silently deduped repeat
+    // errors (StateFlow skips emission when the new value equals the old one), so
+    // only the very first error of a given kind was ever shown — every later one
+    // (e.g. exchange/cancel-exchange failures after any earlier hiccup) vanished
+    // with no snackbar at all.
     val error by vm.errorMessage.collectAsState()
     val pendingCancel by vm.pendingCancel.collectAsState()
     val pendingCancelExchange by vm.pendingCancelExchange.collectAsState()
@@ -164,7 +172,7 @@ fun ReservationScreen(
     val busyDayIndex by vm.busyDayIndex.collectAsState()
 
     val snackbarHost = remember { SnackbarHostState() }
-    LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it) } }
+    LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }
     LaunchedEffect(Unit) { vm.load() }
 
     // A single source of truth for "what page to show" and "are we mid page-wide
