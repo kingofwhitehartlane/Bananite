@@ -245,6 +245,8 @@ fun LoginScreen(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
+                        // Change to Arrangement.Center if you want the entire group centered on screen
+                        horizontalArrangement = Arrangement.Start, 
                         modifier = Modifier
                             .fillMaxWidth()
                             .toggleable(
@@ -252,11 +254,13 @@ fun LoginScreen(
                                 onValueChange = vm::updateRememberMe,
                                 role = Role.Checkbox
                             )
+                            .padding(horizontal = 16.dp) // Adds horizontal spacing only (no vertical extra)
                     ) {
                         Checkbox(
                             checked = rememberMe,
                             onCheckedChange = null // Set to null so the Row handles the touch state
                         )
+                        Spacer(modifier = Modifier.width(8.dp)) // Horizontal space between checkmark & label
                         Text("Remember me on this device")
                     }
 
