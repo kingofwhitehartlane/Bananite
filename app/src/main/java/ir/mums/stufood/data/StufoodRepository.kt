@@ -654,19 +654,19 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         // The cancel button (an <input type="image"> whose name ends in btnCancel)
         // lives in the same row as the checked radio, when cancellation is allowed.
-        val cancelBtn = row?.selectFirst("input[type=image][name\$=btnCancel$]")
+        val cancelBtn = row?.selectFirst("input[type=image][name\$=btnCancel]")
         val cancelFieldName = if (checked) cancelBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
 
         // "درخواست تبادل با دانشجویان" — offered when the diet is locked (or otherwise
         // not directly cancellable) but the site still allows putting it up for
         // exchange. Lives in the same row as the checked radio.
-        val exchangeBtn = row?.selectFirst("input[type=image][name\$=btnSellFood$]")
+        val exchangeBtn = row?.selectFirst("input[type=image][name\$=btnSellFood]")
         val exchangeFieldName = if (checked) exchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
         val exchangeFoodId = exchangeBtn?.attr("attre")?.takeIf { it.isNotBlank() }  // NEW
 
         // Once an exchange request has been placed, the site swaps btnSellFood for
         // btnCancelSellFood in the same spot — "انصراف از تبادل غذا".
-        val cancelExchangeBtn = row?.selectFirst("input[type=image][name\$=btnCancelSellFood$]")
+        val cancelExchangeBtn = row?.selectFirst("input[type=image][name\$=btnCancelSellFood]")
         val cancelExchangeFieldName = if (checked) cancelExchangeBtn?.attr("name")?.takeIf { it.isNotBlank() } else null
 
         return DietOption(
