@@ -254,13 +254,13 @@ fun LoginScreen(
                                 onValueChange = vm::updateRememberMe,
                                 role = Role.Checkbox
                             )
-                            .padding(horizontal = 16.dp) // Adds horizontal spacing only (no vertical extra)
+                            .padding(horizontal = 20.dp) // Adds horizontal spacing only (no vertical extra)
                     ) {
                         Checkbox(
                             checked = rememberMe,
                             onCheckedChange = null // Set to null so the Row handles the touch state
                         )
-                        Spacer(modifier = Modifier.width(8.dp)) // Horizontal space between checkmark & label
+                        Spacer(modifier = Modifier.width(12.dp)) // Horizontal space between checkmark & label
                         Text("Remember me on this device")
                     }
 
