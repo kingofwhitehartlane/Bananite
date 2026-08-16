@@ -646,7 +646,14 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                         }
 
                         DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
-                            DietList(options = animatedDay.dietOptions, selectable = false, onSelect = {}, onCancel = {})
+                            DietList(
+                                options = animatedDay.dietOptions,
+                                selectable = false,
+                                onSelect = {},
+                                onCancel = {},
+                                onRequestExchange = { vm.openExchangeDialog(animatedDay, it) },
+                                onCancelExchange = { vm.requestCancelExchange(animatedDay, it) }
+                            )
                         }
 
                         DayStatus.SELECT_CAFETERIA -> {
