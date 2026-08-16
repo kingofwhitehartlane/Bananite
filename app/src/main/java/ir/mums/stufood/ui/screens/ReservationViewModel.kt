@@ -228,53 +228,50 @@ class ReservationViewModel(
 
     /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
-        // FIX: this used to bail out based on option.exchangeFoodId, which is a
-        // *different* field than the one DietList checks to decide whether to show
-        // the icon in the first place (option.exchangeFieldName). The two normally
-        // travel together (both come off the same btnSellFood element's `name` and
-        // `attre` attributes), but that's incidental, not guaranteed — if `attre`
-        // is ever missing while `name` isn't, the icon would show and tapping it
-        // would silently do nothing. Guard on the same field the icon uses, and
-        // fall back to an empty foodId rather than aborting outright so the dialog
-        // still opens (the confirm step will simply have less to prefill).
-        if (option.exchangeFieldName == null) {
-            postError(FRIENDLY_ERROR)
-            return
+        try {
+            if (option.exchangeFieldName == null) {
+                postError("DEBUG: exchangeFieldName is null (day=${day.index}, field=${option.fieldName})")
+                return
+            }
+
+            val page = (_uiState.value as? ReservationUiState.Ready)?.page
+            if (page == null) {
+                postError("DEBUG: uiState not Ready, was ${_uiState.value::class.simpleName}")
+                return
+            }
+
+            val foodId = option.exchangeFoodId.orEmpty()
+
+            val dialogData = page.exchangeDialog ?: StufoodRepository.ExchangeDialogData(
+                exchangeTypes = listOf(
+                    "تبادل غذا" to "1",
+                    "تعویض غذا" to "2",
+                    "تعویض غذا با سایرین" to "3"
+                ),
+                selectedExchangeType  = "1",
+                selfOptions           = emptyList(),
+                selectedSelf          = null,
+                foodOptions           = emptyList(),
+                selectedFood          = null,
+                showChangeFoodFields  = false,
+                showStudentSearchFields = false,
+                studentNumber         = null,
+                destStudentLabel      = null
+            )
+
+            _exchangeDialog.value = ExchangeDialogUiState(
+                day       = day,
+                option    = option,
+                dialog    = dialogData,
+                foodId    = foodId,
+                mealValue = page.selectedMeal
+            )
+
+            // DEBUG: confirm we actually reached the end and set the state.
+            postError("DEBUG: dialog opened OK, hasParsedModal=${page.exchangeDialog != null}, foodId='$foodId'")
+        } catch (t: Throwable) {
+            postError("DEBUG CRASH: ${t::class.simpleName}: ${t.message}")
         }
-        val foodId = option.exchangeFoodId.orEmpty()
-        val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
-
-        // The modal HTML isn't always present in the response — fall back to a
-        // minimal hardcoded shape so the dialog always opens. The dropdown options
-        // for type "2" and the student-search label for type "3" are fetched
-        // lazily by selectExchangeSelf() / searchDestinationStudent() anyway.
-        val dialogData = page.exchangeDialog ?: StufoodRepository.ExchangeDialogData(
-            exchangeTypes = listOf(
-                "\u062a\u0628\u0627\u062f\u0644 \u063a\u0630\u0627" to "1",                       // تبادل غذا
-                "\u062a\u0639\u0648\u06cc\u0636 \u063a\u0630\u0627" to "2",                       // تعویض غذا
-                "\u062a\u0639\u0648\u06cc\u0636 \u063a\u0630\u0627 \u0628\u0627 \u0633\u0627\u06cc\u0631\u06cc\u0646" to "3" // تعویض غذا با سایرین
-            ),
-            selectedExchangeType  = "1",
-            selfOptions           = emptyList(),
-            selectedSelf          = null,
-            foodOptions           = emptyList(),
-            selectedFood          = null,
-            showChangeFoodFields  = false,
-            showStudentSearchFields = false,
-            studentNumber         = null,
-            destStudentLabel      = null
-        )
-
-        // No postback — the modal is already in the page HTML. The site's JS
-        // (sellFood) just sets hdnSelectFood and shows the modal client-side.
-        // We do the equivalent: stash the food ID and show the parsed dialog.
-        _exchangeDialog.value = ExchangeDialogUiState(
-            day       = day,
-            option    = option,
-            dialog    = dialogData,
-            foodId    = foodId,
-            mealValue = page.selectedMeal
-        )
     }
 
     fun dismissExchangeDialog() {
