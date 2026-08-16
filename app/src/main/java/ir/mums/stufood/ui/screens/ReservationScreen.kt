@@ -690,14 +690,27 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
 
                         DayStatus.SELECT_DIET, DayStatus.RESERVED -> {
                             if (mealSelected) {
-                                DropdownField(
-                                    label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647",
-                                    options = animatedDay.cafeteriaOptions,
-                                    selectedValue = animatedDay.selectedCafeteria ?: "0",
-                                    enabled = enabled,
-                                    onSelected = { vm.selectCafeteria(animatedDay, it) }
-                                )
-                                Spacer(Modifier.height(4.dp))
+                                if (
+                                    !animatedDay.cafeteriaFieldName.isNullOrBlank() &&
+                                    animatedDay.cafeteriaOptions.isNotEmpty()
+                                ) {
+                                    DropdownField(
+                                        label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647",
+                                        options = animatedDay.cafeteriaOptions,
+                                        selectedValue = animatedDay.selectedCafeteria ?: "0",
+                                        enabled = enabled,
+                                        onSelected = { vm.selectCafeteria(animatedDay, it) }
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                } else if (!animatedDay.selfLabel.isNullOrBlank()) {
+                                    Text(
+                                        text = animatedDay.selfLabel,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                }
+
                                 DietList(
                                     options = animatedDay.dietOptions,
                                     selectable = enabled,
@@ -758,8 +771,8 @@ private fun DietList(
     selectable: Boolean,
     onSelect: (DietOption) -> Unit,
     onCancel: (DietOption) -> Unit,
-    onRequestExchange: (DietOption) -> Unit = {},
-    onCancelExchange: (DietOption) -> Unit = {}
+    onRequestExchange: ((DietOption) -> Unit)? = null,
+    onCancelExchange: ((DietOption) -> Unit)? = null
 ) {
     if (options.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -800,7 +813,7 @@ private fun DietList(
 
                 // ---- Food exchange: offer it ("درخواست تبادل با دانشجویان"), or
                 // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
-                if (option.checked && option.exchangeFieldName != null && !option.exchangePending) {
+                if (option.checked && option.exchangeFieldName != null && !option.exchangePending && onRequestExchange != null) {
                     val context = androidx.compose.ui.platform.LocalContext.current
                     IconButton(onClick = {
                         android.widget.Toast.makeText(context, "CLICKED exchange icon", android.widget.Toast.LENGTH_LONG).show()
@@ -813,7 +826,7 @@ private fun DietList(
                         )
                     }
                 }
-                if (option.checked && option.exchangePending) {
+                if (option.checked && option.exchangePending && onRequestExchange != null) {
                     IconButton(onClick = { onCancelExchange(option) }) {
                         Icon(
                             Icons.Default.SwapHoriz,

@@ -572,6 +572,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val hasSelect = cafeteriaFieldName != null
         val hasTable = dietOptions.isNotEmpty()
         val checkedOption = dietOptions.firstOrNull { it.checked }
+        val hasExchangeAction = dietOptions.any {
+            it.exchangeFieldName != null || it.cancelExchangeFieldName != null
+        }
 
         val status = when {
             noFoodDefined -> DayStatus.NO_FOOD_DEFINED
@@ -590,8 +593,12 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             // received, told apart by the message text.
             hasSelf && hasTable -> {
                 when {
-                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0634\u062f\u0647", message) -> DayStatus.NOT_RECEIVED
-                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0634\u062f\u0647", message) -> DayStatus.RECEIVED
+                    containsAny("دریافت نشده", message) -> DayStatus.NOT_RECEIVED
+                    containsAny("دریافت شده", message) -> DayStatus.RECEIVED
+
+                    // If the site is still offering exchange, this is not a plain received day.
+                    hasExchangeAction -> DayStatus.RESERVED
+
                     checkedOption?.disabled == true -> DayStatus.RECEIVED
                     else -> DayStatus.RESERVED
                 }
