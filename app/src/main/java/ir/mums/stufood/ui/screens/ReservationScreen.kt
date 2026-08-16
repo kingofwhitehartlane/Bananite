@@ -794,7 +794,11 @@ private fun DietList(
                 // ---- Food exchange: offer it ("درخواست تبادل با دانشجویان"), or
                 // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
                 if (option.checked && option.exchangeFieldName != null && !option.exchangePending) {
-                    IconButton(onClick = { onRequestExchange(option) }) {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    IconButton(onClick = {
+                        android.widget.Toast.makeText(context, "CLICKED exchange icon", android.widget.Toast.LENGTH_LONG).show()
+                        onRequestExchange(option)
+                    }) {
                         Icon(
                             Icons.Default.SwapHoriz,
                             contentDescription = "\u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644 \u0628\u0627 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646", // درخواست تبادل با دانشجویان
