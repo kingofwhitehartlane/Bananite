@@ -817,7 +817,7 @@ private fun DietList(
                     val context = androidx.compose.ui.platform.LocalContext.current
                     IconButton(onClick = {
                         android.widget.Toast.makeText(context, "CLICKED exchange icon", android.widget.Toast.LENGTH_LONG).show()
-                        onRequestExchange(option)
+                        onRequestExchange?.invoke(option)
                     }) {
                         Icon(
                             Icons.Default.SwapHoriz,
@@ -827,7 +827,7 @@ private fun DietList(
                     }
                 }
                 if (option.checked && option.exchangePending && onRequestExchange != null) {
-                    IconButton(onClick = { onCancelExchange(option) }) {
+                    IconButton(onClick = { onCancelExchange?.invoke(option) }) {
                         Icon(
                             Icons.Default.SwapHoriz,
                             contentDescription = "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627", // انصراف از تبادل غذا
