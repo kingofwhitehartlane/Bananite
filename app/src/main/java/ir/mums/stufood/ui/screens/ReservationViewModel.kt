@@ -228,6 +228,11 @@ class ReservationViewModel(
 
     /** Taps "درخواست تبادل با دانشجویان" — opens the exchange dialog for [option]. */
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
+        android.widget.Toast.makeText(
+            StufoodApp.instance,
+            "ENTERED openExchangeDialog.........",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
         try {
             if (option.exchangeFieldName == null) {
                 postError("DEBUG: exchangeFieldName is null (day=${day.index}, field=${option.fieldName})")
