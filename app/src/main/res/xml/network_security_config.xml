@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config>
+        <domain includeSubdomains="true">stufood.mums.ac.ir</domain>
+        <trust-anchors>
+            <!-- Trust the system store as usual, PLUS these explicitly bundled certs -->
+            <certificates src="system" />
+            <certificates src="@raw/stufood_ca1" />
+            <certificates src="@raw/stufood_ca2" />
+            <certificates src="@raw/stufood_ca3" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
