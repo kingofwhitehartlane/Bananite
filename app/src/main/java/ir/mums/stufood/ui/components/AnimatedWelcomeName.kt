@@ -6,7 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding // <-- ADDED: Fixes the "Unresolved reference 'padding'" error
+import androidx.compose.foundation.layout.offset // <-- ADDED: Fixes the negative padding crash
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -65,7 +65,7 @@ fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = (-12).dp), // Pull the whole block up to eliminate top free space
+            .offset(y = (-12).dp), // FIXED: Use offset() instead of negative padding to pull the block up
         horizontalAlignment = Alignment.End
     ) {
         androidx.compose.material3.Text(
