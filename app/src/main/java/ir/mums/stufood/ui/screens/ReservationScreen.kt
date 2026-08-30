@@ -642,7 +642,16 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                         }
 
                         DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
-                            // Header badge handles status display
+                            // Only the "روز فروش" (day-sale) badge type carries this extra menu text.
+                            if (animatedDay.statusBadge == "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634" && // روز فروش
+                                !animatedDay.daySealText.isNullOrBlank()
+                            ) {
+                                Text(
+                                    text = animatedDay.daySealText,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
                         
                         // adding the exchange things here fixed the not reacting button bug

@@ -567,6 +567,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val headerDiv = doc.getElementById("body_rptFoodDiet_dvHeader_$i")
         val statusBadge = headerDiv?.classNames()?.firstNotNullOfOrNull { statusBadgeLabels[it] }
+        
+        val daySealText = doc.getElementById("body_rptFoodDiet_lblDaySeals_$i")
+            ?.text()?.trim()?.ifEmpty { null }
 
         val hasSelf = !selfLabelText.isNullOrBlank()
         val hasSelect = cafeteriaFieldName != null
@@ -639,6 +642,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             selectedCafeteria = selectedCafeteria,
             dietOptions = dietOptions,
             commentFieldName = commentFieldName
+            daySealText = daySealText
         )
     }
 
@@ -975,6 +979,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val selectedCafeteria: String?,
         val dietOptions: List<DietOption>,
         val commentFieldName: String?
+        /** Text from lblDaySeals_<N> — only present on "DaySeal" (روز فروش) days. */
+        val daySealText: String? = null
     ) {
         val canPickCafeteria: Boolean get() = status == DayStatus.SELECT_CAFETERIA && cafeteriaFieldName != null
         val canPickDiet: Boolean get() = status == DayStatus.SELECT_DIET || status == DayStatus.RESERVED
