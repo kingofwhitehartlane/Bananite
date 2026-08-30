@@ -44,6 +44,7 @@ class SettingsViewModel(
 ) : ViewModel() {
     val animationType = prefs.animationType
     val bounciness = prefs.bounciness
+    val creditTransitionType = prefs.creditTransitionType
 
     fun setAnimationType(type: String) {
         viewModelScope.launch {
@@ -53,6 +54,10 @@ class SettingsViewModel(
     
     fun setBounciness(level: String) {
         viewModelScope.launch { prefs.saveBounciness(level) }
+    }
+
+    fun setCreditTransitionType(type: String) {
+        viewModelScope.launch { prefs.saveCreditTransitionType(type) }
     }
 }
 
@@ -179,6 +184,45 @@ fun SettingsScreen(
                 Text(
                     text = "How bouncy the reservation screen's animations feel. Low also " +
                         "trims the extra motion in the welcome name animation.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // NEW — Credit balance header -> pill transition
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Animation,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(text = "Credit Balance Transition", style = MaterialTheme.typography.titleMedium)
+                }
+
+                val creditTransitionType by vm.creditTransitionType.collectAsState(initial = "fade")
+                val creditOptions = listOf("Fade" to "fade", "Morph" to "morph")
+                val creditSelectedIndex = creditOptions.indexOfFirst { it.second == creditTransitionType }.coerceAtLeast(0)
+
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    creditOptions.forEachIndexed { index, (label, value) ->
+                        SegmentedButton(
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = creditOptions.size),
+                            onClick = { vm.setCreditTransitionType(value) },
+                            selected = index == creditSelectedIndex,
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Fade is the default collapse. Morph shrinks the credit card " +
+                        "directly into the toolbar pill as you scroll.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

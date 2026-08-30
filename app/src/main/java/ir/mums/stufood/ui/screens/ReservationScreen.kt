@@ -19,6 +19,11 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -198,7 +203,7 @@ private fun bounceParamsFor(level: String): ReservationBounceParams = when (leve
  */
 private val CreditCollapseRange = 76.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class)
 @Composable
 fun ReservationScreen(
     onBack: () -> Unit,
@@ -221,6 +226,8 @@ fun ReservationScreen(
     val busyDayIndex by vm.busyDayIndex.collectAsState()
     val bounciness by vm.bounciness.collectAsState()
     val bounceParams = remember(bounciness) { bounceParamsFor(bounciness) }
+    val creditTransitionType by vm.creditTransitionType.collectAsState()
+    val morphMode = creditTransitionType == "morph" 
 
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }
@@ -242,6 +249,9 @@ fun ReservationScreen(
 
     var collapsedPx by remember { mutableStateOf(0f) }
     val collapseFraction by remember { derivedStateOf { (collapsedPx / collapseRangePx).coerceIn(0f, 1f) } }
+    // NEW — only ever true once fully settled at the collapsed edge (see settleToNearestEdge()),
+    // so this can never land on a half-morphed frame no matter how the drag/fling behaves.
+    val creditCollapsedForMorph by remember { derivedStateOf { collapseFraction >= 1f } }
     val settleScope = rememberCoroutineScope()
     var settleJob: Job? by remember { mutableStateOf(null) }
 
@@ -348,6 +358,7 @@ fun ReservationScreen(
 
     val currentCredit = displayPage?.creditToman
 
+    SharedTransitionLayout {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -359,19 +370,48 @@ fun ReservationScreen(
                 },
                 actions = {
                     currentCredit?.let { credit ->
-                        Surface(
-                            modifier = Modifier
-                                .alpha(collapseFraction)
-                                .padding(end = 12.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        ) {
-                            Text(
-                                text = credit,
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                            )
+                        if (morphMode) {
+                            // NEW — the pill only appears once fully collapsed; sharedBounds
+                            // morphs it out of the header card below.
+                            AnimatedVisibility(
+                                visible = creditCollapsedForMorph,
+                                enter = fadeIn(tween(200)) + scaleIn(initialScale = 0.6f),
+                                exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.6f)
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .sharedBounds(
+                                            rememberSharedContentState(key = "creditBalanceBounds"),
+                                            animatedVisibilityScope = this
+                                        )
+                                        .padding(end = 12.dp),
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = credit,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            // UNCHANGED — original fade pill.
+                            Surface(
+                                modifier = Modifier
+                                    .alpha(collapseFraction)
+                                    .padding(end = 12.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = credit,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                )
+                            }
                         }
                     }
                 },
@@ -410,43 +450,87 @@ fun ReservationScreen(
                     // instead of the header's height fighting with the list's own
                     // scroll offset. ----
                     displayPage.creditToman?.let { credit ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = if (collapseFraction < 1f) 8.dp else 0.dp)
-                                .height(CreditCollapseRange * (1f - collapseFraction))
-                                .clipToBounds()
-                        ) {
-                            Card(
+                        if (morphMode) {
+                            // NEW — header only shows while NOT fully collapsed; sharedBounds
+                            // morphs it into the toolbar pill above.
+                            AnimatedVisibility(
+                                visible = !creditCollapsedForMorph,
+                                enter = fadeIn(tween(200)) + expandVertically(tween(220)),
+                                exit = fadeOut(tween(120)) + shrinkVertically(tween(220))
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                ) {
+                                    Card(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .sharedBounds(
+                                                rememberSharedContentState(key = "creditBalanceBounds"),
+                                                animatedVisibilityScope = this@AnimatedVisibility
+                                            ),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                "Credit Balance",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                            Text(
+                                                credit,
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            // UNCHANGED — original fade/collapse header, byte-for-byte.
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .wrapContentHeight(unbounded = true, align = Alignment.Top)
-                                    .alpha(1f - collapseFraction),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                                    .padding(horizontal = 16.dp, vertical = if (collapseFraction < 1f) 8.dp else 0.dp)
+                                    .height(CreditCollapseRange * (1f - collapseFraction))
+                                    .clipToBounds()
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(18.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .wrapContentHeight(unbounded = true, align = Alignment.Top)
+                                        .alpha(1f - collapseFraction),
+                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                                 ) {
-                                    Text(
-                                        "Credit Balance",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                    AnimatedContent(
-                                        targetState = credit,
-                                        transitionSpec = {
-                                            (slideInVertically(tween(220)) { h -> h / 2 } + fadeIn())
-                                                .togetherWith(slideOutVertically(tween(220)) { h -> -h / 2 } + fadeOut())
-                                        },
-                                        label = "creditRollCard"
-                                    ) { c ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(18.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Text(
-                                            c,
-                                            style = MaterialTheme.typography.headlineSmall,
+                                            "Credit Balance",
+                                            style = MaterialTheme.typography.titleMedium,
                                             color = MaterialTheme.colorScheme.onPrimaryContainer
                                         )
+                                        AnimatedContent(
+                                            targetState = credit,
+                                            transitionSpec = {
+                                                (slideInVertically(tween(220)) { h -> h / 2 } + fadeIn())
+                                                    .togetherWith(slideOutVertically(tween(220)) { h -> -h / 2 } + fadeOut())
+                                            },
+                                            label = "creditRollCard"
+                                        ) { c ->
+                                            Text(
+                                                c,
+                                                style = MaterialTheme.typography.headlineSmall,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -473,6 +557,7 @@ fun ReservationScreen(
                 }
             }
         }
+    }
     }
 }
 

@@ -49,6 +49,12 @@ class ReservationViewModel(
         "medium"
     )
 
+    val creditTransitionType: StateFlow<String> = StufoodApp.instance.userPrefs.creditTransitionType.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        "fade"
+    )
+
     private val _uiState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val uiState: StateFlow<ReservationUiState> = _uiState
 
