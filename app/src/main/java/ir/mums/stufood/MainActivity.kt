@@ -32,22 +32,19 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            StuFoodTheme {
-                App()
-            }
+            App()
         }
     }
 }
 
 @Composable
 private fun App() {
-    // FIX: previously this always started at Screen.Login, regardless of whether we
-    // already had a live session. The Activity (and this whole composable tree) can
-    // get torn down and recreated by Android just from backgrounding the app — the
-    // process itself survives, so StufoodApp.instance.repository (and its cookies)
-    // are untouched, but `currentScreen` used to reset to Login anyway, which made it
-    // *look* like the session was lost. Seeding the initial value from the actual
-    // session state fixes that: if we're still logged in, go straight to Home.
+    // Collect theme preferences
+    val prefs = StufoodApp.instance.userPrefs
+    val themeMode by prefs.themeMode.collectAsState(initial = "system")
+    val pureBlack by prefs.pureBlack.collectAsState(initial = false)
+    val colorSchemeType by prefs.colorScheme.collectAsState(initial = "dynamic")
+
     var currentScreen by remember {
         mutableStateOf<Screen>(
             if (StufoodApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
@@ -60,29 +57,23 @@ private fun App() {
         currentScreen = Screen.Home
     }
 
-    AnimatedContent(
-        targetState = currentScreen,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
-        label = "screenTransition"
-    ) { screen ->
-        when (screen) {
-            Screen.Login -> LoginScreen(
-                onLoggedIn = { currentScreen = Screen.Home }
-            )
-            Screen.Home -> HomeScreen(
-                onNavigate = { target -> currentScreen = target }
-            )
-            Screen.Reservation -> ReservationScreen(
-                onBack = { currentScreen = Screen.Home }
-            )
-            Screen.Settings -> SettingsScreen(
-                onBack = { currentScreen = Screen.Home }
-            )
-            // Logout is handled inside HomeScreen's menu card; this branch is just a
-            // safety net so the `when` is exhaustive.
-            Screen.Logout -> LoginScreen(
-                onLoggedIn = { currentScreen = Screen.Home }
-            )
+    StuFoodTheme(
+        themeMode = themeMode,
+        pureBlack = pureBlack,
+        colorSchemeType = colorSchemeType
+    ) {
+        AnimatedContent(
+            targetState = currentScreen,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "screenTransition"
+        ) { screen ->
+            when (screen) {
+                Screen.Login -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
+                Screen.Home -> HomeScreen(onNavigate = { target -> currentScreen = target })
+                Screen.Reservation -> ReservationScreen(onBack = { currentScreen = Screen.Home })
+                Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Home })
+                Screen.Logout -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
+            }
         }
     }
 }
