@@ -113,7 +113,8 @@ fun SettingsScreen(
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
                             onClick = { vm.setThemeMode(value) },
                             selected = selectedIndex == index,
-                            icon = { Icon(icon, contentDescription = value) }
+                            icon = { Icon(icon, contentDescription = value) },
+                            label = {}
                         )
                     }
                 }
