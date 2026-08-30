@@ -38,8 +38,8 @@ private const val KSHD_NARROW = 100f // starting state: no elongation
 private const val KSHD_WIDE = 200f   // ending state: max elongation
 
 // New Font Sizing Constants
-private const val MIN_FONT_SIZE = 34f // Subtle base size (bigger than 24f label, safe for average Persian names)
-// Note: 48f is now used as a reference point for averaging, not a hard cap.
+private const val MIN_FONT_SIZE = 40f // Increased from 34f (safe for average Persian names)
+private const val REFERENCE_FONT_SIZE = 52f // Increased from 48f, used as a reference point for averaging
 
 // Original styling constants for the "خوش آمدید" label
 private const val LABEL_HGHT = 500f
@@ -104,20 +104,41 @@ private fun AnimatedAlefName(name: String, animationType: String) {
         val marginPx = with(density) { 12.dp.toPx() } // how much narrower than the screen the final state should be
         val boundPx = maxWidthPx - marginPx
 
-        LaunchedEffect(name, maxWidthPx) {
+        LaunchedEffect(name, maxWidthPx, animationType) {
+            // Bounce offshoot consideration: Spring.DampingRatioMediumBouncy can overshoot by ~15%
+            val bounceOvershootRatio = 0.15f
+            
+            val peakKshd: (Float) -> Float = { kshdVal ->
+                if (animationType != "smooth") {
+                    // Overshoots above the target kshd
+                    kshdVal + (kshdVal - KSHD_NARROW) * bounceOvershootRatio
+                } else {
+                    kshdVal
+                }
+            }
+            
+            val peakHght = if (animationType != "smooth") {
+                // HGHT goes from 900 to 500 (delta = -400). 
+                // Overshoots below 500 by 15% of 400 = 60. Target peak = 440f.
+                440f
+            } else {
+                HGHT_SHORT
+            }
+
             fun widthAt(sizeSp: Float, kshdVal: Float, hghtVal: Float): Float {
                 val style = TextStyle(fontFamily = alefFamily(hghtVal, kshdVal), fontSize = sizeSp.sp)
                 return textMeasurer.measure(name, style).size.width.toFloat()
             }
 
-            // Helper to find the maximum font size that fits for a given kashida
+            // Helper to find the maximum font size that fits for a given kashida (checking against peak bounce values)
             fun findMaxFontSizeForKshd(kshdVal: Float): Float {
                 var lo = MIN_FONT_SIZE
                 var hi = 150f // Allow font size to grow significantly if it fits
                 var best = MIN_FONT_SIZE
+                val checkKshd = peakKshd(kshdVal)
                 repeat(12) { // 12 iterations give excellent precision (~0.08f)
                     val mid = (lo + hi) / 2f
-                    if (widthAt(mid, kshdVal, HGHT_SHORT) <= boundPx) {
+                    if (widthAt(mid, checkKshd, peakHght) <= boundPx) {
                         best = mid
                         lo = mid
                     } else {
@@ -127,14 +148,14 @@ private fun AnimatedAlefName(name: String, animationType: String) {
                 return best
             }
 
-            // Helper to find the maximum kashida (100..200) that fits for a given font size
+            // Helper to find the maximum kashida (100..200) that fits for a given font size (checking against peak bounce values)
             fun findMaxKshd(fontSize: Float): Float {
                 var lo = KSHD_NARROW
                 var hi = KSHD_WIDE
-                var best = KSHD_NARROW // <-- Fixed typo here (was K0f)
+                var best = KSHD_NARROW
                 repeat(8) {
                     val mid = (lo + hi) / 2f
-                    if (widthAt(fontSize, mid, HGHT_SHORT) <= boundPx) {
+                    if (widthAt(fontSize, peakKshd(mid), peakHght) <= boundPx) {
                         best = mid
                         lo = mid
                     } else {
@@ -144,30 +165,31 @@ private fun AnimatedAlefName(name: String, animationType: String) {
                 return best
             }
 
-            // 1) Check if MIN_FONT_SIZE with max kashida (200) fits
-            val widthAtMinSizeAndMaxKshd = widthAt(MIN_FONT_SIZE, KSHD_WIDE, HGHT_SHORT)
+            // 1) Check if MIN_FONT_SIZE with max expected kashida (including bounce offshoot) fits
+            val widthAtMinSizeAndPeakKshd = widthAt(MIN_FONT_SIZE, peakKshd(KSHD_WIDE), peakHght)
 
             var finalFontSize = MIN_FONT_SIZE
             var finalMaxKshd = KSHD_NARROW
 
-            if (widthAtMinSizeAndMaxKshd <= boundPx) {
+            if (widthAtMinSizeAndPeakKshd <= boundPx) {
                 // It FITS! Push the font size to the max that still fits perfectly with KSHD_WIDE.
                 val maxFittingSize = findMaxFontSizeForKshd(KSHD_WIDE)
                 
-                if (maxFittingSize in MIN_FONT_SIZE..48f) {
-                    // It's between min and 48. Do one step of averaging with 48 to get closer to desired size,
-                    // which will naturally reduce the max kshd a little for a balanced, subtle animation.
-                    val targetFontSize = (maxFittingSize + 48f) / 2f
+                if (maxFittingSize in MIN_FONT_SIZE..REFERENCE_FONT_SIZE) {
+                    // It's between min and reference size. Do one step of averaging with the reference size 
+                    // to get closer to the desired size, which will naturally reduce the max kshd a little 
+                    // for a balanced, subtle animation.
+                    val targetFontSize = (maxFittingSize + REFERENCE_FONT_SIZE) / 2f
                     finalFontSize = targetFontSize
                     finalMaxKshd = findMaxKshd(targetFontSize)
                 } else {
-                    // It's > 48. We shouldn't cap it, so we just use the max fitting size and full kashida.
+                    // It's > REFERENCE_FONT_SIZE. We shouldn't cap it, so we just use the max fitting size and full kashida.
                     finalFontSize = maxFittingSize
                     finalMaxKshd = KSHD_WIDE
                 }
             } else {
-                // It OVERFLOWS even at MIN_FONT_SIZE and max kashida.
-                // We stick to MIN_FONT_SIZE and reduce kashida until it fits.
+                // It OVERFLOWS even at MIN_FONT_SIZE and max expected kashida.
+                // We stick to MIN_FONT_SIZE and reduce kashida until it fits (accounting for bounce).
                 finalFontSize = MIN_FONT_SIZE
                 finalMaxKshd = findMaxKshd(MIN_FONT_SIZE)
             }
