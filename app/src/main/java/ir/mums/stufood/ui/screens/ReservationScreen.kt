@@ -1146,6 +1146,7 @@ private fun DropdownField(
                 label = { MultiScriptText(label) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 modifier = Modifier.fillMaxWidth(),
+                shape = SquircleDefaults.medium,
                 colors = TextFieldDefaults.colors(
                     // We make the default text transparent to prevent visual overlap 
                     // with our custom font layer below.

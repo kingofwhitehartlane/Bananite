@@ -161,6 +161,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = vm::updatePassword,
+                        shape = SquircleDefaults.medium,
                         label = { Text("Password") },
                         singleLine = true,
                         visualTransformation = if (showPass) VisualTransformation.None
@@ -240,6 +241,7 @@ fun LoginScreen(
                             onValueChange = { if (it.length <= 4) vm.updateCaptcha(it) },
                             label = { Text("Captcha") },
                             singleLine = true,
+                            shape = SquircleDefaults.medium,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             // Fills whatever's left in the row — matches the full
                             // width of the fields above instead of looking cramped.

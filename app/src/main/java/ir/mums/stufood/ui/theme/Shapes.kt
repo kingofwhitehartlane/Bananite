@@ -28,7 +28,7 @@ class SquircleShape(private val radius: Dp) : Shape {
         }
 
         // FIX: Removed 'const' from this local variable
-        val smoothingFactor = 0.75f
+        val smoothingFactor = 0.9f
         val cx = rx * smoothingFactor
         val cy = ry * smoothingFactor
 
@@ -62,11 +62,11 @@ class SquircleShape(private val radius: Dp) : Shape {
  * Helper object to easily access standard squircle sizes across the app.
  */
 object SquircleDefaults {
-    val extraSmall: Shape = SquircleShape(8.dp)
-    val small: Shape = SquircleShape(12.dp)
-    val medium: Shape = SquircleShape(16.dp)
-    val large: Shape = SquircleShape(24.dp)
-    val extraLarge: Shape = SquircleShape(32.dp)
+    val extraSmall: Shape = SquircleShape(12.dp)
+    val small: Shape = SquircleShape(16)
+    val medium: Shape = SquircleShape(24.dp)
+    val large: Shape = SquircleShape(32.dp)
+    val extraLarge: Shape = SquircleShape(48.dp)
 }
 
 /**
