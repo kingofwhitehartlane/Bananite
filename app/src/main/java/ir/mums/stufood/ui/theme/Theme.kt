@@ -8,11 +8,13 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Shapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
@@ -100,9 +102,18 @@ fun StuFoodTheme(
         }
     }
 
+    val squircleShapes = Shapes(
+        extraSmall = SquircleShape(4.dp),
+        small = SquircleShape(8.dp),
+        medium = SquircleShape(12.dp), // Standard card/textfield radius
+        large = SquircleShape(16.dp),
+        extraLarge = SquircleShape(24.dp)
+    )
+
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = squircleShapes,
         content = content
     )
 }
