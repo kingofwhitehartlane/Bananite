@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ir.mums.stufood.R
@@ -37,6 +38,7 @@ private const val LABEL_HGHT = 500f
 private const val LABEL_KSHD = 100f
 private const val LABEL_SIZE_SP = 18f
 
+@OptIn(ExperimentalTextApi::class)
 private fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
     Font(
         resId = R.font.alef_vf,
