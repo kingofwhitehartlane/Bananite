@@ -19,7 +19,24 @@ class HomeViewModel(
     private val _isLoggedIn = MutableStateFlow(repo.isLoggedIn())
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
 
-    fun refresh() { _isLoggedIn.value = repo.isLoggedIn() }
+    private val _studentName = MutableStateFlow<String?>(null)
+    val studentName: StateFlow<String?> = _studentName
+
+    fun refresh() { 
+        _isLoggedIn.value = repo.isLoggedIn() 
+    }
+
+    fun loadStudentName() {
+        if (_studentName.value != null) return // already have it, don't re-fetch on every recomposition
+
+        viewModelScope.launch {
+            try {
+                _studentName.value = repo.fetchStudentFullName()
+            } catch (t: Throwable) {
+                // silent — the welcome banner just won't show if this fails
+            }
+        }
+    }
 
     fun logout(onLoggedOut: () -> Unit) {
         viewModelScope.launch {

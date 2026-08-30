@@ -76,6 +76,15 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
     private val baseUrl = "https://stufood.mums.ac.ir"
     private val reservationUrl = "$baseUrl/WebForm/StudentReserveFood.aspx"
+    private val mainStudentUrl = "$baseUrl/WebForm/Student/Form_MainStudent.aspx"
+
+    /** Full name shown on the student's main page (#body_lblFullname). Null if not logged in / not found. */
+    suspend fun fetchStudentFullName(): String? = withClient {
+        val response = get(mainStudentUrl)
+        val html = response.use { it.body?.string().orEmpty() }
+        val doc = Jsoup.parse(html, mainStudentUrl)
+        doc.getElementById("body_lblFullname")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+    }
 
     private object UserAgentInterceptor : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {

@@ -25,6 +25,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.navigation.Screen
+import ir.mums.stufood.ui.components.WelcomeBanner
 
 /**
  * Home / menu screen. A vertical stack of cards, each launching one feature.
@@ -47,6 +49,8 @@ fun HomeScreen(
     vm: HomeViewModel = viewModel()
 ) {
     val context = LocalContext.current
+    val studentName by vm.studentName.collectAsState()
+    LaunchedEffect(Unit) { vm.loadStudentName() }
 
     Scaffold(
         topBar = {
@@ -65,6 +69,9 @@ fun HomeScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+
+            WelcomeBanner(studentName = studentName)
+
             Text(
                 text = "What would you like to do?",
                 style = MaterialTheme.typography.titleMedium,
