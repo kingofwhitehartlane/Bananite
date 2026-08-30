@@ -1,9 +1,9 @@
 package ir.mums.stufood.ui.components
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -132,40 +132,22 @@ private fun AnimatedAlefName(name: String, animationType: String) {
             ready = true
             delay(100) // let the tall & narrow starting state register before it moves
             
-            // TOGGLE LOGIC HERE:
+            // TOGGLE LOGIC
             if (animationType == "smooth") {
-                kshd.animateTo(
-                    best,
-                    animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
-                )
+                kshd.animateTo(best, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
             } else {
-                kshd.animateTo(
-                    best,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessLow
-                    )
-                )
+                kshd.animateTo(best, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
             }
         }
 
         LaunchedEffect(ready) {
             if (ready) {
                 delay(150)
-                // TOGGLE LOGIC HERE:
+                // TOGGLE LOGIC
                 if (animationType == "smooth") {
-                    hght.animateTo(
-                        HGHT_SHORT,
-                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
-                    )
+                    hght.animateTo(HGHT_SHORT, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
                 } else {
-                    hght.animateTo(
-                        HGHT_SHORT,
-                        animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessLow
-                        )
-                    )
+                    hght.animateTo(HGHT_SHORT, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
                 }
             }
         }

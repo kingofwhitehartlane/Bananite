@@ -3,6 +3,7 @@ package ir.mums.stufood.data
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -19,18 +20,17 @@ import kotlinx.coroutines.flow.map
 private val Context.userDataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
 class UserPrefs(private val context: Context) {
-
     companion object {
         private val USERNAME = stringPreferencesKey("username")
         private val PASSWORD = stringPreferencesKey("password")
-        private val REMEMBER = androidx.datastore.preferences.core.booleanPreferencesKey("remember")
+        private val REMEMBER = booleanPreferencesKey("remember")
+        private val ANIMATION_TYPE = stringPreferencesKey("animation_type") // ADDED
     }
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
     val password: Flow<String> = context.userDataStore.data.map { it[PASSWORD] ?: "" }
     val rememberMe: Flow<Boolean> = context.userDataStore.data.map { it[REMEMBER] ?: false }
-
-    val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "bounce" }
+    val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "bounce" } // ADDED
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->
@@ -50,6 +50,7 @@ class UserPrefs(private val context: Context) {
         context.userDataStore.edit { it.clear() }
     }
 
+    // ADDED
     suspend fun saveAnimationType(type: String) {
         context.userDataStore.edit { prefs ->
             prefs[ANIMATION_TYPE] = type

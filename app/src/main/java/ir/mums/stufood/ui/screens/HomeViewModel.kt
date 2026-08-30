@@ -4,22 +4,27 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.StufoodApp
 import ir.mums.stufood.data.StufoodRepository
-import ir.mums.stufood.data.UserPrefs
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn // ADDED
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
-    private val repo: StufoodRepository = StufoodApp.instance.repository,
-    private val prefs: UserPrefs = StufoodApp.instance.userPrefs
+    private val repo: StufoodRepository = StufoodApp.instance.repository
 ) : ViewModel() {
     private val _isLoggedIn = MutableStateFlow(repo.isLoggedIn())
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
     
     // Observe the repository's student name state directly
     val studentName: StateFlow<String?> = repo.studentName
-
-    val animationType: StateFlow<String> = prefs.animationType
+    
+    // FIXED: Convert Flow to StateFlow with a default value
+    val animationType: StateFlow<String> = StufoodApp.instance.userPrefs.animationType.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        "bounce"
+    )
 
     fun refresh() {
         _isLoggedIn.value = repo.isLoggedIn()
