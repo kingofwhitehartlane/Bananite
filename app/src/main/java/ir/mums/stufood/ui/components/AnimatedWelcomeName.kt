@@ -3,6 +3,8 @@ package ir.mums.stufood.ui.components
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,7 +40,7 @@ private const val KSHD_WIDE = 200f   // ending state: max elongation
 // Original styling constants for the "خوش آمدید" label
 private const val LABEL_HGHT = 500f
 private const val LABEL_KSHD = 100f
-private const val LABEL_SIZE_SP = 18f
+private const val LABEL_SIZE_SP = 24f
 
 @OptIn(ExperimentalTextApi::class)
 internal fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
@@ -73,19 +75,21 @@ fun WelcomeLabel(modifier: Modifier = Modifier) {
 /**
  * Just the animated name, right-aligned. 
  */
+// Update WelcomeBanner signature to accept animationType:
 @Composable
-fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
+fun WelcomeBanner(studentName: String?, animationType: String, modifier: Modifier = Modifier) {
     if (studentName.isNullOrBlank()) return
     Box(
         modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.CenterEnd // Pushes name to the far right
     ) {
-        AnimatedAlefName(name = studentName)
+        AnimatedAlefName(name = studentName, animationType = animationType)
     }
 }
 
+// Update AnimatedAlefName to use the animationType:
 @Composable
-private fun AnimatedAlefName(name: String) {
+private fun AnimatedAlefName(name: String, animationType: String) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val hght = remember { Animatable(HGHT_TALL) }
@@ -124,31 +128,45 @@ private fun AnimatedAlefName(name: String) {
                     hi = mid
                 }
             }
-            
-            ready = true
-            delay(50) // Snappy start
-            
-            // FASTER & MORE DRAMATIC: Bouncy spring
-            kshd.animateTo(
-                best, 
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
-                )
-            )
-        }
 
-        LaunchedEffect(ready) {
-            if (ready) {
-                delay(50)
-                // FASTER & MORE DRAMATIC: Bouncy spring for the height drop
-                hght.animateTo(
-                    HGHT_SHORT, 
+            ready = true
+            delay(100) // let the tall & narrow starting state register before it moves
+            
+            // TOGGLE LOGIC HERE:
+            if (animationType == "smooth") {
+                kshd.animateTo(
+                    best,
+                    animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                )
+            } else {
+                kshd.animateTo(
+                    best,
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessLow
                     )
                 )
+            }
+        }
+
+        LaunchedEffect(ready) {
+            if (ready) {
+                delay(150)
+                // TOGGLE LOGIC HERE:
+                if (animationType == "smooth") {
+                    hght.animateTo(
+                        HGHT_SHORT,
+                        animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing)
+                    )
+                } else {
+                    hght.animateTo(
+                        HGHT_SHORT,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    )
+                }
             }
         }
 

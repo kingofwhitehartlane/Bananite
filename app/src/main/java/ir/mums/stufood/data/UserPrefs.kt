@@ -30,6 +30,8 @@ class UserPrefs(private val context: Context) {
     val password: Flow<String> = context.userDataStore.data.map { it[PASSWORD] ?: "" }
     val rememberMe: Flow<Boolean> = context.userDataStore.data.map { it[REMEMBER] ?: false }
 
+    val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "bounce" }
+
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->
             if (remember) {
@@ -46,5 +48,11 @@ class UserPrefs(private val context: Context) {
 
     suspend fun clear() {
         context.userDataStore.edit { it.clear() }
+    }
+
+    suspend fun saveAnimationType(type: String) {
+        context.userDataStore.edit { prefs ->
+            prefs[ANIMATION_TYPE] = type
+        }
     }
 }

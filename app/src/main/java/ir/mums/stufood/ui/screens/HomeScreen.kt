@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Warning
@@ -49,6 +51,9 @@ fun HomeScreen(
     onNavigate: (Screen) -> Unit,
     vm: HomeViewModel = viewModel()
 ) {
+
+    val animationType by vm.animationType.collectAsState()
+
     val context = LocalContext.current
     val studentName by vm.studentName.collectAsState()
     LaunchedEffect(Unit) { vm.loadStudentName() }
@@ -64,7 +69,8 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("StuFood")
-                        WelcomeLabel() // Uses the exact same custom Alef font styling
+                        Spacer(modifier = Modifier.weight(1f))
+                        WelcomeLabel(modifier = Modifier.padding(end = 16.dp)) // Uses the exact same custom Alef font styling
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -86,7 +92,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(0.dp) 
             ) {
-                WelcomeBanner(studentName = studentName)
+                WelcomeBanner(studentName = studentName, animationType = animationType)
                 Text(
                     text = "What would you like to do?",
                     style = MaterialTheme.typography.titleMedium,
@@ -99,6 +105,12 @@ fun HomeScreen(
                 subtitle = "Pick meals for next week",
                 icon = Icons.Default.CalendarMonth,
                 onClick = { onNavigate(Screen.Reservation) }
+            )
+            HomeMenuCard(
+                title = "Settings",
+                subtitle = "App preferences and animations",
+                icon = Icons.Default.Settings,
+                onClick = { onNavigate(Screen.Settings) }
             )
             HomeMenuCard(
                 title = "Logout",

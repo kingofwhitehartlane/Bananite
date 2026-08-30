@@ -18,6 +18,7 @@ import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.screens.HomeScreen
 import ir.mums.stufood.ui.screens.LoginScreen
 import ir.mums.stufood.ui.screens.ReservationScreen
+import ir.mums.stufood.ui.screens.SettingsScreen
 import ir.mums.stufood.ui.theme.StuFoodTheme
 
 /**
@@ -75,6 +76,9 @@ private fun App() {
                 onNavigate = { target -> currentScreen = target }
             )
             Screen.Reservation -> ReservationScreen(
+                onBack = { currentScreen = Screen.Home }
+            )
+            Screen.Settings -> SettingsScreen(
                 onBack = { currentScreen = Screen.Home }
             )
             // Logout is handled inside HomeScreen's menu card; this branch is just a
