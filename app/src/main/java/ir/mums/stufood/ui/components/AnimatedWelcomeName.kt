@@ -1,11 +1,12 @@
 package ir.mums.stufood.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding // <-- ADDED: Fixes the "Unresolved reference 'padding'" error
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,7 +86,6 @@ fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
 private fun AnimatedAlefName(name: String) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
-
     val hght = remember { Animatable(HGHT_TALL) }
     val kshd = remember { Animatable(KSHD_NARROW) }
     var fontSizeSp by remember { mutableFloatStateOf(48f) }
@@ -125,6 +125,7 @@ private fun AnimatedAlefName(name: String) {
 
             ready = true
             delay(150) // let the tall & narrow starting state register before it moves
+            // Faster (600ms) with FastOutSlowInEasing for a smooth slow-down at the end
             kshd.animateTo(best, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
         }
 
