@@ -1,5 +1,6 @@
 package ir.mums.stufood.ui.screens
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,7 +52,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ir.mums.stufood.ui.components.MultiScriptText
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,131 +92,130 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // ==========================================
-            // 1. THEME MODE (System / Light / Dark)
+            // THEME & COLOR PARTITION
             // ==========================================
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.BrightnessAuto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(text = "Theme Mode", style = MaterialTheme.typography.titleMedium)
-                }
-                
-                val themeOptions = listOf(
-                    "system" to Icons.Default.BrightnessAuto,
-                    "light" to Icons.Default.LightMode,
-                    "dark" to Icons.Default.DarkMode
-                )
-                val selectedIndex = themeOptions.indexOfFirst { it.first == themeMode }.coerceAtLeast(0)
-                
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                    themeOptions.forEachIndexed { index, (value, icon) ->
-                        SegmentedButton(
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
-                            onClick = { vm.setThemeMode(value) },
-                            selected = selectedIndex == index,
-                            icon = { Icon(icon, contentDescription = value) },
-                            label = {}
-                        )
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(text = "Theme & Color", style = MaterialTheme.typography.titleLarge)
+
+                // 1. THEME MODE (Icons Only)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.BrightnessAuto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(text = "Theme Mode", style = MaterialTheme.typography.titleMedium)
                     }
-                }
-                Text(
-                    text = "Choose between System default, Light, or Dark mode.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // ==========================================
-            // 2. PURE BLACK (OLED)
-            // ==========================================
-            val isDarkMode = themeMode == "dark" || (themeMode == "system" && androidx.compose.foundation.isSystemInDarkTheme())
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.InvertColors, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Column {
-                        Text(text = "Pure Black (OLED)", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            text = "Use true black for dark mode backgrounds.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                Switch(
-                    checked = pureBlack,
-                    onCheckedChange = { vm.setPureBlack(it) },
-                    enabled = isDarkMode
-                )
-            }
-            if (!isDarkMode) {
-                Text(
-                    text = "Pure Black only applies when Dark mode is active.",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-
-            // ==========================================
-            // 3. COLOR SCHEME (Material You vs Custom)
-            // ==========================================
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text(text = "Color Palette", style = MaterialTheme.typography.titleMedium)
-                }
-                
-                var expanded by remember { mutableStateOf(false) }
-                val colorOptions = listOf(
-                    "Material You (Dynamic)" to "dynamic",
-                    "Expressive (Custom)" to "custom"
-                )
-                val currentLabel = colorOptions.firstOrNull { it.second == colorScheme }?.first ?: colorOptions[0].first
-
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded }
-                ) {
-                    OutlinedTextField(
-                        value = currentLabel,
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Palette Style") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    
+                    val themeOptions = listOf(
+                        "system" to Icons.Default.BrightnessAuto, // Sun with 'A'
+                        "light" to Icons.Default.LightMode,       // Sun
+                        "dark" to Icons.Default.DarkMode          // Moon
                     )
-                    ExposedDropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = { expanded = false }
-                    ) {
-                        colorOptions.forEach { (label, value) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = {
-                                    vm.setColorScheme(value)
-                                    expanded = false
-                                }
+                    val selectedIndex = themeOptions.indexOfFirst { it.first == themeMode }.coerceAtLeast(0)
+                    
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        themeOptions.forEachIndexed { index, (value, icon) ->
+                            SegmentedButton(
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
+                                onClick = { vm.setThemeMode(value) },
+                                selected = selectedIndex == index,
+                                icon = { Icon(icon, contentDescription = value) },
+                                label = {} // Satisfies compiler requirement while showing NO text
                             )
                         }
                     }
+                    Text(
+                        text = "Choose between System default, Light, or Dark mode.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    text = "Material You uses dynamic wallpaper colors (Android 12+). Expressive uses the app's custom warm palette.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+
+                // 2. PURE BLACK (OLED)
+                val isDarkMode = themeMode == "dark" || (themeMode == "system" && isSystemInDarkTheme())
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.InvertColors, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Column {
+                            Text(text = "Pure Black (OLED)", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text = "Use true black for dark mode backgrounds.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Switch(
+                        checked = pureBlack,
+                        onCheckedChange = { vm.setPureBlack(it) },
+                        enabled = isDarkMode
+                    )
+                }
+                if (!isDarkMode) {
+                    Text(
+                        text = "Pure Black only applies when Dark mode is active.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
+                // 3. COLOR SCHEME
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text(text = "Color Palette", style = MaterialTheme.typography.titleMedium)
+                    }
+                    
+                    var expanded by remember { mutableStateOf(false) }
+                    val colorOptions = listOf(
+                        "Material You (Dynamic)" to "dynamic",
+                        "Banana Yellow (App Default)" to "custom"
+                    )
+                    val currentLabel = colorOptions.firstOrNull { it.second == colorScheme }?.first ?: colorOptions[0].first
+
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded }
+                    ) {
+                        OutlinedTextField(
+                            value = currentLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Palette Style") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor()
+                        )
+                        ExposedDropdownMenu(
+                            expanded = expanded,
+                            onDismissRequest = { expanded = false }
+                        ) {
+                            colorOptions.forEach { (label, value) ->
+                                DropdownMenuItem(
+                                    text = { Text(label) },
+                                    onClick = {
+                                        vm.setColorScheme(value)
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Material You uses dynamic wallpaper colors (Android 12+). Banana Yellow is the app's default vibrant theme.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
 
             // ==========================================
-            // 4. ANIMATION SETTINGS (Existing)
+            // ANIMATIONS PARTITION (Existing)
             // ==========================================
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(text = "Animations", style = MaterialTheme.typography.titleLarge)
                 
-                // Welcome Name Animation
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(Icons.Default.Animation, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
@@ -236,7 +235,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // Bounciness
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Bounciness", style = MaterialTheme.typography.titleMedium)
                     val bounceLevels = listOf("low", "medium", "high")
@@ -258,7 +256,6 @@ fun SettingsScreen(
                     }
                 }
 
-                // Credit Transition
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(text = "Credit Balance Transition", style = MaterialTheme.typography.titleMedium)
                     val creditOptions = listOf("Fade" to "fade", "Morph" to "morph")
@@ -277,7 +274,7 @@ fun SettingsScreen(
             }
 
             // ==========================================
-            // 5. RESET TO DEFAULTS
+            // RESET TO DEFAULTS
             // ==========================================
             Spacer(Modifier.height(8.dp))
             Button(
