@@ -59,8 +59,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.components.LoadingDots
-import ir.mums.stufood.ui.theme.SquircleShape
-import ir.mums.stufood.ui.theme.StadiumShape
 
 /**
  * Login screen.
@@ -101,12 +99,6 @@ fun LoginScreen(
         errorMessage?.let { snackbarHost.showSnackbar(it) }
     }
 
-    val useSquircle by ir.mums.stufood.StufoodApp.instance.userPrefs.useSquircle.collectAsState(initial = true)
-    val captchaShape = remember(useSquircle) { 
-        if (useSquircle) ir.mums.stufood.ui.theme.SquircleShape(10.dp) 
-        else androidx.compose.foundation.shape.RoundedCornerShape(10.dp) 
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -135,7 +127,7 @@ fun LoginScreen(
                     .padding(bottom = 60.dp)
                     .fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = MaterialTheme.shapes.large
+                shape = RoundedCornerShape(20.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -155,7 +147,6 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = username,
                         onValueChange = vm::updateUsername,
-                        shape = MaterialTheme.shapes.medium,
                         label = { Text("Student ID") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -166,7 +157,6 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = vm::updatePassword,
-                        shape = MaterialTheme.shapes.medium,
                         label = { Text("Password") },
                         singleLine = true,
                         visualTransformation = if (showPass) VisualTransformation.None
@@ -195,9 +185,9 @@ fun LoginScreen(
                                 .padding(top = 8.dp)
                                 .height(58.dp) // ~48dp -> ~10% bigger, then a bit more for the border
                                 .width(116.dp) // ~96dp -> ~10% bigger, then a bit more for the border
-                                .clip(captchaShape)
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, captchaShape), // <-- Border matches clip
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp)),
                             contentAlignment = Alignment.Center
                         ) {
                             when (state) {
@@ -246,7 +236,6 @@ fun LoginScreen(
                             onValueChange = { if (it.length <= 4) vm.updateCaptcha(it) },
                             label = { Text("Captcha") },
                             singleLine = true,
-                            shape = MaterialTheme.shapes.medium,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
                             // Fills whatever's left in the row — matches the full
                             // width of the fields above instead of looking cramped.
@@ -280,7 +269,6 @@ fun LoginScreen(
                         onClick = { vm.submit(onLoggedIn) },
                         enabled = state !is LoginUiState.Submitting &&
                                   state !is LoginUiState.Loading,
-                        shape = StadiumShape,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)

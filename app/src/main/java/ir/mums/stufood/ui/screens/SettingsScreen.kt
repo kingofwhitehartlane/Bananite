@@ -21,8 +21,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.Card
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -47,7 +45,6 @@ class SettingsViewModel(
     val animationType = prefs.animationType
     val bounciness = prefs.bounciness
     val creditTransitionType = prefs.creditTransitionType
-    val useSquircle = prefs.useSquircle
 
     fun setAnimationType(type: String) {
         viewModelScope.launch {
@@ -62,10 +59,6 @@ class SettingsViewModel(
     fun setCreditTransitionType(type: String) {
         viewModelScope.launch { prefs.saveCreditTransitionType(type) }
     }
-
-    fun setUseSquircle(use: Boolean) {
-        viewModelScope.launch { prefs.saveUseSquircle(use) }
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -76,7 +69,6 @@ fun SettingsScreen(
 ) {
     val animationType by vm.animationType.collectAsState(initial = "smooth")
     val bounciness by vm.bounciness.collectAsState(initial = "medium")
-    val useSquircle by vm.useSquircle.collectAsState(initial = true)
 
     Scaffold(
         topBar = {
@@ -234,31 +226,6 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
-                        Text("Squircle Shapes", style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Use smooth squircle corners instead of standard rounded corners.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = useSquircle,
-                        onCheckedChange = { vm.setUseSquircle(it) }
-                    )
-                }
             }
         }
     }
