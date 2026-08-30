@@ -59,17 +59,6 @@ class SquircleShape(private val radius: Dp) : Shape {
 }
 
 /**
- * Helper object to easily access standard squircle sizes across the app.
- */
-object SquircleDefaults {
-    val extraSmall: Shape = SquircleShape(12.dp)
-    val small: Shape = SquircleShape(16.dp)
-    val medium: Shape = SquircleShape(24.dp)
-    val large: Shape = SquircleShape(32.dp)
-    val extraLarge: Shape = SquircleShape(48.dp)
-}
-
-/**
  * StadiumBorder (Pill Shape) equivalent.
  */
 val StadiumShape = RoundedCornerShape(percent = 50)

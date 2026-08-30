@@ -27,6 +27,7 @@ class UserPrefs(private val context: Context) {
         private val ANIMATION_TYPE = stringPreferencesKey("animation_type")
         private val BOUNCINESS = stringPreferencesKey("bounciness")
         private val CREDIT_TRANSITION = stringPreferencesKey("credit_transition")
+        private val USE_SQUIRCLE = booleanPreferencesKey("use_squircle")
     }
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
@@ -35,6 +36,7 @@ class UserPrefs(private val context: Context) {
     val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "smooth"}
     val bounciness: Flow<String> = context.userDataStore.data.map { it[BOUNCINESS] ?: "medium" }
     val creditTransitionType: Flow<String> = context.userDataStore.data.map { it[CREDIT_TRANSITION] ?: "fade" }
+    val useSquircle: Flow<Boolean> = context.userDataStore.data.map { it[USE_SQUIRCLE] ?: true }
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->
@@ -66,5 +68,11 @@ class UserPrefs(private val context: Context) {
 
     suspend fun saveCreditTransitionType(type: String) {
         context.userDataStore.edit { prefs -> prefs[CREDIT_TRANSITION] = type }
+    }
+
+    suspend fun saveUseSquircle(use: Boolean) {
+        context.userDataStore.edit { prefs ->
+            prefs[USE_SQUIRCLE] = use
+        }
     }
 }

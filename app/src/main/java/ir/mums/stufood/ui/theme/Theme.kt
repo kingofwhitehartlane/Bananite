@@ -9,6 +9,9 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
@@ -83,6 +86,28 @@ fun StuFoodTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
+    // Read the squircle preference
+    val useSquircle by StufoodApp.instance.userPrefs.useSquircle.collectAsState(initial = true)
+
+    // Define shapes based on the toggle
+    val shapes = if (useSquircle) {
+        Shapes(
+            extraSmall = SquircleShape(12.dp),
+            small = SquircleShape(16.dp),
+            medium = SquircleShape(24.dp),
+            large = SquircleShape(32.dp),
+            extraLarge = SquircleShape(48.dp)
+        )
+    } else {
+        Shapes(
+            extraSmall = RoundedCornerShape(12.dp),
+            small = RoundedCornerShape(16.dp),
+            medium = RoundedCornerShape(24.dp),
+            large = RoundedCornerShape(32.dp),
+            extraLarge = RoundedCornerShape(48.dp)
+        )
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
@@ -105,6 +130,7 @@ fun StuFoodTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
+        shapes = shapes,
         content = content
     )
 }
