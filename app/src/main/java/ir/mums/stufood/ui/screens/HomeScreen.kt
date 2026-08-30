@@ -66,17 +66,25 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Welcome block: banner + prompt grouped with a small gap, so the whole header
+            // (top bar -> خوش آمدید -> name -> prompt) reads as one compact unit.
 
-            WelcomeBanner(studentName = studentName)
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
 
-            Text(
-                text = "What would you like to do?",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+                WelcomeBanner(studentName = studentName)
+
+                Text(
+                    text = "What would you like to do?",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             HomeMenuCard(
                 title = "Reserve Food",

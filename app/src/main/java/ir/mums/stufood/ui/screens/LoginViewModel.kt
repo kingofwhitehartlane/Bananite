@@ -142,14 +142,19 @@ class LoginViewModel(
                     is StufoodRepository.LoginResult.Success -> {
                         _errorMessage.value = null
                         _captcha.value = ""
+
+                        // Pre-fetch student name so the Home screen welcome animation can start immediately.
+                        // If this fails, navigation proceeds and HomeViewModel falls back to fetching it.
+                        val studentName = runCatching { repo.fetchStudentFullName() }
+                            .onFailure { t -> Log.e(TAG, "Failed to pre-fetch student name after login", t) }
+                            .getOrNull()
+
+                        HomeViewModel.preloadedStudentName = studentName
                         _uiState.value = LoginUiState.Success
                         onLoggedIn()
                     }
                     is StufoodRepository.LoginResult.Failure -> {
-                        // repo.login() already extracts just the human-readable
-                        // server message (never raw JSON) — safe to show as-is.
                         _errorMessage.value = result.message
-                        // Refresh the captcha — the old one is single-use.
                         loadLoginPage()
                     }
                 }

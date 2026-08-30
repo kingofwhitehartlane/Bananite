@@ -5,7 +5,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,24 +50,30 @@ private fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
     )
 )
 
-/** "خوش آمدید" + the animated name, meant to sit at the very top of the Home screen. */
+/**
+ * "خوش آمدید" + the animated name, meant to sit at the very top of the Home screen.
+ *
+ * Right-aligned on purpose: the kashida animation stretches the name's width, and
+ * anchoring it at the right edge makes that growth extend to the LEFT instead of
+ * pushing out on both sides.
+ */
 @Composable
 fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
     if (studentName.isNullOrBlank()) return // nothing to show until the name loads
 
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(top = 4.dp, bottom = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = modifier.fillMaxWidth()
+        horizontalAlignment = Alignment.End
     ) {
         androidx.compose.material3.Text(
             text = "خوش آمدید",
             style = TextStyle(
                 fontFamily = alefFamily(LABEL_HGHT, LABEL_KSHD),
                 fontSize = LABEL_SIZE_SP.sp,
-                textAlign = TextAlign.Center
-            )
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                textAlign = TextAlign.Right
+            ),
+            modifier = Modifier.fillMaxWidth()
         )
         AnimatedAlefName(name = studentName)
     }
@@ -133,7 +139,8 @@ private fun AnimatedAlefName(name: String) {
                 style = TextStyle(
                     fontFamily = alefFamily(hght.value, kshd.value),
                     fontSize = fontSizeSp.sp,
-                    textAlign = TextAlign.Center
+                    color = MaterialTheme.colorScheme.primary,
+                    textAlign = TextAlign.Right
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
