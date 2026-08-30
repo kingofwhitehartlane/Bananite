@@ -2,6 +2,7 @@ package ir.mums.stufood.ui.components
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,10 +60,11 @@ private fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
  */
 @Composable
 fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
-    if (studentName.isNullOrBlank()) return // nothing to show until the name loads
-
+    if (studentName.isNullOrBlank()) return
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = (-12).dp), // Pull the whole block up to eliminate top free space
         horizontalAlignment = Alignment.End
     ) {
         androidx.compose.material3.Text(
@@ -70,7 +72,7 @@ fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
             style = TextStyle(
                 fontFamily = alefFamily(LABEL_HGHT, LABEL_KSHD),
                 fontSize = LABEL_SIZE_SP.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.72f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant, // Reliable faded Material color (no alpha issues)
                 textAlign = TextAlign.Right
             ),
             modifier = Modifier.fillMaxWidth()
@@ -123,13 +125,13 @@ private fun AnimatedAlefName(name: String) {
 
             ready = true
             delay(150) // let the tall & narrow starting state register before it moves
-            kshd.animateTo(best, animationSpec = tween(900))
+            kshd.animateTo(best, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
         }
 
         LaunchedEffect(ready) {
             if (ready) {
                 delay(150)
-                hght.animateTo(HGHT_SHORT, animationSpec = tween(900))
+                hght.animateTo(HGHT_SHORT, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
             }
         }
 

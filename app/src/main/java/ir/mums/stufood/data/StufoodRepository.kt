@@ -12,6 +12,8 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Talks to stufood.mums.ac.ir.
@@ -78,12 +80,20 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     private val reservationUrl = "$baseUrl/WebForm/StudentReserveFood.aspx"
     private val mainStudentUrl = "$baseUrl/WebForm/Student/Form_MainStudent.aspx"
 
+    // In-memory cache for the student's full name
+    private val _studentName = MutableStateFlow<String?>(null)
+    val studentName: StateFlow<String?> = _studentName
+
     /** Full name shown on the student's main page (#body_lblFullname). Null if not logged in / not found. */
     suspend fun fetchStudentFullName(): String? = withClient {
         val response = get(mainStudentUrl)
         val html = response.use { it.body?.string().orEmpty() }
         val doc = Jsoup.parse(html, mainStudentUrl)
-        doc.getElementById("body_lblFullname")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+        val name = doc.getElementById("body_lblFullname")?.text()?.trim()?.takeIf { it.isNotEmpty() }
+        if (name != null) {
+            _studentName.value = name // Cache it in the repository
+        }
+        name
     }
 
     private object UserAgentInterceptor : Interceptor {
@@ -209,7 +219,10 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
     fun isLoggedIn(): Boolean = cookieJar.hasSessionFor("stufood.mums.ac.ir")
 
-    fun clearSession() = cookieJar.clear()
+    fun clearSession() {
+        cookieJar.clear()
+        _studentName.value = null // Clear the cached name on logout
+    }
 
     // ----------------------------------------------------------------------
     // RESERVATION — page load & navigation

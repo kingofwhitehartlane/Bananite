@@ -66,15 +66,13 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp), // Changed top from 4.dp to 0.dp
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Welcome block: banner + prompt grouped with a small gap, so the whole header
-            // (top bar -> خوش آمدید -> name -> prompt) reads as one compact unit.
-
+            // Welcome block: banner + prompt grouped with a minimal gap
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp) // Reduced from 6.dp to bring prompt closer to the name
             ) {
 
                 WelcomeBanner(studentName = studentName)
