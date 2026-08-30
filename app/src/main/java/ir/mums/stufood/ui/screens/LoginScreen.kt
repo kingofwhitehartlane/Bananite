@@ -254,7 +254,7 @@ fun LoginScreen(
                                 onValueChange = vm::updateRememberMe,
                                 role = Role.Checkbox
                             )
-                            .padding(horizontal = 20.dp) // Adds horizontal spacing only (no vertical extra)
+                            .padding(horizontal = 10.dp) // Adds horizontal spacing only (no vertical extra)
                     ) {
                         Checkbox(
                             checked = rememberMe,

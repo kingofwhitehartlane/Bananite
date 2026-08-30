@@ -12,20 +12,22 @@ import ir.mums.stufood.R
 // Ganjnameh only ships a single Regular weight, so it's reused across every
 // weight bucket below — the Latin side still gets properly bolded, but Persian
 // text will render at the same visual weight regardless of which style is used
-val AppFontFamily = FontFamily(
-    // Latin fonts (Primary)
+val MontserratFamily = FontFamily(
     Font(R.font.montserrat_regular, FontWeight.Normal),
     Font(R.font.montserrat_medium, FontWeight.Medium),
     Font(R.font.montserrat_semibold, FontWeight.SemiBold),
-    Font(R.font.montserrat_bold, FontWeight.Bold),
-    
-    // Persian fallback (Ganjnameh only has Regular, so we reuse it for all weights)
-    // Compose will automatically use these if Montserrat lacks the Persian glyphs
+    Font(R.font.montserrat_bold, FontWeight.Bold)
+)
+
+val GanjnamehFamily = FontFamily(
     Font(R.font.ganjnameh_regular, FontWeight.Normal),
     Font(R.font.ganjnameh_regular, FontWeight.Medium),
     Font(R.font.ganjnameh_regular, FontWeight.SemiBold),
     Font(R.font.ganjnameh_regular, FontWeight.Bold)
 )
+
+// Keep this as the "default" for pure-Latin UI labels
+val AppFontFamily = MontserratFamily
 
 // Default Material 3 type scale. Customized slightly with bolder weights for headings.
 val Typography = Typography(

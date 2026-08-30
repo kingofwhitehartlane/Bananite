@@ -266,13 +266,13 @@ fun ReservationScreen(
     pendingCancel?.let { pending ->
         AlertDialog(
             onDismissRequest = vm::dismissCancelRequest,
-            title = { Text("\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648") }, // "کنسل رزرو"
-            text = { Text("\u0622\u06cc\u0627 \u0627\u0632 \u06a9\u0646\u0633\u0644 \u06a9\u0631\u062f\u0646 \u0642\u0630\u0627 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f") },
+            title = { MultiScriptText("\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648") }, // "کنسل رزرو"
+            text = { MultiScriptText("\u0622\u06cc\u0627 \u0627\u0632 \u06a9\u0646\u0633\u0644 \u06a9\u0631\u062f\u0646 \u0642\u0630\u0627 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f") },
             confirmButton = {
-                TextButton(onClick = vm::confirmCancel) { Text("\u0628\u0644\u0647") } // بله
+                TextButton(onClick = vm::confirmCancel) { MultiScriptText("\u0628\u0644\u0647") } // بله
             },
             dismissButton = {
-                TextButton(onClick = vm::dismissCancelRequest) { Text("\u062e\u06cc\u0631") } // خیر
+                TextButton(onClick = vm::dismissCancelRequest) { MultiScriptText("\u062e\u06cc\u0631") } // خیر
             }
         )
     }
