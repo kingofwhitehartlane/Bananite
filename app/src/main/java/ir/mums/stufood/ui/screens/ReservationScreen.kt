@@ -133,11 +133,11 @@ private fun bounceParamsFor(level: String): ReservationBounceParams = when (leve
     )
     "high" -> ReservationBounceParams(
         dayCardDamping = Spring.DampingRatioHighBouncy,
-        dayCardStiffness = Spring.StiffnessVeryLow,
-        contentDamping = Spring.DampingRatioMediumBouncy,
+        dayCardStiffness = Spring.StiffnessMediumLow,
+        contentDamping = Spring.DampingRatioHighBouncy,
         contentStiffness = Spring.StiffnessLow,
         settleDamping = Spring.DampingRatioLowBouncy,
-        settleStiffness = Spring.StiffnessMediumLow,
+        settleStiffness = Spring.StiffnessMedium,
         scaleInInitial = 0.90f
     )
     else -> ReservationBounceParams( // "medium" — unchanged from today

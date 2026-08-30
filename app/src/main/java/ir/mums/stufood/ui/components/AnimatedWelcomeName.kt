@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.sp
 import ir.mums.stufood.R
 import kotlinx.coroutines.delay
 
-private const val HGHT_TALL = 900f   // starting state: tallest
+private const val HGHT_TALL = 750f   // starting state: tallest
 private const val HGHT_SHORT = 500f  // ending state: shortest
 private const val KSHD_NARROW = 100f // starting state: no elongation
 private const val KSHD_WIDE = 200f   // ending state: max elongation
@@ -101,31 +101,41 @@ private fun AnimatedAlefName(name: String, animationType: String, bounciness: St
     var fontSizeSp by remember { mutableFloatStateOf(MIN_FONT_SIZE) }
     var ready by remember { mutableStateOf(false) }
 
+    // The real spring used for both hght and kshd. "low" bounciness genuinely
+    // reduces the physical overshoot (not just the safety-margin estimate below) —
+    // that's what makes the two stay in sync and stops the mid-animation overflow.
+    val nameDampingRatio = if (bounciness == "low") Spring.DampingRatioLowBouncy
+                           else Spring.DampingRatioMediumBouncy
+
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val maxWidthPx = with(density) { maxWidth.toPx() }
         val marginPx = with(density) { 12.dp.toPx() } // how much narrower than the screen the final state should be
         val boundPx = maxWidthPx - marginPx
 
-        LaunchedEffect(name, maxWidthPx, animationType) {
-            // Bounce offshoot consideration: Spring.DampingRatioMediumBouncy can overshoot by ~15%
-            val bounceOvershootRatio = if (bounciness == "low") 0.07f else 0.15f
-            
+        LaunchedEffect(name, maxWidthPx, animationType, bounciness) {
+            // This must always be >= the real overshoot the spring below actually
+            // produces. "low" uses DampingRatioLowBouncy (overshoots less), so its
+            // ratio can shrink too — but it's kept conservative on purpose (fixed
+            // margin rather than a precise physics calc) so a slight mismatch
+            // errs toward "font a bit smaller," never toward "wraps to 2 lines."
+            val bounceOvershootRatio = when {
+                animationType == "smooth" -> 0f
+                bounciness == "low" -> 0.08f
+                else -> 0.15f
+            }
+
             val peakKshd: (Float) -> Float = { kshdVal ->
-                if (animationType != "smooth") {
-                    // Overshoots above the target kshd
+                if (bounceOvershootRatio > 0f) {
                     kshdVal + (kshdVal - KSHD_NARROW) * bounceOvershootRatio
                 } else {
                     kshdVal
                 }
             }
-            
-            val peakHght = if (animationType != "smooth") {
-                // HGHT goes from 900 to 500 (delta = -400). 
-                // Overshoots below 500 by 15% of 400 = 60. Target peak = 440f.
-                440f
-            } else {
-                HGHT_SHORT
-            }
+
+            // Derived from the ratio instead of a hardcoded 440f, so it automatically
+            // stays consistent with whatever bounceOvershootRatio is above — this is
+            // what was silently wrong before (440f only matched the 0.15 case).
+            val peakHght = HGHT_SHORT - (HGHT_TALL - HGHT_SHORT) * bounceOvershootRatio
 
             fun widthAt(sizeSp: Float, kshdVal: Float, hghtVal: Float): Float {
                 val style = TextStyle(fontFamily = alefFamily(hghtVal, kshdVal), fontSize = sizeSp.sp)
@@ -204,7 +214,7 @@ private fun AnimatedAlefName(name: String, animationType: String, bounciness: St
             if (animationType == "smooth") {
                 kshd.animateTo(finalMaxKshd, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
             } else {
-                kshd.animateTo(finalMaxKshd, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+                kshd.animateTo(finalMaxKshd, animationSpec = spring(dampingRatio = nameDampingRatio, stiffness = Spring.StiffnessLow))
             }
         }
 
@@ -215,7 +225,7 @@ private fun AnimatedAlefName(name: String, animationType: String, bounciness: St
                 if (animationType == "smooth") {
                     hght.animateTo(HGHT_SHORT, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
                 } else {
-                    hght.animateTo(HGHT_SHORT, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+                    hght.animateTo(HGHT_SHORT, animationSpec = spring(dampingRatio = nameDampingRatio, stiffness = Spring.StiffnessLow))
                 }
             }
         }
@@ -229,7 +239,9 @@ private fun AnimatedAlefName(name: String, animationType: String, bounciness: St
                     color = MaterialTheme.colorScheme.primary,
                     textAlign = TextAlign.Right
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                maxLines = 1,              // NEW — hard backstop so even a future mismatch clips instead of wrapping
+                softWrap = false           // NEW
             )
         }
     }
