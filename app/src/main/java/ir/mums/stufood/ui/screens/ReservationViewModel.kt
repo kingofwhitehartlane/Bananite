@@ -8,6 +8,8 @@ import ir.mums.stufood.data.StufoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 private const val TAG = "ReservationViewModel"
 
@@ -40,6 +42,12 @@ private const val FRIENDLY_LOAD_ERROR = "Couldn't load the reservation page. Pul
 class ReservationViewModel(
     private val repo: StufoodRepository = StufoodApp.instance.repository
 ) : ViewModel() {
+    
+    val bounciness: StateFlow<String> = StufoodApp.instance.userPrefs.bounciness.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        "medium"
+    )
 
     private val _uiState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val uiState: StateFlow<ReservationUiState> = _uiState

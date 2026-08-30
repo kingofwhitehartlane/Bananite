@@ -53,6 +53,7 @@ fun HomeScreen(
 ) {
 
     val animationType by vm.animationType.collectAsState()
+    val bounciness by vm.bounciness.collectAsState()
 
     val context = LocalContext.current
     val studentName by vm.studentName.collectAsState()
@@ -92,7 +93,7 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(0.dp) 
             ) {
-                WelcomeBanner(studentName = studentName, animationType = animationType)
+                WelcomeBanner(studentName = studentName, animationType = animationType, bounciness = bounciness)
                 Text(
                     text = "What would you like to do?",
                     style = MaterialTheme.typography.titleMedium,

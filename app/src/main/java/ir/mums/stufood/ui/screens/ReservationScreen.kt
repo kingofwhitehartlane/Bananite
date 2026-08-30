@@ -107,6 +107,51 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
+ * Bounciness levels for the reservation screen's springs. "medium" is byte-for-byte
+ * what every spring on this screen used before this setting existed — it's the
+ * default and nothing changes for users who don't touch the slider.
+ */
+private data class ReservationBounceParams(
+    val dayCardDamping: Float,
+    val dayCardStiffness: Float,
+    val contentDamping: Float,
+    val contentStiffness: Float,
+    val settleDamping: Float,
+    val settleStiffness: Float,
+    val scaleInInitial: Float
+)
+
+private fun bounceParamsFor(level: String): ReservationBounceParams = when (level) {
+    "low" -> ReservationBounceParams(
+        dayCardDamping = 0.9f,
+        dayCardStiffness = Spring.StiffnessMediumLow,
+        contentDamping = Spring.DampingRatioNoBouncy,
+        contentStiffness = Spring.StiffnessMedium,
+        settleDamping = Spring.DampingRatioNoBouncy,
+        settleStiffness = Spring.StiffnessMedium,
+        scaleInInitial = 0.98f
+    )
+    "high" -> ReservationBounceParams(
+        dayCardDamping = Spring.DampingRatioHighBouncy,
+        dayCardStiffness = Spring.StiffnessVeryLow,
+        contentDamping = Spring.DampingRatioMediumBouncy,
+        contentStiffness = Spring.StiffnessLow,
+        settleDamping = Spring.DampingRatioLowBouncy,
+        settleStiffness = Spring.StiffnessMediumLow,
+        scaleInInitial = 0.90f
+    )
+    else -> ReservationBounceParams( // "medium" — unchanged from today
+        dayCardDamping = Spring.DampingRatioMediumBouncy,
+        dayCardStiffness = Spring.StiffnessLow,
+        contentDamping = Spring.DampingRatioLowBouncy,
+        contentStiffness = Spring.StiffnessMediumLow,
+        settleDamping = Spring.DampingRatioNoBouncy,
+        settleStiffness = Spring.StiffnessMediumLow,
+        scaleInInitial = 0.95f
+    )
+}
+
+/**
  * Reservation screen.
  *
  * Days, their state, and the week-nav buttons are all read fresh from whatever the
@@ -174,6 +219,8 @@ fun ReservationScreen(
     val pendingCancelExchange by vm.pendingCancelExchange.collectAsState()
     val exchangeDialog by vm.exchangeDialog.collectAsState()
     val busyDayIndex by vm.busyDayIndex.collectAsState()
+    val bounciness by vm.bounciness.collectAsState()
+    val bounceParams = remember(bounciness) { bounceParamsFor(bounciness) }
 
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }
@@ -206,8 +253,8 @@ fun ReservationScreen(
                     initialValue = collapsedPx,
                     targetValue = target,
                     animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioNoBouncy,
-                        stiffness = Spring.StiffnessMediumLow
+                        dampingRatio = bounceParams.settleDamping,
+                        stiffness = bounceParams.settleStiffness
                     )
                 ) { value, _ -> collapsedPx = value }
             }
@@ -419,7 +466,8 @@ fun ReservationScreen(
                             dimmed = dimmed,
                             busyDayIndex = if (dimmed) null else busyDayIndex,
                             status = status,
-                            vm = vm
+                            vm = vm,
+                            bounceParams = bounceParams
                         )
                     }
                 }
@@ -434,7 +482,8 @@ private fun ReservationContent(
     dimmed: Boolean,
     busyDayIndex: Int?,
     status: String?,
-    vm: ReservationViewModel
+    vm: ReservationViewModel,
+    bounceParams: ReservationBounceParams
 ) {
     // Any postback in flight — page-wide or single-day — disables the day-level
     // controls so two postbacks can never race each other, even though only the
@@ -529,7 +578,8 @@ private fun ReservationContent(
                         enabled = controlsEnabled,
                         isBusy = busyDayIndex == day.index,
                         mealSelected = mealSelected,
-                        vm = vm
+                        vm = vm,
+                        bounceParams = bounceParams
                     )
                 }
             }
@@ -545,14 +595,14 @@ private fun ReservationContent(
 }
 
 @Composable
-private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelected: Boolean, vm: ReservationViewModel) {
+private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelected: Boolean, vm: ReservationViewModel, bounceParams: ReservationBounceParams) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessLow
+                    dampingRatio = bounceParams.dayCardDamping,
+                    stiffness = bounceParams.dayCardStiffness
                 )
             ),
         elevation = CardDefaults.cardElevation(4.dp)
@@ -607,8 +657,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                     if (sameDay) {
                         // Reusable soft spring spec for both scale and size change
                         val softSpring = spring<Float>(
-                            dampingRatio = Spring.DampingRatioLowBouncy, // Subtle spring overshoot
-                            stiffness = Spring.StiffnessMediumLow        // Settles faster, prevents floating
+                            dampingRatio = bounceParams.contentDamping, 
+                            stiffness = bounceParams.contentStiffness
                         )
 
                         (fadeIn(tween(220, delayMillis = 90)) + 
@@ -620,8 +670,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                             .using(
                                 SizeTransform(clip = false) { _, _ ->
                                     spring(
-                                        dampingRatio = Spring.DampingRatioLowBouncy,
-                                        stiffness = Spring.StiffnessMediumLow
+                                        dampingRatio = bounceParams.contentDamping, 
+                                        stiffness = bounceParams.contentStiffness
                                     )
                                 }
                             )

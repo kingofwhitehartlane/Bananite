@@ -80,18 +80,20 @@ fun WelcomeLabel(modifier: Modifier = Modifier) {
  * Just the animated name, right-aligned. 
  */
 @Composable
-fun WelcomeBanner(studentName: String?, animationType: String, modifier: Modifier = Modifier) {
+fun WelcomeBanner(
+    studentName: String?,
+    animationType: String,
+    bounciness: String = "medium", // NEW
+    modifier: Modifier = Modifier
+) {
     if (studentName.isNullOrBlank()) return
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.CenterEnd // Pushes name to the far right
-    ) {
-        AnimatedAlefName(name = studentName, animationType = animationType)
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
+        AnimatedAlefName(name = studentName, animationType = animationType, bounciness = bounciness)
     }
 }
 
 @Composable
-private fun AnimatedAlefName(name: String, animationType: String) {
+private fun AnimatedAlefName(name: String, animationType: String, bounciness: String) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val hght = remember { Animatable(HGHT_TALL) }
@@ -106,7 +108,7 @@ private fun AnimatedAlefName(name: String, animationType: String) {
 
         LaunchedEffect(name, maxWidthPx, animationType) {
             // Bounce offshoot consideration: Spring.DampingRatioMediumBouncy can overshoot by ~15%
-            val bounceOvershootRatio = 0.15f
+            val bounceOvershootRatio = if (bounciness == "low") 0.07f else 0.15f
             
             val peakKshd: (Float) -> Float = { kshdVal ->
                 if (animationType != "smooth") {

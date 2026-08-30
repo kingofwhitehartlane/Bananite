@@ -25,12 +25,14 @@ class UserPrefs(private val context: Context) {
         private val PASSWORD = stringPreferencesKey("password")
         private val REMEMBER = booleanPreferencesKey("remember")
         private val ANIMATION_TYPE = stringPreferencesKey("animation_type")
+        private val BOUNCINESS = stringPreferencesKey("bounciness")
     }
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
     val password: Flow<String> = context.userDataStore.data.map { it[PASSWORD] ?: "" }
     val rememberMe: Flow<Boolean> = context.userDataStore.data.map { it[REMEMBER] ?: true }
     val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "smooth"}
+    val bounciness: Flow<String> = context.userDataStore.data.map { it[BOUNCINESS] ?: "medium" }
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->
@@ -54,5 +56,9 @@ class UserPrefs(private val context: Context) {
         context.userDataStore.edit { prefs ->
             prefs[ANIMATION_TYPE] = type
         }
+    }
+
+    suspend fun saveBounciness(level: String) {
+        context.userDataStore.edit { prefs -> prefs[BOUNCINESS] = level }
     }
 }

@@ -26,6 +26,12 @@ class HomeViewModel(
         "smooth"
     )
 
+    val bounciness: StateFlow<String> = StufoodApp.instance.userPrefs.bounciness.stateIn(
+        viewModelScope,
+        SharingStarted.Lazily,
+        "medium"
+    )
+
     fun refresh() {
         _isLoggedIn.value = repo.isLoggedIn()
     }
