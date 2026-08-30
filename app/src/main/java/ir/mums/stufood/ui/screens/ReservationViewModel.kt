@@ -88,7 +88,7 @@ class ReservationViewModel(
 
     fun load() {
         val existing = (_uiState.value as? ReservationUiState.Ready)?.page
-        _statusText.value = "\u062f\u0631 \u062d\u0627\u0644 \u0628\u0627\u0631\u06af\u0630\u0627\u0631\u06cc \u0635\u0641\u062d\u0647\u2026" // Loading reservation page…
+        _statusText.value = "در حال بارگذاری صفحه…"
         _uiState.value = if (existing != null) ReservationUiState.Working(existing) else ReservationUiState.Loading
         viewModelScope.launch {
             try {
@@ -133,25 +133,25 @@ class ReservationViewModel(
 
     fun selectMeal(mealValue: String) = withPage { page ->
         lastSelectedMeal = mealValue
-        _statusText.value = "\u062f\u0631 \u062d\u0627\u0644 \u062a\u0639\u0648\u06cc\u0636 \u0648\u0639\u062f\u0647\u2026"
+        _statusText.value = "در حال تعویض وعده…"
         repo.selectMeal(page, mealValue).also { _statusText.value = null }
     }
 
     fun today() = withPage { page ->
         if (!page.today.isUsable) return@withPage page
-        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0627\u0645\u0631\u0648\u0632\u2026" // Jumping to today…
+        _statusText.value = "رفتن به امروز…" // Jumping to today…
         repo.clickToday(page).also { _statusText.value = null }
     }
 
     fun nextWeek() = withPage { page ->
         if (!page.nextWeek.isUsable) return@withPage page
-        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0628\u0639\u062f\u2026"
+        _statusText.value = "رفتن به هفته بعد…"
         repo.clickNextWeek(page).also { _statusText.value = null }
     }
 
     fun lastWeek() = withPage { page ->
         if (!page.lastWeek.isUsable) return@withPage page
-        _statusText.value = "\u0631\u0641\u062a\u0646 \u0628\u0647 \u0647\u0641\u062a\u0647 \u0642\u0628\u0644\u2026"
+        _statusText.value = "رفتن به هفته قبل…"
         repo.clickLastWeek(page).also { _statusText.value = null }
     }
 
