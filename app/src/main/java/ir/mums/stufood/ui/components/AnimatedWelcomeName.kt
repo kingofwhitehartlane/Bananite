@@ -37,6 +37,10 @@ private const val HGHT_SHORT = 500f  // ending state: shortest
 private const val KSHD_NARROW = 100f // starting state: no elongation
 private const val KSHD_WIDE = 200f   // ending state: max elongation
 
+// New Font Sizing Constants
+private const val MIN_FONT_SIZE = 34f // Subtle base size (bigger than 24f label, safe for average Persian names)
+// Note: 48f is now used as a reference point for averaging, not a hard cap.
+
 // Original styling constants for the "خوش آمدید" label
 private const val LABEL_HGHT = 500f
 private const val LABEL_KSHD = 100f
@@ -75,7 +79,6 @@ fun WelcomeLabel(modifier: Modifier = Modifier) {
 /**
  * Just the animated name, right-aligned. 
  */
-// Update WelcomeBanner signature to accept animationType:
 @Composable
 fun WelcomeBanner(studentName: String?, animationType: String, modifier: Modifier = Modifier) {
     if (studentName.isNullOrBlank()) return
@@ -87,19 +90,18 @@ fun WelcomeBanner(studentName: String?, animationType: String, modifier: Modifie
     }
 }
 
-// Update AnimatedAlefName to use the animationType:
 @Composable
 private fun AnimatedAlefName(name: String, animationType: String) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
     val hght = remember { Animatable(HGHT_TALL) }
     val kshd = remember { Animatable(KSHD_NARROW) }
-    var fontSizeSp by remember { mutableFloatStateOf(40f) }
+    var fontSizeSp by remember { mutableFloatStateOf(MIN_FONT_SIZE) }
     var ready by remember { mutableStateOf(false) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val maxWidthPx = with(density) { maxWidth.toPx() }
-        val marginPx = with(density) { 18.dp.toPx() } // how much narrower than the screen the final state should be
+        val marginPx = with(density) { 12.dp.toPx() } // how much narrower than the screen the final state should be
         val boundPx = maxWidthPx - marginPx
 
         LaunchedEffect(name, maxWidthPx) {
@@ -108,35 +110,77 @@ private fun AnimatedAlefName(name: String, animationType: String) {
                 return textMeasurer.measure(name, style).size.width.toFloat()
             }
 
-            // 1) biggest font size that still fits at the narrowest kashida.
-            var size = 64f
-            while (size > 12f && widthAt(size, KSHD_NARROW, HGHT_SHORT) > boundPx) {
-                size -= 2f
-            }
-            fontSizeSp = size
-
-            // 2) biggest kashida (100..200) at that size that still fits.
-            var lo = KSHD_NARROW
-            var hi = KSHD_WIDE
-            var best = KSHD_NARROW
-            repeat(8) {
-                val mid = (lo + hi) / 2f
-                if (widthAt(size, mid, HGHT_SHORT) <= boundPx) {
-                    best = mid
-                    lo = mid
-                } else {
-                    hi = mid
+            // Helper to find the maximum font size that fits for a given kashida
+            fun findMaxFontSizeForKshd(kshdVal: Float): Float {
+                var lo = MIN_FONT_SIZE
+                var hi = 150f // Allow font size to grow significantly if it fits
+                var best = MIN_FONT_SIZE
+                repeat(12) { // 12 iterations give excellent precision (~0.08f)
+                    val mid = (lo + hi) / 2f
+                    if (widthAt(mid, kshdVal, HGHT_SHORT) <= boundPx) {
+                        best = mid
+                        lo = mid
+                    } else {
+                        hi = mid
+                    }
                 }
+                return best
             }
 
+            // Helper to find the maximum kashida (100..200) that fits for a given font size
+            fun findMaxKshd(fontSize: Float): Float {
+                var lo = KSHD_NARROW
+                var hi = KSHD_WIDE
+                var best = K0f
+                repeat(8) {
+                    val mid = (lo + hi) / 2f
+                    if (widthAt(fontSize, mid, HGHT_SHORT) <= boundPx) {
+                        best = mid
+                        lo = mid
+                    } else {
+                        hi = mid
+                    }
+                }
+                return best
+            }
+
+            // 1) Check if MIN_FONT_SIZE with max kashida (200) fits
+            val widthAtMinSizeAndMaxKshd = widthAt(MIN_FONT_SIZE, KSHD_WIDE, HGHT_SHORT)
+
+            var finalFontSize = MIN_FONT_SIZE
+            var finalMaxKshd = KSHD_NARROW
+
+            if (widthAtMinSizeAndMaxKshd <= boundPx) {
+                // It FITS! Push the font size to the max that still fits perfectly with KSHD_WIDE.
+                val maxFittingSize = findMaxFontSizeForKshd(KSHD_WIDE)
+                
+                if (maxFittingSize in MIN_FONT_SIZE..48f) {
+                    // It's between min and 48. Do one step of averaging with 48 to get closer to desired size,
+                    // which will naturally reduce the max kshd a little for a balanced, subtle animation.
+                    val targetFontSize = (maxFittingSize + 48f) / 2f
+                    finalFontSize = targetFontSize
+                    finalMaxKshd = findMaxKshd(targetFontSize)
+                } else {
+                    // It's > 48. We shouldn't cap it, so we just use the max fitting size and full kashida.
+                    finalFontSize = maxFittingSize
+                    finalMaxKshd = KSHD_WIDE
+                }
+            } else {
+                // It OVERFLOWS even at MIN_FONT_SIZE and max kashida.
+                // We stick to MIN_FONT_SIZE and reduce kashida until it fits.
+                finalFontSize = MIN_FONT_SIZE
+                finalMaxKshd = findMaxKshd(MIN_FONT_SIZE)
+            }
+
+            fontSizeSp = finalFontSize
             ready = true
             delay(100) // let the tall & narrow starting state register before it moves
             
             // TOGGLE LOGIC
             if (animationType == "smooth") {
-                kshd.animateTo(best, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
+                kshd.animateTo(finalMaxKshd, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
             } else {
-                kshd.animateTo(best, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
+                kshd.animateTo(finalMaxKshd, animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow))
             }
         }
 
