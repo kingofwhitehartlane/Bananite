@@ -11,7 +11,7 @@ import ir.mums.stufood.R
 // Montserrat (Latin) + Ganjnameh Sans (Persian fallback) per weight.
 // Ganjnameh only ships a single Regular weight, so it's reused across every
 // weight bucket below — the Latin side still gets properly bolded, but Persian
-// text will render at the same visual weight regardless of which style is used.
+// text will render at the same visual weight regardless of which style is used
 val AppFontFamily = FontFamily(
     Font(R.font.app_regular, FontWeight.Normal),
     Font(R.font.app_medium, FontWeight.Medium),
