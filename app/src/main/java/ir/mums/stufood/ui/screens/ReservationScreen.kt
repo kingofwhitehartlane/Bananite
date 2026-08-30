@@ -36,6 +36,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CalendarToday
@@ -69,6 +70,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -981,32 +983,61 @@ private fun DropdownField(
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = options.firstOrNull { it.second == selectedValue }?.first ?: selectedValue
 
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { if (enabled) expanded = !expanded }
+    // We use a Box to layer two components on top of each other:
+    // 1. The OutlinedTextField (handles the border, label floating, and trailing icon).
+    // 2. The MultiScriptText (handles the actual text rendering with correct fonts).
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            // Make the entire box clickable to toggle the dropdown, 
+            // ensuring a good UX even if the user taps the text area.
+            .clickable(enabled = enabled) { expanded = !expanded }
     ) {
+        // LAYER 1: The structural OutlinedTextField
         OutlinedTextField(
-            value = selectedLabel,
+            value = selectedLabel, // We still pass the value so the label floats up correctly
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
             label = { MultiScriptText(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor()
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(), // Required for ExposedDropdownMenuBox to work
+            colors = TextFieldDefaults.colors(
+                // Hide the default text rendering so it doesn't overlap or clash with our overlay
+                focusedTextColor = Color.Transparent,
+                unfocusedTextColor = Color.Transparent,
+                disabledTextColor = Color.Transparent,
+                errorTextColor = Color.Transparent
+                // Note: We leave container colors as default so the background remains visible
+            )
         )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            options.forEach { (optLabel, optValue) ->
-                DropdownMenuItem(
-                    text = { MultiScriptText(optLabel) },
-                    onClick = {
-                        onSelected(optValue)
-                        expanded = false
-                    }
-                )
-            }
+
+        // LAYER 2: The custom font text overlay
+        MultiScriptText(
+            text = selectedLabel,
+            modifier = Modifier
+                .align(Alignment.CenterStart) // Align to the start, matching standard TextField behavior
+                // These padding values closely mimic the default internal padding of an M3 OutlinedTextField
+                .padding(start = 16.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
+
+    // The actual dropdown menu list
+    ExposedDropdownMenu(
+        expanded = expanded,
+        onDismissRequest = { expanded = false }
+    ) {
+        options.forEach { (optLabel, optValue) ->
+            DropdownMenuItem(
+                text = { MultiScriptText(optLabel) },
+                onClick = {
+                    onSelected(optValue)
+                    expanded = false
+                }
+            )
         }
     }
 }
