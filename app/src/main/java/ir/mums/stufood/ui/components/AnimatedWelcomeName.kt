@@ -131,7 +131,7 @@ private fun AnimatedAlefName(name: String, animationType: String) {
             fun findMaxKshd(fontSize: Float): Float {
                 var lo = KSHD_NARROW
                 var hi = KSHD_WIDE
-                var best = K0f
+                var best = KSHD_NARROW // <-- Fixed typo here (was K0f)
                 repeat(8) {
                     val mid = (lo + hi) / 2f
                     if (widthAt(fontSize, mid, HGHT_SHORT) <= boundPx) {
