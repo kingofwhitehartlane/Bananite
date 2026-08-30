@@ -267,13 +267,13 @@ fun ReservationScreen(
     pendingCancel?.let { pending ->
         AlertDialog(
             onDismissRequest = vm::dismissCancelRequest,
-            title = { MultiScriptText("\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648") }, // "کنسل رزرو"
-            text = { MultiScriptText("\u0622\u06cc\u0627 \u0627\u0632 \u06a9\u0646\u0633\u0644 \u06a9\u0631\u062f\u0646 \u0642\u0630\u0627 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f") },
+            title = { MultiScriptText("کنسل رزرو") },
+            text = { MultiScriptText("آیا از کنسل کردن غذا اطمینان دارید؟") },
             confirmButton = {
-                TextButton(onClick = vm::confirmCancel) { MultiScriptText("\u0628\u0644\u0647") } // بله
+                TextButton(onClick = vm::confirmCancel) { MultiScriptText("بله") }
             },
             dismissButton = {
-                TextButton(onClick = vm::dismissCancelRequest) { MultiScriptText("\u062e\u06cc\u0631") } // خیر
+                TextButton(onClick = vm::dismissCancelRequest) { MultiScriptText("خیر") }
             }
         )
     }
@@ -281,13 +281,13 @@ fun ReservationScreen(
     pendingCancelExchange?.let { pending ->
         AlertDialog(
             onDismissRequest = vm::dismissCancelExchangeRequest,
-            title = { Text("\u0644\u0641\u0648 \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644") }, // "لغو درخواست تبادل"
-            text = { Text("\u0622\u06cc\u0627 \u0627\u0632 \u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0627\u06cc\u0646 \u0648\u0639\u062f\u0647 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f") },
+            title = { MultiScriptText("لغو درخواست تبادل") }, 
+            text = { MultiScriptText("آیا از انصراف از تبادل این وعده اطمینان دارید؟") },
             confirmButton = {
-                TextButton(onClick = vm::confirmCancelExchange) { Text("\u0628\u0644\u0647") }
+                TextButton(onClick = vm::confirmCancelExchange) { MultiScriptText("بله") }
             },
             dismissButton = {
-                TextButton(onClick = vm::dismissCancelExchangeRequest) { Text("\u062e\u06cc\u0631") }
+                TextButton(onClick = vm::dismissCancelExchangeRequest) { MultiScriptText("خیر") }
             }
         )
     }
@@ -449,7 +449,7 @@ private fun ReservationContent(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 LoadingDots(dotSize = 5.dp)
-                Text(status, style = MaterialTheme.typography.bodySmall)
+                MultiScriptText(status, style = MaterialTheme.typography.bodySmall)
             }
         }
 
@@ -569,7 +569,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(day.dateLabel, style = MaterialTheme.typography.titleMedium)
+                    MultiScriptText(day.dateLabel, style = MaterialTheme.typography.titleMedium)
                     if (day.isReadOnly || day.status == DayStatus.NOT_ALLOWED || day.dietLocked) {
                         Icon(
                             Icons.Default.Lock,
@@ -635,8 +635,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                         DayStatus.NO_FOOD_DEFINED -> {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                Text(
-                                    "\u063a\u0630\u0627\u06cc\u06cc \u0628\u0631\u0627\u06cc \u0627\u06cc\u0646 \u0631\u0648\u0632 \u062a\u0639\u0631\u06cc\u0641 \u0646\u0634\u062f\u0647 \u0627\u0633\u062a",
+                                MultiScriptText(
+                                    "غذایی برای این روز تعریف نشده است",
                                     style = MaterialTheme.typography.bodyMedium
                                 )
                             }
@@ -644,10 +644,10 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
 
                         DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
                             // Only the "روز فروش" (day-sale) badge type carries this extra menu text.
-                            if (animatedDay.statusBadge == "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634" && // روز فروش
+                            if (animatedDay.statusBadge == "روز فروش" && 
                                 !animatedDay.daySealText.isNullOrBlank()
                             ) {
-                                Text(
+                                MultiScriptText(
                                     text = animatedDay.daySealText,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary
@@ -681,15 +681,15 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                             tint = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.height(16.dp)
                                         )
-                                        Text(
-                                            "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641",
+                                        MultiScriptText(
+                                            "انتخاب سلف",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 } else {
                                     DropdownField(
-                                        label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0633\u0644\u0641",
+                                        label = "انتخاب سلف",
                                         options = animatedDay.cafeteriaOptions,
                                         selectedValue = animatedDay.selectedCafeteria ?: "0",
                                         enabled = enabled,
@@ -706,7 +706,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                     animatedDay.cafeteriaOptions.isNotEmpty()
                                 ) {
                                     DropdownField(
-                                        label = "\u0633\u0644\u0641 \u0627\u0646\u062a\u062e\u0627\u0628 \u0634\u062f\u0647",
+                                        label = "سلف انتخاب شده",
                                         options = animatedDay.cafeteriaOptions,
                                         selectedValue = animatedDay.selectedCafeteria ?: "0",
                                         enabled = enabled,
@@ -714,7 +714,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                     )
                                     Spacer(Modifier.height(4.dp))
                                 } else if (!animatedDay.selfLabel.isNullOrBlank()) {
-                                    Text(
+                                    MultiScriptText(
                                         text = animatedDay.selfLabel,
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -749,8 +749,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
 
 @Composable
 private fun StatusBadgeChip(text: String, modifier: Modifier = Modifier) {
-    val notReceivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647"
-    val receivedLabel = "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647"
+    val notReceivedLabel = "دریافت نکرده"
+    val receivedLabel = "دریافت کرده"
 
     val (targetContainer, targetContent) = when (text) {
         notReceivedLabel -> MaterialTheme.colorScheme.errorContainer to MaterialTheme.colorScheme.onErrorContainer
@@ -767,7 +767,7 @@ private fun StatusBadgeChip(text: String, modifier: Modifier = Modifier) {
         modifier = modifier
     ) {
         AnimatedContent(targetState = text, label = "badgeText") { t ->
-            Text(
+            MultiScriptText(
                 text = t,
                 style = MaterialTheme.typography.labelSmall,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -805,9 +805,9 @@ private fun DietList(
                     enabled = selectable && !option.disabled
                 )
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(option.label, style = MaterialTheme.typography.bodyMedium)
+                    MultiScriptText(option.label, style = MaterialTheme.typography.bodyMedium)
                     option.priceToman?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        MultiScriptText(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
 
@@ -816,7 +816,7 @@ private fun DietList(
                     IconButton(onClick = { onCancel(option) }) {
                         Icon(
                             Icons.Default.RemoveCircle,
-                            contentDescription = "\u06a9\u0646\u0633\u0644 \u0631\u0632\u0631\u0648", // کنسل رزرو
+                            contentDescription = "کنسل رزرو", 
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -830,7 +830,7 @@ private fun DietList(
                     }) {
                         Icon(
                             Icons.Default.SwapHoriz,
-                            contentDescription = "\u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644 \u0628\u0627 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc\u0627\u0646", // درخواست تبادل با دانشجویان
+                            contentDescription = "درخواست تبادل با دانشجویان",
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -839,7 +839,7 @@ private fun DietList(
                     IconButton(onClick = { onCancelExchange?.invoke(option) }) {
                         Icon(
                             Icons.Default.SwapHoriz,
-                            contentDescription = "\u0627\u0646\u0635\u0631\u0627\u0641 \u0627\u0632 \u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627", // انصراف از تبادل غذا
+                            contentDescription = "انصراف از تبادل غذا",
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -866,7 +866,7 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
 
     AlertDialog(
         onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
-        title = { Text("\u062a\u0628\u0627\u062f\u0644 \u0642\u0630\u0627") }, // تبادل غذا
+        title = { MultiScriptText("تبادل غذا") },
         text = {
             Column(
                 modifier = Modifier
@@ -891,17 +891,14 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                             onClick = { vm.selectExchangeType(value) },
                             enabled = !state.busy
                         )
-                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                        MultiScriptText(label, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
 
-                Text(
-                    // آیا از درخواست تبادل/تعویض اطمینان دارید؟ فقط در صورت لغو
-                    // تبادل/تعویض، امکان دریافت غذای خود را دارید. در صورت عدم
-                    // تبادل/تعویض و عدم دریافت غذا، طبق قوانین جریمه خواهید شد.
-                    "\u0622\u06cc\u0627 \u0627\u0632 \u062f\u0631\u062e\u0648\u0627\u0633\u062a \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f " +
-                        "\u0641\u0642\u0637 \u062f\u0631 \u0635\u0648\u0631\u062a \u0644\u0642\u0648 \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636\u060c \u0627\u0645\u06a9\u0627\u0646 \u062f\u0631\u06cc\u0627\u0641\u062a \u0642\u0630\u0627\u06cc \u062e\u0648\u062f \u0631\u0627 \u062f\u0627\u0631\u06cc\u062f. " +
-                        "\u062f\u0631 \u0635\u0648\u0631\u062a \u0639\u062f\u0645 \u062a\u0628\u0627\u062f\u0644/\u062a\u0639\u0648\u06cc\u0636 \u0648 \u0639\u062f\u0645 \u062f\u0631\u06cc\u0627\u0641\u062a \u0642\u0630\u0627\u060c \u0637\u0628\u0642 \u0642\u0648\u0627\u0646\u06cc\u0646 \u062c\u0631\u06cc\u0645\u0647 \u062e\u0648\u0627\u0647\u06cc\u062f \u0634\u062f.",
+                MultiScriptText(
+                    "آیا از درخواست تبادل/تعویض اطمینان دارید؟ " +
+                        "فقط در صورت لغو تبادل/تعویض، امکان دریافت غذای خود را دارید " +
+                        "در صورت عدم تبادل/تعویض و عدم دریافت غذا، طبق قوانین جریمه خواهید شد",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -909,14 +906,14 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                 // ---- "تعویض غذا": swap for a specific cafeteria + food ----
                 if (dialog.showChangeFoodFields) {
                     DropdownField(
-                        label = "\u0633\u0644\u0641", // سلف
+                        label = "سلف", 
                         options = dialog.selfOptions,
                         selectedValue = dialog.selectedSelf ?: "0",
                         enabled = !state.busy,
                         onSelected = { vm.selectExchangeSelf(it) }
                     )
                     DropdownField(
-                        label = "\u0627\u0646\u062a\u062e\u0627\u0628 \u0641\u0648\u062f \u0628\u0631\u0627\u06cc \u0645\u0639\u0627\u0648\u0636\u0647", // انتخاب فود برای معاوضه
+                        label = "انتخاب غذا برای معاوضه",
                         options = dialog.foodOptions,
                         selectedValue = dialog.selectedFood ?: "0",
                         enabled = !state.busy,
@@ -933,7 +930,7 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                         OutlinedTextField(
                             value = state.studentNumber,
                             onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
-                            label = { Text("\u0634\u0645\u0627\u0631\u0647 \u062f\u0627\u0646\u0634\u062c\u0648\u06cc \u0645\u0642\u0635\u062f") }, // شماره دانشجوی مقصد
+                            label = { MultiScriptText("شماره دانشجوی مقصد") },
                             singleLine = true,
                             enabled = !state.busy,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -943,30 +940,30 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                             onClick = { vm.searchDestinationStudent(state.studentNumber) },
                             enabled = !state.busy && state.studentNumber.isNotBlank()
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = "\u062c\u0633\u062a\u062c\u0648") // جستجو
+                            Icon(Icons.Default.Search, contentDescription = "جستجو")
                         }
                     }
                     dialog.destStudentLabel?.let {
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        MultiScriptText(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                     }
                 }
 
                 if (state.busy) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         LoadingDots(dotSize = 5.dp)
-                        Text("\u062f\u0631 \u062d\u0627\u0644 \u0627\u0631\u0633\u0627\u0644\u2026", style = MaterialTheme.typography.bodySmall) // در حال ارسال…
+                        MultiScriptText("در حال ارسال…", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         },
         confirmButton = {
             TextButton(onClick = { vm.confirmExchange() }, enabled = !state.busy) {
-                Text("\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a") // تایید و ثبت درخواست
+                MultiScriptText("تایید و ثبت درخواست")
             }
         },
         dismissButton = {
             TextButton(onClick = vm::dismissExchangeDialog, enabled = !state.busy) {
-                Text("\u0627\u0646\u0635\u0631\u0627\u0641") // انصراف
+                MultiScriptText("انصراف")
             }
         }
     )
@@ -993,7 +990,7 @@ private fun DropdownField(
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
-            label = { Text(label) },
+            label = { MultiScriptText(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor()
         )
@@ -1003,7 +1000,7 @@ private fun DropdownField(
         ) {
             options.forEach { (optLabel, optValue) ->
                 DropdownMenuItem(
-                    text = { Text(optLabel) },
+                    text = { MultiScriptText(optLabel) },
                     onClick = {
                         onSelected(optValue)
                         expanded = false
