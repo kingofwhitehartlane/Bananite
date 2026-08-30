@@ -13,10 +13,18 @@ import ir.mums.stufood.R
 // weight bucket below — the Latin side still gets properly bolded, but Persian
 // text will render at the same visual weight regardless of which style is used
 val AppFontFamily = FontFamily(
-    Font(R.font.app_regular, FontWeight.Normal),
-    Font(R.font.app_medium, FontWeight.Medium),
-    Font(R.font.app_semibold, FontWeight.SemiBold),
-    Font(R.font.app_bold, FontWeight.Bold)
+    // Latin fonts (Primary)
+    Font(R.font.montserrat_regular, FontWeight.Normal),
+    Font(R.font.montserrat_medium, FontWeight.Medium),
+    Font(R.font.montserrat_semibold, FontWeight.SemiBold),
+    Font(R.font.montserrat_bold, FontWeight.Bold),
+    
+    // Persian fallback (Ganjnameh only has Regular, so we reuse it for all weights)
+    // Compose will automatically use these if Montserrat lacks the Persian glyphs
+    Font(R.font.ganjnameh_regular, FontWeight.Normal),
+    Font(R.font.ganjnameh_regular, FontWeight.Medium),
+    Font(R.font.ganjnameh_regular, FontWeight.SemiBold),
+    Font(R.font.ganjnameh_regular, FontWeight.Bold)
 )
 
 // Default Material 3 type scale. Customized slightly with bolder weights for headings.
