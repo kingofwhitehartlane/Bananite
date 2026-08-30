@@ -52,7 +52,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -1028,13 +1027,14 @@ private fun DropdownField(
                 modifier = Modifier
                     .align(Alignment.CenterStart) // Aligns text to the start, matching standard TextField behavior
                     // These padding values closely mimic the default internal padding of an M3 OutlinedTextField
-                    .padding(start = 16.dp, end = 48.dp, top = 12.dp, bottom = 12.dp),
+                    .padding(start = 16.dp, end = 48.dp, top = 20.dp, bottom = 8.dp),
                 style = MaterialTheme.typography.bodyLarge
             )
         }
 
-        // The actual dropdown menu list
-        DropdownMenu(
+        // Changed back from DropdownMenu -> ExposedDropdownMenu, which is what
+        // gives it the anchor-matching full width.
+        ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
