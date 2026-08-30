@@ -102,14 +102,6 @@ fun StuFoodTheme(
         }
     }
 
-    val squircleShapes = Shapes(
-        extraSmall = SquircleShape(4.dp),
-        small = SquircleShape(8.dp),
-        medium = SquircleShape(12.dp), // Standard card/textfield radius
-        large = SquircleShape(16.dp),
-        extraLarge = SquircleShape(24.dp)
-    )
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,

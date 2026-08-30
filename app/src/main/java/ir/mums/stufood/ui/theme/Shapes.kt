@@ -11,9 +11,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
-/**
- * iOS-style Squircle (Superellipse) shape.
- */
 class SquircleShape(private val radius: Dp) : Shape {
     override fun createOutline(
         size: Size,
@@ -62,8 +59,7 @@ class SquircleShape(private val radius: Dp) : Shape {
 }
 
 /**
- * Helper object to easily access standard squircle sizes across the app,
- * mimicking MaterialTheme.shapes but for our custom Shape.
+ * Helper object to easily access standard squircle sizes across the app.
  */
 object SquircleDefaults {
     val extraSmall: Shape = SquircleShape(4.dp)
