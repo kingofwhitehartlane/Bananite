@@ -641,7 +641,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             cafeteriaOptions = cafeteriaOptions,
             selectedCafeteria = selectedCafeteria,
             dietOptions = dietOptions,
-            commentFieldName = commentFieldName
+            commentFieldName = commentFieldName,
             daySealText = daySealText
         )
     }
@@ -978,7 +978,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val cafeteriaOptions: List<Pair<String, String>>,
         val selectedCafeteria: String?,
         val dietOptions: List<DietOption>,
-        val commentFieldName: String?
+        val commentFieldName: String?,
         /** Text from lblDaySeals_<N> — only present on "DaySeal" (روز فروش) days. */
         val daySealText: String? = null
     ) {
