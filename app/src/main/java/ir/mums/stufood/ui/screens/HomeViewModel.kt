@@ -23,7 +23,7 @@ class HomeViewModel(
     val animationType: StateFlow<String> = StufoodApp.instance.userPrefs.animationType.stateIn(
         viewModelScope,
         SharingStarted.Lazily,
-        "bounce"
+        "smooth"
     )
 
     fun refresh() {

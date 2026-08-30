@@ -52,7 +52,7 @@ fun SettingsScreen(
     vm: SettingsViewModel = viewModel()
 ) {
     // FIXED: Added initial = "bounce"
-    val animationType by vm.animationType.collectAsState(initial = "bounce")
+    val animationType by vm.animationType.collectAsState(initial = "smooth")
 
     Scaffold(
         topBar = {

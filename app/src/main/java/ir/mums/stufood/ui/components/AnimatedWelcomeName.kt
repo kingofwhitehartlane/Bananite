@@ -196,7 +196,7 @@ private fun AnimatedAlefName(name: String, animationType: String) {
 
             fontSizeSp = finalFontSize
             ready = true
-            delay(100) // let the tall & narrow starting state register before it moves
+            delay(175) // let the tall & narrow starting state register before it moves
             
             // TOGGLE LOGIC
             if (animationType == "smooth") {

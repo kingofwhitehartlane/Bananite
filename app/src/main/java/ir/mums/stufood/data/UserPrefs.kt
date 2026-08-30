@@ -29,8 +29,8 @@ class UserPrefs(private val context: Context) {
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
     val password: Flow<String> = context.userDataStore.data.map { it[PASSWORD] ?: "" }
-    val rememberMe: Flow<Boolean> = context.userDataStore.data.map { it[REMEMBER] ?: false }
-    val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "bounce" } // ADDED
+    val rememberMe: Flow<Boolean> = context.userDataStore.data.map { it[REMEMBER] ?: true }
+    val animationType: Flow<String> = context.userDataStore.data.map { it[ANIMATION_TYPE] ?: "smooth"
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->

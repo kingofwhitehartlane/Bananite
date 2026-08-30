@@ -56,7 +56,7 @@ class LoginViewModel(
     private val _captcha = MutableStateFlow("")
     val captcha: StateFlow<String> = _captcha
 
-    private val _rememberMe = MutableStateFlow(false)
+    private val _rememberMe = MutableStateFlow(true)
     val rememberMe: StateFlow<Boolean> = _rememberMe
 
     private val _errorMessage = MutableStateFlow<String?>(null)
