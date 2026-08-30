@@ -1,13 +1,13 @@
 package ir.mums.stufood.ui.components
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset // <-- ADDED: Fixes the negative padding crash
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -35,13 +35,13 @@ private const val HGHT_SHORT = 500f  // ending state: shortest
 private const val KSHD_NARROW = 100f // starting state: no elongation
 private const val KSHD_WIDE = 200f   // ending state: max elongation
 
-/** "خوش آمدید" label size/weight — static, no animation. */
+// Original styling constants for the "خوش آمدید" label
 private const val LABEL_HGHT = 500f
 private const val LABEL_KSHD = 100f
 private const val LABEL_SIZE_SP = 18f
 
 @OptIn(ExperimentalTextApi::class)
-private fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
+internal fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
     Font(
         resId = R.font.alef_vf,
         variationSettings = FontVariation.Settings(
@@ -53,31 +53,33 @@ private fun alefFamily(hght: Float, kshd: Float): FontFamily = FontFamily(
 )
 
 /**
- * "خوش آمدید" + the animated name, meant to sit at the very top of the Home screen.
- *
- * Right-aligned on purpose: the kashida animation stretches the name's width, and
- * anchoring it at the right edge makes that growth extend to the LEFT instead of
- * pushing out on both sides.
+ * The static "خوش آمدید" label, styled exactly with the custom Alef font 
+ * as it was before, now exposed to be used in the TopAppBar.
+ */
+@Composable
+fun WelcomeLabel(modifier: Modifier = Modifier) {
+    Text(
+        text = "خوش آمدید",
+        style = TextStyle(
+            fontFamily = alefFamily(LABEL_HGHT, LABEL_KSHD),
+            fontSize = LABEL_SIZE_SP.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Right
+        ),
+        modifier = modifier
+    )
+}
+
+/**
+ * Just the animated name, right-aligned. 
  */
 @Composable
 fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
     if (studentName.isNullOrBlank()) return
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .offset(y = (-12).dp), // FIXED: Use offset() instead of negative padding to pull the block up
-        horizontalAlignment = Alignment.End
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.CenterEnd // Pushes name to the far right
     ) {
-        androidx.compose.material3.Text(
-            text = "خوش آمدید",
-            style = TextStyle(
-                fontFamily = alefFamily(LABEL_HGHT, LABEL_KSHD),
-                fontSize = LABEL_SIZE_SP.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, // Reliable faded Material color (no alpha issues)
-                textAlign = TextAlign.Right
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
         AnimatedAlefName(name = studentName)
     }
 }
@@ -122,22 +124,36 @@ private fun AnimatedAlefName(name: String) {
                     hi = mid
                 }
             }
-
+            
             ready = true
-            delay(150) // let the tall & narrow starting state register before it moves
-            // Faster (600ms) with FastOutSlowInEasing for a smooth slow-down at the end
-            kshd.animateTo(best, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
+            delay(50) // Snappy start
+            
+            // FASTER & MORE DRAMATIC: Bouncy spring
+            kshd.animateTo(
+                best, 
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessLow
+                )
+            )
         }
 
         LaunchedEffect(ready) {
             if (ready) {
-                delay(150)
-                hght.animateTo(HGHT_SHORT, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
+                delay(50)
+                // FASTER & MORE DRAMATIC: Bouncy spring for the height drop
+                hght.animateTo(
+                    HGHT_SHORT, 
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessLow
+                    )
+                )
             }
         }
 
         if (ready) {
-            androidx.compose.material3.Text(
+            Text(
                 text = name,
                 style = TextStyle(
                     fontFamily = alefFamily(hght.value, kshd.value),
