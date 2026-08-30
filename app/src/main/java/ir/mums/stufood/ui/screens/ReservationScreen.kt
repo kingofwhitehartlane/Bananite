@@ -644,7 +644,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                         DayStatus.NOT_ALLOWED, DayStatus.NOT_RESERVED -> {
                             // Header badge handles status display
                         }
-
+                        
+                        // adding the exchange things here fixed the not reacting button bug
                         DayStatus.RECEIVED, DayStatus.NOT_RECEIVED -> {
                             DietList(
                                 options = animatedDay.dietOptions,
@@ -814,9 +815,7 @@ private fun DietList(
                 // ---- Food exchange: offer it ("درخواست تبادل با دانشجویان"), or
                 // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
                 if (option.checked && option.exchangeFieldName != null && !option.exchangePending && onRequestExchange != null) {
-                    val context = androidx.compose.ui.platform.LocalContext.current
                     IconButton(onClick = {
-                        android.widget.Toast.makeText(context, "CLICKED exchange icon", android.widget.Toast.LENGTH_LONG).show()
                         onRequestExchange?.invoke(option)
                     }) {
                         Icon(
