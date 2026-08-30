@@ -62,7 +62,7 @@ fun WelcomeBanner(studentName: String?, modifier: Modifier = Modifier) {
     if (studentName.isNullOrBlank()) return // nothing to show until the name loads
 
     Column(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.End
     ) {
         androidx.compose.material3.Text(
