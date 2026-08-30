@@ -73,7 +73,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.menuAnchor
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -997,7 +997,7 @@ private fun DropdownField(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable) // Links this box to the dropdown menu positioning
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable) // Links this box to the dropdown menu positioning
                 .clickable(enabled = enabled) { expanded = !expanded } // Makes the whole field clickable
         ) {
             // LAYER 1: The structural OutlinedTextField
