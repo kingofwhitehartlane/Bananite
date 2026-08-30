@@ -39,7 +39,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.components.WelcomeBanner
 import ir.mums.stufood.ui.components.WelcomeLabel // Imported for the TopAppBar
-
+import ir.mums.stufood.ui.theme.SquircleDefaults
 /**
  * Home / menu screen. A vertical stack of cards, each launching one feature.
  *
@@ -125,6 +125,7 @@ fun HomeScreen(
             // ---- SWAPPED: Disclaimer card is now FIRST ----
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = SquircleDefaults.medium,
                 onClick = {
                     val intent = Intent(
                         Intent.ACTION_VIEW,
@@ -175,6 +176,7 @@ fun HomeScreen(
             // ---- SWAPPED: Tip card is now SECOND ----
             Card(
                 modifier = Modifier.fillMaxWidth(),
+                shape = SquircleDefaults.medium,
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
@@ -206,6 +208,7 @@ private fun HomeMenuCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
+        shape = SquircleDefaults.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

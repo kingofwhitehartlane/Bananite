@@ -113,7 +113,6 @@ fun StuFoodTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        shapes = squircleShapes,
         content = content
     )
 }

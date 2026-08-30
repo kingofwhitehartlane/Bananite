@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.components.LoadingDots
+import ir.mums.stufood.ui.theme.SquircleDefaults
+import ir.mums.stufood.ui.theme.SquircleShape
+import ir.mums.stufood.ui.theme.StadiumShape
 
 /**
  * Login screen.
@@ -127,7 +130,7 @@ fun LoginScreen(
                     .padding(bottom = 60.dp)
                     .fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                shape = RoundedCornerShape(20.dp)
+                shape = SquircleDefaults.large
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -147,6 +150,7 @@ fun LoginScreen(
                     OutlinedTextField(
                         value = username,
                         onValueChange = vm::updateUsername,
+                        shape = SquircleDefaults.medium,
                         label = { Text("Student ID") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -185,9 +189,9 @@ fun LoginScreen(
                                 .padding(top = 8.dp)
                                 .height(58.dp) // ~48dp -> ~10% bigger, then a bit more for the border
                                 .width(116.dp) // ~96dp -> ~10% bigger, then a bit more for the border
-                                .clip(RoundedCornerShape(10.dp))
+                                .clip(SquircleShape(10.dp))
                                 .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp)),
+                                .border(1.dp, MaterialTheme.colorScheme.outline, SquircleShape(10.dp)), // <-- Border matches clip
                             contentAlignment = Alignment.Center
                         ) {
                             when (state) {
@@ -269,6 +273,7 @@ fun LoginScreen(
                         onClick = { vm.submit(onLoggedIn) },
                         enabled = state !is LoginUiState.Submitting &&
                                   state !is LoginUiState.Loading,
+                        shape = StadiumShape,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)

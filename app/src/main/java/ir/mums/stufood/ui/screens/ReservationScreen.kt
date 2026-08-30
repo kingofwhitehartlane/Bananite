@@ -103,6 +103,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.ui.components.LoadingDots
 import ir.mums.stufood.ui.components.MultiScriptText
+import ir.mums.stufood.ui.theme.SquircleDefaults
 import ir.mums.stufood.data.StufoodRepository.DayInfo
 import ir.mums.stufood.data.StufoodRepository.DayStatus
 import ir.mums.stufood.data.StufoodRepository.DietOption
@@ -591,7 +592,7 @@ private fun ReservationContent(
         }
 
         // ---- Meal + week navigation ----
-        Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(4.dp)) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = SquircleDefaults.medium, elevation = CardDefaults.cardElevation(4.dp)) {
             Column(modifier = Modifier.padding(16.dp).animateContentSize()) {
                 Text("Meal & week", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(12.dp))
@@ -690,6 +691,7 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                     stiffness = bounceParams.dayCardStiffness
                 )
             ),
+        shape = SquircleDefaults.medium,
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Column(
@@ -1068,6 +1070,7 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                         OutlinedTextField(
                             value = state.studentNumber,
                             onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
+                            shape = SquircleDefaults.medium,
                             label = { MultiScriptText("شماره دانشجوی مقصد") },
                             singleLine = true,
                             enabled = !state.busy,

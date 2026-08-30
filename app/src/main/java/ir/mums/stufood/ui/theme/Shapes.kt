@@ -1,5 +1,6 @@
 package ir.mums.stufood.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
@@ -11,9 +12,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
- * 1. RoundedSuperellipseBorder (Squircle) equivalent for Jetpack Compose.
- * Uses the cubic Bézier smoothing multiplier (0.55) for continuous superellipse curvature,
- * exactly matching the provided Flutter implementation.
+ * iOS-style Squircle (Superellipse) shape.
  */
 class SquircleShape(private val radius: Dp) : Shape {
     override fun createOutline(
@@ -24,7 +23,6 @@ class SquircleShape(private val radius: Dp) : Shape {
         val radiusPx = with(density) { radius.toPx() }
         val rect = Rect(0f, 0f, size.width, size.height)
         
-        // Clamp radius to half the smallest dimension to prevent overlapping corners
         val rx = radiusPx.coerceAtMost(size.width / 2f)
         val ry = radiusPx.coerceAtMost(size.height / 2f)
 
@@ -32,8 +30,8 @@ class SquircleShape(private val radius: Dp) : Shape {
             return Outline.Generic(Path().apply { addRect(rect) })
         }
 
-        // Cubic Bézier smoothing multiplier for continuous superellipse curvature
-        const val smoothingFactor = 0.55f
+        // FIX: Removed 'const' from this local variable
+        val smoothingFactor = 0.55f
         val cx = rx * smoothingFactor
         val cy = ry * smoothingFactor
 
@@ -46,40 +44,16 @@ class SquircleShape(private val radius: Dp) : Shape {
             moveTo(left + rx, top)
             lineTo(right - rx, top)
 
-            // Top-Right Corner
-            cubicTo(
-                right - rx + cx, top,
-                right, top + ry - cy,
-                right, top + ry
-            )
-
+            cubicTo(right - rx + cx, top, right, top + ry - cy, right, top + ry)
             lineTo(right, bottom - ry)
 
-            // Bottom-Right Corner
-            cubicTo(
-                right, bottom - ry + cy,
-                right - rx + cx, bottom,
-                right - rx, bottom
-            )
-
+            cubicTo(right, bottom - ry + cy, right - rx + cx, bottom, right - rx, bottom)
             lineTo(left + rx, bottom)
 
-            // Bottom-Left Corner
-            cubicTo(
-                left + rx - cx, bottom,
-                left, bottom - ry + cy,
-                left, bottom - ry
-            )
-
+            cubicTo(left + rx - cx, bottom, left, bottom - ry + cy, left, bottom - ry)
             lineTo(left, top + ry)
 
-            // Top-Left Corner
-            cubicTo(
-                left, top + ry - cy,
-                left + rx - cx, top,
-                left + rx, top
-            )
-
+            cubicTo(left, top + ry - cy, left + rx - cx, top, left + rx, top)
             close()
         }
 
@@ -88,7 +62,18 @@ class SquircleShape(private val radius: Dp) : Shape {
 }
 
 /**
- * 2. StadiumBorder (Pill Shape) equivalent.
- * In Compose, a fully rounded pill is simply a RoundedCornerShape with 50% radius.
+ * Helper object to easily access standard squircle sizes across the app,
+ * mimicking MaterialTheme.shapes but for our custom Shape.
  */
-val StadiumShape = androidx.compose.foundation.shape.RoundedCornerShape(percent = 50)
+object SquircleDefaults {
+    val extraSmall: Shape = SquircleShape(4.dp)
+    val small: Shape = SquircleShape(8.dp)
+    val medium: Shape = SquircleShape(12.dp)
+    val large: Shape = SquircleShape(16.dp)
+    val extraLarge: Shape = SquircleShape(24.dp)
+}
+
+/**
+ * StadiumBorder (Pill Shape) equivalent.
+ */
+val StadiumShape = RoundedCornerShape(percent = 50)
