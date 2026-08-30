@@ -63,8 +63,8 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        WelcomeLabel() // Uses the exact same custom Alef font styling
                         Text("StuFood")
+                        WelcomeLabel() // Uses the exact same custom Alef font styling
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
