@@ -94,12 +94,12 @@ private fun AnimatedAlefName(name: String, animationType: String) {
     val textMeasurer = rememberTextMeasurer()
     val hght = remember { Animatable(HGHT_TALL) }
     val kshd = remember { Animatable(KSHD_NARROW) }
-    var fontSizeSp by remember { mutableFloatStateOf(48f) }
+    var fontSizeSp by remember { mutableFloatStateOf(40f) }
     var ready by remember { mutableStateOf(false) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val maxWidthPx = with(density) { maxWidth.toPx() }
-        val marginPx = with(density) { 12.dp.toPx() } // how much narrower than the screen the final state should be
+        val marginPx = with(density) { 18.dp.toPx() } // how much narrower than the screen the final state should be
         val boundPx = maxWidthPx - marginPx
 
         LaunchedEffect(name, maxWidthPx) {

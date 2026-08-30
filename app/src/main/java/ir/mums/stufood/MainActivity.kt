@@ -54,12 +54,9 @@ private fun App() {
         )
     }
 
-    // FIX: there was no BackHandler at all, so the system back button had nothing to
-    // intercept inside the app and fell through to the default Activity behavior —
-    // finishing (and thus closing) the app, even from Reservation or Home.
-    // This makes back navigate one level up ("menus") instead, and only lets it fall
-    // through to the default close-app behavior once we're already at Home.
-    BackHandler(enabled = currentScreen == Screen.Reservation) {
+    // FIX: Added `Screen.Settings` to the condition. 
+    // Now pressing back from Settings or Reservation returns to Home.
+    BackHandler(enabled = currentScreen == Screen.Reservation || currentScreen == Screen.Settings) {
         currentScreen = Screen.Home
     }
 
