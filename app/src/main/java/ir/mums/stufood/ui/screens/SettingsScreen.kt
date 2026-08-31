@@ -113,7 +113,7 @@ fun SettingsScreen(
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary
                             )
-                            Text(text = "Theme Mode", style = MaterialTheme.typography.titleMedium)
+                            Text(text = "Theme", style = MaterialTheme.typography.titleMedium)
                         }
 
                         val themeOptions = listOf(

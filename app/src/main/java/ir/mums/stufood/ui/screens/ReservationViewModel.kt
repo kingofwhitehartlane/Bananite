@@ -229,7 +229,7 @@ class ReservationViewModel(
         _pendingCancel.value = null
     }
 
-    /** Called after the user confirms "\u0622\u06cc\u0627 \u0627\u0632 \u06a9\u0646\u0633\u0644 \u06a9\u0631\u062f\u0646 \u0642\u0630\u0627 \u0627\u0637\u0645\u06cc\u0646\u0627\u0646 \u062f\u0627\u0631\u06cc\u062f\u061f". */
+    /** Called after the user confirms "آیا از کنسل کردن غذا اطمینان دارید؟". */
     fun confirmCancel() {
         val pending = _pendingCancel.value ?: return
         _pendingCancel.value = null

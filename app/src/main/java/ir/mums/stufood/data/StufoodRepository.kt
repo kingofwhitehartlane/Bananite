@@ -137,14 +137,14 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     //   NotRecivedFood, RecivedFood, DaySeal, ChangeFood, OnlineDaySaleReserve,
     //   NoReserve, NoFoodChange, OnlineDaySaleWaitingReserve
     private val statusBadgeLabels = mapOf(
-        "NotRecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u06a9\u0631\u062f\u0647", // دریافت نکرده
-        "RecivedFood" to "\u062f\u0631\u06cc\u0627\u0641\u062a \u06a9\u0631\u062f\u0647", // دریافت کرده
-        "DaySeal" to "\u0631\u0648\u0632 \u0641\u0631\u0648\u0634", // روز فروش
-        "ChangeFood" to "\u0627\u0645\u06a9\u0627\u0646 \u062a\u063a\u06cc\u06cc\u0631 \u063a\u0630\u0627", // امکان تغییر غذا (اصلاح شد)
-        "OnlineDaySaleReserve" to "\u0631\u0648\u0632\u0641\u0631\u0648\u0634 \u0622\u0646\u0644\u0627\u06cc\u0646", // روزفروش آنلاین
-        "NoReserve" to "\u0645\u0647\u0644\u062a \u0631\u0632\u0631\u0648 \u06af\u0630\u0634\u062a\u0647 \u0627\u0633\u062a", // مهلت رزرو گذشته است
-        "NoFoodChange" to "\u0639\u062f\u0645 \u0627\u0645\u06a9\u0627\u0646 \u062a\u063a\u06cc\u06cc\u0631 \u063a\u0630\u0627", // عدم امکان تغییر غذا (اصلاح شد)
-        "OnlineDaySaleWaitingReserve" to "\u062f\u0631 \u0644\u06cc\u0633\u062a \u0627\u0646\u062a\u0638\u0627\u0631 \u062a\u0627\u06cc\u06cc\u062f \u0631\u0648\u0632\u0641\u0631\u0648\u0634" // در لیست انتظار تایید روزفروش
+        "NotRecivedFood" to "دریافت نکرده",
+        "RecivedFood" to "دریافت کرده",
+        "DaySeal" to "روز فروش",
+        "ChangeFood" to "امکان تغییر غذا",
+        "OnlineDaySaleReserve" to "روزفروش آنلاین",
+        "NoReserve" to "مهلت رزرو گذشته است",
+        "NoFoodChange" to "عدم امکان تغییر غذا",
+        "OnlineDaySaleWaitingReserve" to "در لیست انتظار تایید روزفروش"
     )
 
     // ----------------------------------------------------------------------
@@ -234,7 +234,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         parseReservationPage(html)
     }
 
-    /** Change the meal dropdown (e.g. \u0646\u0627\u0647\u0627\u0631 / lunch). */
+    /** Change the meal dropdown (e.g. ناهار). */
     suspend fun selectMeal(current: ReservationPage, mealOptionValue: String): ReservationPage =
         postForm(current, eventTarget = Fields.MEAL, overrides = mapOf(Fields.MEAL to mealOptionValue))
 
@@ -243,7 +243,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         return postForm(
             current,
             eventTarget = "",
-            overrides = mapOf(Fields.TODAY_BTN to "\u0627\u0645\u0631\u0648\u0632"),
+            overrides = mapOf(Fields.TODAY_BTN to "امروز"),
             clickedButton = Fields.TODAY_BTN
         )
     }
@@ -412,7 +412,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
                 Fields.EXCHANGE_TYPE to request.exchangeType,
                 Fields.EXCHANGE_STUDENT_NUM to request.studentNumber
             ),
-            extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "\u062c\u0633\u062a\u062c\u0648") // جستجو
+            extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "جستجو")
         )
 
     /**
@@ -441,7 +441,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             current,
             eventTarget = "",
             overrides = overrides,
-            extraFields = mapOf(Fields.EXCHANGE_CONFIRM_BTN to "\u062a\u0627\u06cc\u06cc\u062f \u0648 \u062b\u0628\u062a \u062f\u0631\u062e\u0648\u0627\u0633\u062a") // تایید و ثبت درخواست
+            extraFields = mapOf(Fields.EXCHANGE_CONFIRM_BTN to "تایید و ثبت درخواست") 
         )
     }
 
@@ -521,7 +521,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     private fun parseReservationPage(html: String): ReservationPage {
         val doc = Jsoup.parse(html, reservationUrl)
 
-        // ---- Meal dropdown ("\u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0645\u0627\u06cc\u06cc\u062f" placeholder included) ----
+        // ---- Meal dropdown ("انتخاب نمایید" placeholder included) ----
         val mealSelect = doc.selectFirst("select[name='${Fields.MEAL}']")
         val mealOptions = mealSelect?.select("option")
             ?.map { it.text().trim() to (it.attr("value").ifEmpty { it.text() }) }
@@ -607,7 +607,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             // Informational-only day (no cafeteria select, no diet table): either the
             // day is off-limits, or nothing was reserved for it at all.
             hasSelf && !hasSelect && !hasTable -> {
-                if (containsAny("\u0645\u062c\u0627\u0632", message, selfLabelText)) {
+                if (containsAny("مجاز", message, selfLabelText)) {
                     DayStatus.NOT_ALLOWED
                 } else {
                     DayStatus.NOT_RESERVED
@@ -643,8 +643,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             hasSelect && hasTable -> {
                 when {
                     checkedOption == null -> DayStatus.SELECT_DIET
-                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0646\u0634\u062f\u0647", message) -> DayStatus.NOT_RECEIVED
-                    containsAny("\u062f\u0631\u06cc\u0627\u0641\u062a \u0634\u062f\u0647", message) -> DayStatus.RECEIVED
+                    containsAny("دریافت نشده", message) -> DayStatus.NOT_RECEIVED
+                    containsAny("دریافت شده", message) -> DayStatus.RECEIVED
                     else -> DayStatus.RESERVED
                 }
             }
@@ -717,13 +717,13 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     }
 
     /**
-     * Splits a diet radio's label text (e.g. "\u0686\u0644\u0648 \u06a9\u0628\u0627\u0628 \u06a9\u0648\u0628\u06cc\u062f\u0647 -  (\u06a9\u0627\u0644\u0631\u06cc : 1050) ( \u0642\u06cc\u0645\u062a : 160000 \u0631\u06cc\u0627\u0644)")
+     * Splits a diet radio's label text (e.g. "چلو کباب کوبیده -  (کالری : 1050) ( قیمت : 160000 ریال)")
      * into the food name (calories dropped entirely, per requirements) and the Rial
-     * price. Both "\u0642\u06cc\u0645\u062a" and "\u0642\u06cc\u0645\u062a" spelling variants seen on the site are handled,
-     * as is the optional trailing "\u0631\u06cc\u0627\u0644" unit and the presence/absence of a "-" separator.
+     * price. Both "قیمت" and "قیمت" spelling variants seen on the site are handled,
+     * as is the optional trailing "ریال" unit and the presence/absence of a "-" separator.
      */
     private fun parseDietLabelText(rawText: String): Pair<String, Long?> {
-        val priceRegex = Regex("(\u0642\u06cc\u0645\u062a|\u0642\u064a\u0645\u062a)\\s*[:\uff1a]?\\s*([0-9\u06f0-\u06f9,\u066c]+)")
+        val priceRegex = Regex("(\u0642\u06cc\u0645\u062a|\u0642\u064a\u0645\u062a)\\s*[:\uff1a]?\\s*([0-9\u06f0-\u06f9,\u066c]+)") // قیمت
         val priceMatch = priceRegex.find(rawText)
         val price = priceMatch?.groupValues?.get(2)
             ?.replace(",", "")
@@ -890,7 +890,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     data class ReservationPage(
         val fieldSnapshot: Map<String, String>,
         val mealOptions: List<Pair<String, String>>,
-        /** "0" means the placeholder ("\u0627\u0646\u062a\u062e\u0627\u0628 \u0646\u0645\u0627\u06cc\u06cc\u062f") is selected — i.e. nothing chosen. */
+        /** "0" means the placeholder ("انتخاب نمایید") is selected — i.e. nothing chosen. */
         val selectedMeal: String,
         /** Pre-formatted balance, e.g. "1,251,000T" — null if it couldn't be found. */
         val creditToman: String?,
@@ -987,7 +987,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
     data class DayInfo(
         val index: Int,
-        /** e.g. "1405/05/19 - \u062f\u0648\u0634\u0646\u0628\u0647" */
+        /** e.g. "1405/05/19 - دوشنبه" */
         val dateLabel: String,
         /** Raw status message from the page, if any (parentheses stripped). */
         val message: String?,

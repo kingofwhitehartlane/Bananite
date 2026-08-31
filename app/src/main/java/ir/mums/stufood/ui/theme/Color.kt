@@ -6,20 +6,20 @@ import androidx.compose.ui.graphics.Color
 // EXPRESSIVE ELECTRIC YELLOW THEME
 // ==========================================
 
-// Light Expressive Yellow Palette
-val md_light_primary = Color(0xFF735C00) 
+// Light Expressive Banana Palette
+val md_light_primary = Color(0xFF6B5600)
 val md_light_onPrimary = Color(0xFFFFFFFF)
-val md_light_primaryContainer = Color(0xFFFFE500) // Electric Banana Yellow
-val md_light_onPrimaryContainer = Color(0xFF241A00)
+val md_light_primaryContainer = Color(0xFFFFDF3D) // Vibrant Banana Yellow
+val md_light_onPrimaryContainer = Color(0xFF211A00)
 
-val md_light_secondary = Color(0xFFFF4081) // High-energy Pink/Coral accent
+val md_light_secondary = Color(0xFFE91E63) // Bold Strawberry Pink
 val md_light_onSecondary = Color(0xFFFFFFFF)
-val md_light_secondaryContainer = Color(0xFFFFD8E4)
-val md_light_onSecondaryContainer = Color(0xFF3E001D)
+val md_light_secondaryContainer = Color(0xFFFFD9E6)
+val md_light_onSecondaryContainer = Color(0xFF3B0018)
 
-val md_light_tertiary = Color(0xFF006B5D) // Vibrant Teal contrast
+val md_light_tertiary = Color(0xFF00796B) // Fresh Tropical Teal
 val md_light_onTertiary = Color(0xFFFFFFFF)
-val md_light_tertiaryContainer = Color(0xFF76F8E1)
+val md_light_tertiaryContainer = Color(0xFF72F5DE)
 val md_light_onTertiaryContainer = Color(0xFF00201B)
 
 val md_light_error = Color(0xFFBA1A1A)
@@ -27,16 +27,16 @@ val md_light_onError = Color(0xFFFFFFFF)
 val md_light_errorContainer = Color(0xFFFFDAD6)
 val md_light_onErrorContainer = Color(0xFF410002)
 
-val md_light_background = Color(0xFFFFFDF5) // Warm creamy off-white
-val md_light_onBackground = Color(0xFF1E1B13)
-val md_light_surface = Color(0xFFFFFDF5)
-val md_light_onSurface = Color(0xFF1E1B13)
-val md_light_surfaceVariant = Color(0xFFEEE2C9)
-val md_light_onSurfaceVariant = Color(0xFF4E4638)
-val md_light_outline = Color(0xFF807667)
-val md_light_inverseSurface = Color(0xFF343027)
-val md_light_inverseOnSurface = Color(0xFFF9F0DF)
-val md_light_inversePrimary = Color(0xFFFFEA00)
+val md_light_background = Color(0xFFFFFBEF) // Warm Banana Cream
+val md_light_onBackground = Color(0xFF201C10)
+val md_light_surface = Color(0xFFFFFBEF)
+val md_light_onSurface = Color(0xFF201C10)
+val md_light_surfaceVariant = Color(0xFFF3E5B5) // Soft Golden Cream
+val md_light_onSurfaceVariant = Color(0xFF51482C)
+val md_light_outline = Color(0xFF817750)
+val md_light_inverseSurface = Color(0xFF353020)
+val md_light_inverseOnSurface = Color(0xFFFFF8E1)
+val md_light_inversePrimary = Color(0xFFFFE55C)
 
 // Dark Expressive Yellow Palette
 val md_dark_primary = Color(0xFFFFEA00) // High-contrast Cyber Yellow
