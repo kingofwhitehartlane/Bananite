@@ -113,12 +113,17 @@ fun SettingsScreen(
                     
                     SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                         themeOptions.forEachIndexed { index, (value, icon) ->
+                            val isSelected = selectedIndex == index
                             SegmentedButton(
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
                                 onClick = { vm.setThemeMode(value) },
-                                selected = selectedIndex == index,
-                                icon = { Icon(icon, contentDescription = value) },
-                                label = {} // Satisfies compiler requirement while showing NO text
+                                selected = isSelected,
+                                icon = { 
+                                    SegmentedButtonDefaults.Icon(selected = isSelected) 
+                                },
+                                label = { 
+                                    Icon(icon, contentDescription = value) 
+                                }
                             )
                         }
                     }
