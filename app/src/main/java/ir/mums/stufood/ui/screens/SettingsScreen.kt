@@ -98,35 +98,49 @@ fun SettingsScreen(
                 Text(text = "Theme & Color", style = MaterialTheme.typography.titleLarge)
 
                 // 1. THEME MODE (Icons Only)
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.BrightnessAuto, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                        Text(text = "Theme Mode", style = MaterialTheme.typography.titleMedium)
-                    }
-                    
-                    val themeOptions = listOf(
-                        "system" to Icons.Default.BrightnessAuto, // Sun with 'A'
-                        "light" to Icons.Default.LightMode,       // Sun
-                        "dark" to Icons.Default.DarkMode          // Moon
-                    )
-                    val selectedIndex = themeOptions.indexOfFirst { it.first == themeMode }.coerceAtLeast(0)
-                    
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                        themeOptions.forEachIndexed { index, (value, icon) ->
-                            val isSelected = selectedIndex == index
-                            SegmentedButton(
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
-                                onClick = { vm.setThemeMode(value) },
-                                selected = isSelected,
-                                icon = { 
-                                    SegmentedButtonDefaults.Icon(selected = isSelected) 
-                                },
-                                label = { 
-                                    Icon(icon, contentDescription = value) 
-                                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BrightnessAuto,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary
                             )
+                            Text(text = "Theme Mode", style = MaterialTheme.typography.titleMedium)
+                        }
+
+                        val themeOptions = listOf(
+                            "system" to Icons.Default.BrightnessAuto,
+                            "light" to Icons.Default.LightMode,
+                            "dark" to Icons.Default.DarkMode
+                        )
+                        val selectedIndex = themeOptions.indexOfFirst { it.first == themeMode }.coerceAtLeast(0)
+
+                        SingleChoiceSegmentedButtonRow {
+                            themeOptions.forEachIndexed { index, (value, icon) ->
+                                val isSelected = selectedIndex == index
+                                SegmentedButton(
+                                    shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
+                                    onClick = { vm.setThemeMode(value) },
+                                    selected = isSelected,
+                                    icon = {
+                                        SegmentedButtonDefaults.Icon(active = isSelected)
+                                    },
+                                    label = {
+                                        Icon(icon, contentDescription = value)
+                                    }
+                                )
+                            }
                         }
                     }
+                    
                     Text(
                         text = "Choose between System default, Light, or Dark mode.",
                         style = MaterialTheme.typography.bodySmall,
