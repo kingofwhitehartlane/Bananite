@@ -392,15 +392,15 @@ class ReservationViewModel(
             try {
                 val updated = repo.searchDestinationStudent(page, request)
                 _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
-
-                // The server re-renders the whole page, so the parsed dialog will have
-                // reset show/hide flags and selected type back to their initial HTML
-                // state. We keep the user's current dialog state and only pull the
-                // destination student label from the response.
+                
                 val dialogData = updated.exchangeDialog
                 if (dialogData != null) {
                     _exchangeDialog.value = current.copy(
                         dialog = current.dialog.copy(
+                            // Preserve visibility flags to prevent the server from 
+                            // incorrectly hiding the section (e.g., returning display: none)
+                            showChangeFoodFields = current.dialog.showChangeFoodFields,
+                            showStudentSearchFields = current.dialog.showStudentSearchFields,
                             destStudentLabel = dialogData.destStudentLabel
                         ),
                         studentNumber = studentNumber,
