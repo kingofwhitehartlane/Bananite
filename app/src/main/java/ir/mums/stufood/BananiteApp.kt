@@ -9,7 +9,7 @@ import ir.mums.stufood.data.UserPrefs
  * Application-wide singletons. We keep one Repository + one CookieJar for the whole
  * app process so the session survives configuration changes (rotations, theme toggle).
  */
-class StufoodApp : Application() {
+class BananiteApp : Application() {
 
     val cookieJar by lazy { InMemoryCookieJar() }
     val repository by lazy { StufoodRepository(cookieJar) }
@@ -21,7 +21,7 @@ class StufoodApp : Application() {
     }
 
     companion object {
-        lateinit var instance: StufoodApp
+        lateinit var instance: BananiteApp
             private set
     }
 }
