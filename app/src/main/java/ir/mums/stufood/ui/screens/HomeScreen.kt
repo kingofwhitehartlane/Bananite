@@ -35,10 +35,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.components.WelcomeBanner
 import ir.mums.stufood.ui.components.WelcomeLabel // Imported for the TopAppBar
+import ir.mums.stufood.R
 
 /**
  * Home / menu screen. A vertical stack of cards, each launching one feature.
@@ -63,15 +65,27 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    // "خوش آمدید" is now on the exact same level as "Bananite", but on the right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Bananite")
+                        // Group the icon and text together so they stay perfectly leveled
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp) // Keeps it really tiny and neat
+                            )
+                            Text("Bananite")
+                        }
+                        
                         Spacer(modifier = Modifier.weight(1f))
-                        WelcomeLabel(modifier = Modifier.padding(end = 16.dp)) // Uses the exact same custom Alef font styling
+                        WelcomeLabel(modifier = Modifier.padding(end = 16.dp))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
