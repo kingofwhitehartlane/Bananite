@@ -39,5 +39,5 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StuFood-debug-apk
+          name: Bananite-debug-apk
           path: app/build/outputs/apk/debug/*.apk

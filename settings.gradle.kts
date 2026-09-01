@@ -20,5 +20,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "StuFood"
+rootProject.name = "Bananite"
 include(":app")

@@ -1,6 +1,6 @@
-# StuFood — Comprehensive Build & Development Guide
+# Bananite — Comprehensive Build & Development Guide
 
-A step-by-step technical guide for cloning, compiling, configuring, and building **StuFood** — a native Android application engineered with Kotlin, Jetpack Compose, Material 3, OkHttp, and Jsoup.
+A step-by-step technical guide for cloning, compiling, configuring, and building **Bananite** — a native Android application engineered with Kotlin, Jetpack Compose, Material 3, OkHttp, and Jsoup.
 
 This document is aimed at developers, contributors, and self-hosters who wish to build the application from source, set up local development environments, or automate release builds via CI/CD.
 
@@ -38,7 +38,7 @@ Before building the project, ensure your host machine meets the following enviro
 | **Android Studio** | Ladybug / Koala (2024.1+) | Latest Stable Android Studio | Optional for CLI builds; recommended for UI dev |
 
 > **Note on Java Version:**  
-> StuFood uses Kotlin targeting JVM 17. Ensure your `JAVA_HOME` points to a JDK 17 installation or that Android Studio's embedded JDK (Java 17) is selected in the build tools settings.
+> Bananite uses Kotlin targeting JVM 17. Ensure your `JAVA_HOME` points to a JDK 17 installation or that Android Studio's embedded JDK (Java 17) is selected in the build tools settings.
 
 ---
 
@@ -306,7 +306,7 @@ The repository includes a GitHub Actions workflow defined in `.github/workflows/
 
 ## 🏗 Architecture & Key Dependencies
 
-StuFood is built using modern Android development practices and library stacks:
+Bananite is built using modern Android development practices and library stacks:
 
 - **Language:** 100% Kotlin with Coroutines and Flow for reactive state management.
 - **UI Framework:** Jetpack Compose with Material 3 components and dynamic dark/light theme support.

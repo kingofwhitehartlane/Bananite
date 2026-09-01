@@ -102,7 +102,7 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("StuFood · Login") },
+                title = { Text("Bananite · Login") },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
@@ -134,7 +134,7 @@ fun LoginScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "MUMS Student Food",
+                        text = "Bananite",
                         style = MaterialTheme.typography.headlineMedium
                     )
                     Text(

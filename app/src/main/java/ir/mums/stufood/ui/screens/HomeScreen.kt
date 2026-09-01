@@ -63,13 +63,13 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    // "خوش آمدید" is now on the exact same level as "StuFood", but on the right
+                    // "خوش آمدید" is now on the exact same level as "Bananite", but on the right
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("StuFood")
+                        Text("Bananite")
                         Spacer(modifier = Modifier.weight(1f))
                         WelcomeLabel(modifier = Modifier.padding(end = 16.dp)) // Uses the exact same custom Alef font styling
                     }
