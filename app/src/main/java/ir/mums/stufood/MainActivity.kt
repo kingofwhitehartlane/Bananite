@@ -16,10 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import ir.mums.stufood.ui.navigation.Screen
-import ir.mums.stufood.ui.screens.HomeScreen
-import ir.mums.stufood.ui.screens.LoginScreen
-import ir.mums.stufood.ui.screens.ReservationScreen
-import ir.mums.stufood.ui.screens.SettingsScreen
+import ir.mums.stufood.ui.screens.* // Ensure all screens are imported
 import ir.mums.stufood.ui.theme.BananiteTheme
 
 /**
@@ -45,16 +42,14 @@ private fun App() {
     val themeMode by prefs.themeMode.collectAsState(initial = "system")
     val pureBlack by prefs.pureBlack.collectAsState(initial = false)
     val colorSchemeType by prefs.colorScheme.collectAsState(initial = "dynamic")
-
+    
     var currentScreen by remember {
         mutableStateOf<Screen>(
             if (BananiteApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
         )
     }
 
-    // FIX: Added `Screen.Settings` to the condition. 
-    // Now pressing back from Settings or Reservation returns to Home.
-    BackHandler(enabled = currentScreen == Screen.Reservation || currentScreen == Screen.Settings) {
+    BackHandler(enabled = currentScreen == Screen.Reservation || currentScreen == Screen.Settings || currentScreen == Screen.ThemeSettings || currentScreen == Screen.AnimationSettings) {
         currentScreen = Screen.Home
     }
 
@@ -72,7 +67,9 @@ private fun App() {
                 Screen.Login -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
                 Screen.Home -> HomeScreen(onNavigate = { target -> currentScreen = target })
                 Screen.Reservation -> ReservationScreen(onBack = { currentScreen = Screen.Home })
-                Screen.Settings -> SettingsScreen(onBack = { currentScreen = Screen.Home })
+                Screen.Settings -> SettingsScreen(onNavigate = { target -> currentScreen = target })
+                Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
+                Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.Logout -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
             }
         }

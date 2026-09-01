@@ -1,11 +1,13 @@
 package ir.mums.stufood.ui.navigation
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings // ADDED
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -20,7 +22,12 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Login : Screen("login", "Login", Icons.Default.Person)
     object Home : Screen("home", "Bananite", Icons.Default.Fastfood)
     object Reservation : Screen("reservation", "Reserve Food", Icons.Default.CalendarMonth)
-    object Settings : Screen("settings", "Settings", Icons.Default.Settings) // ADDED
+    object Settings : Screen("settings", "Settings", Icons.Default.Settings)
+    
+    // New Sub-menus
+    object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
+    object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
+    
     object Logout : Screen("logout", "Logout", Icons.Default.Logout)
 }
 
