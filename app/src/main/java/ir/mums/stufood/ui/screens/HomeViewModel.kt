@@ -2,7 +2,7 @@ package ir.mums.stufood.ui.screens
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ir.mums.stufood.StufoodApp
+import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.stateIn // ADDED
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
-    private val repo: StufoodRepository = StufoodApp.instance.repository
+    private val repo: StufoodRepository = BananiteApp.instance.repository
 ) : ViewModel() {
     private val _isLoggedIn = MutableStateFlow(repo.isLoggedIn())
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn
@@ -20,13 +20,13 @@ class HomeViewModel(
     val studentName: StateFlow<String?> = repo.studentName
     
     // FIXED: Convert Flow to StateFlow with a default value
-    val animationType: StateFlow<String> = StufoodApp.instance.userPrefs.animationType.stateIn(
+    val animationType: StateFlow<String> = BananiteApp.instance.userPrefs.animationType.stateIn(
         viewModelScope,
         SharingStarted.Lazily,
         "smooth"
     )
 
-    val bounciness: StateFlow<String> = StufoodApp.instance.userPrefs.bounciness.stateIn(
+    val bounciness: StateFlow<String> = BananiteApp.instance.userPrefs.bounciness.stateIn(
         viewModelScope,
         SharingStarted.Lazily,
         "medium"

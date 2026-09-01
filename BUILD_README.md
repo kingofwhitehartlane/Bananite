@@ -45,7 +45,7 @@ Before building the project, ensure your host machine meets the following enviro
 ## 📂 Project Structure Overview
 
 ```
-kingofwhitehartlane-stufoodapp/
+Bananite/
 ├── .github/
 │   └── workflows/
 │       └── build.yml               # Automated GitHub Actions CI workflow
@@ -57,7 +57,7 @@ kingofwhitehartlane-stufoodapp/
 │           ├── AndroidManifest.xml # Permissions, Application class, Activity declarations
 │           ├── java/ir/mums/stufood/
 │           │   ├── MainActivity.kt # Main host Activity with Jetpack Compose entry point
-│           │   ├── StufoodApp.kt   # Application singleton & dependency container
+│           │   ├── BananiteApp.kt   # Application singleton & dependency container
 │           │   ├── data/           # Repository, CookieJar session state, DataStore prefs
 │           │   └── ui/             # Composables, screens, ViewModels, Material 3 theme
 │           └── res/                # XML drawables, vector assets, raw CA certs, typography
@@ -80,8 +80,8 @@ kingofwhitehartlane-stufoodapp/
 Clone the repository to your local workspace:
 
 ```bash
-git clone https://github.com/kingofwhitehartlane/stufoodapp.git
-cd kingofwhitehartlane-stufoodapp
+git clone https://github.com/kingofwhitehartlane/Bananite.git
+cd Bananite
 ```
 
 > **Important Path Tip:** Avoid cloning into paths containing spaces or non-ASCII characters (e.g., `C:\Users\John Doe\...` or special characters) as build tools like `aapt2` can experience path resolution issues on Windows.
@@ -196,7 +196,7 @@ To clean previous build outputs and run code checks:
 ## 🎨 Building with Android Studio
 
 1. **Launch Android Studio** (Koala / Ladybug or newer recommended).
-2. Click **Open** and select the root directory of the project (`kingofwhitehartlane-stufoodapp`).
+2. Click **Open** and select the root directory of the project (`Bananite`).
 3. Allow Android Studio to initiate and complete the **Gradle Sync**.
 4. Ensure the JDK is set to Java 17:
    - Go to **Settings / Preferences** → **Build, Execution, Deployment** → **Build Tools** → **Gradle**.

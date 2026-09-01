@@ -20,7 +20,7 @@ import ir.mums.stufood.ui.screens.HomeScreen
 import ir.mums.stufood.ui.screens.LoginScreen
 import ir.mums.stufood.ui.screens.ReservationScreen
 import ir.mums.stufood.ui.screens.SettingsScreen
-import ir.mums.stufood.ui.theme.StuFoodTheme
+import ir.mums.stufood.ui.theme.BananiteTheme
 
 /**
  * Single-activity host. Navigation is just a `when` on a Screen enum — small enough
@@ -41,14 +41,14 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun App() {
     // Collect theme preferences
-    val prefs = StufoodApp.instance.userPrefs
+    val prefs = BananiteApp.instance.userPrefs
     val themeMode by prefs.themeMode.collectAsState(initial = "system")
     val pureBlack by prefs.pureBlack.collectAsState(initial = false)
     val colorSchemeType by prefs.colorScheme.collectAsState(initial = "dynamic")
 
     var currentScreen by remember {
         mutableStateOf<Screen>(
-            if (StufoodApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
+            if (BananiteApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
         )
     }
 
@@ -58,7 +58,7 @@ private fun App() {
         currentScreen = Screen.Home
     }
 
-    StuFoodTheme(
+    BananiteTheme(
         themeMode = themeMode,
         pureBlack = pureBlack,
         colorSchemeType = colorSchemeType

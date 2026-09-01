@@ -18,7 +18,7 @@ A modern, native Android application for the **Mashhad University of Medical Sci
 You do **not** need to install Android Studio or build the app from code! Pre-compiled, ready-to-use Android packages (**APK files**) will be published on the repository's Releases page.
 
 ### Quick Install Guide:
-1. **Download APK:** Head over to the [**GitHub Releases Page**](https://github.com/kingofwhitehartlane/StuFoodApp/releases) and download the latest `.apk` file (e.g., `app-release.apk`) to your Android device.
+1. **Download APK:** Head over to the [**GitHub Releases Page**](https://github.com/kingofwhitehartlane/Bananite/releases) and download the latest `.apk` file (e.g., `app-release.apk`) to your Android device.
 2. **Allow Unknown Sources:** When opening the downloaded `.apk` file for the first time, your phone may prompt you to allow installation from "Unknown Sources" or allow your browser/file manager to install applications.
 3. **Install & Launch:** Tap **Install**, wait for completion, and open **Bananite** directly from your home screen or app drawer.
 
@@ -45,7 +45,7 @@ You do **not** need to install Android Studio or build the app from code! Pre-co
 
 If you encounter a bug, broken feature, or layout parsing issue while using the app, please report it!
 
-👉 **[Open a GitHub Issue](https://github.com/kingofwhitehartlane/StuFoodApp/issues)**
+👉 **[Open a GitHub Issue](https://github.com/kingofwhitehartlane/Bananite/issues)**
 
 When creating a new issue, please include:
 1. Your Android version and device model.

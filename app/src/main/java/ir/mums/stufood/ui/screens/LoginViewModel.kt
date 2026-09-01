@@ -6,7 +6,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ir.mums.stufood.StufoodApp
+import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.data.UserPrefs
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,8 +38,8 @@ private const val FRIENDLY_NETWORK_ERROR = "Couldn't reach the server. Check you
  * same way.
  */
 class LoginViewModel(
-    private val repo: StufoodRepository = StufoodApp.instance.repository,
-    private val prefs: UserPrefs = StufoodApp.instance.userPrefs
+    private val repo: StufoodRepository = BananiteApp.instance.repository,
+    private val prefs: UserPrefs = BananiteApp.instance.userPrefs
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<LoginUiState>(LoginUiState.Loading)

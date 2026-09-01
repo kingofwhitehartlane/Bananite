@@ -3,7 +3,7 @@ package ir.mums.stufood.ui.screens
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import ir.mums.stufood.StufoodApp
+import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -40,16 +40,16 @@ private const val FRIENDLY_LOAD_ERROR = "Couldn't load the reservation page. Pul
  * re-merging the *day* that owns the dialog the same way [withDay] does.
  */
 class ReservationViewModel(
-    private val repo: StufoodRepository = StufoodApp.instance.repository
+    private val repo: StufoodRepository = BananiteApp.instance.repository
 ) : ViewModel() {
     
-    val bounciness: StateFlow<String> = StufoodApp.instance.userPrefs.bounciness.stateIn(
+    val bounciness: StateFlow<String> = BananiteApp.instance.userPrefs.bounciness.stateIn(
         viewModelScope,
         SharingStarted.Lazily,
         "medium"
     )
 
-    val creditTransitionType: StateFlow<String> = StufoodApp.instance.userPrefs.creditTransitionType.stateIn(
+    val creditTransitionType: StateFlow<String> = BananiteApp.instance.userPrefs.creditTransitionType.stateIn(
         viewModelScope,
         SharingStarted.Lazily,
         "fade"

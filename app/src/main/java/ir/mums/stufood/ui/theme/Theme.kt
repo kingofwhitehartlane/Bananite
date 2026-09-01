@@ -37,7 +37,7 @@ private val DarkColors = darkColorScheme(
 )
 
 @Composable
-fun StuFoodTheme(
+fun BananiteTheme(
     themeMode: String = "system",       // "system", "light", "dark"
     pureBlack: Boolean = false,         // OLED pure black toggle
     colorSchemeType: String = "dynamic",// "dynamic" (Material You) or "custom" (Expressive/Warm Palette)
