@@ -89,7 +89,6 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(36.dp) // Keeps it really tiny and neat
                             )
-                            Text("Bananite")
                         }
                         
                         Spacer(modifier = Modifier.weight(1f))

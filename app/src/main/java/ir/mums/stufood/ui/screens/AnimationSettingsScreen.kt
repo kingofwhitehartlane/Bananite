@@ -95,7 +95,7 @@ fun AnimationSettingsScreen(
                     )
                 }
                 
-                val options = listOf("None" to "none", "Bounce" to "bounce", "Smooth" to "smooth")
+                val options = listOf("None" to "none", "Smooth" to "smooth", "Bounce" to "bounce")
                 val selectedIndex = options.indexOfFirst { it.second == effectiveAnimationType }.coerceAtLeast(0)
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     options.forEachIndexed { index, (label, value) ->
