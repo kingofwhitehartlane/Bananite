@@ -32,6 +32,13 @@ class HomeViewModel(
         "medium"
     )
 
+    val welcomeNameEnabled: StateFlow<Boolean> = BananiteApp.instance.userPrefs.welcomeNameEnabled.stateIn(
+        viewModelScope, SharingStarted.Lazily, true
+    )
+    val disableAllAnimations: StateFlow<Boolean> = BananiteApp.instance.userPrefs.disableAllAnimations.stateIn(
+        viewModelScope, SharingStarted.Lazily, false
+    )
+
     fun refresh() {
         _isLoggedIn.value = repo.isLoggedIn()
     }

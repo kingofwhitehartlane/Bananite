@@ -208,18 +208,24 @@ private fun AnimatedAlefName(name: String, animationType: String, bounciness: St
 
             fontSizeSp = finalFontSize
             ready = true
-            delay(175) // let the tall & narrow starting state register before it moves
             
-            // TOGGLE LOGIC
-            if (animationType == "smooth") {
-                kshd.animateTo(finalMaxKshd, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
+            // Handle "none" animation type
+            if (animationType == "none") {
+                hght.snapTo(HGHT_SHORT)
+                kshd.snapTo(finalMaxKshd)
             } else {
-                kshd.animateTo(finalMaxKshd, animationSpec = spring(dampingRatio = nameDampingRatio, stiffness = Spring.StiffnessLow))
+                delay(175) // let the tall & narrow starting state register before it moves
+                // TOGGLE LOGIC
+                if (animationType == "smooth") {
+                    kshd.animateTo(finalMaxKshd, animationSpec = tween(durationMillis = 600, easing = FastOutSlowInEasing))
+                } else {
+                    kshd.animateTo(finalMaxKshd, animationSpec = spring(dampingRatio = nameDampingRatio, stiffness = Spring.StiffnessLow))
+                }
             }
         }
-
+        
         LaunchedEffect(ready) {
-            if (ready) {
+            if (ready && animationType != "none") { // Skip delay/animation if "none"
                 delay(150)
                 // TOGGLE LOGIC
                 if (animationType == "smooth") {

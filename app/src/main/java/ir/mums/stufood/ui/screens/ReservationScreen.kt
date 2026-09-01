@@ -127,6 +127,15 @@ private data class ReservationBounceParams(
 )
 
 private fun bounceParamsFor(level: String): ReservationBounceParams = when (level) {
+    "none" -> ReservationBounceParams( // NEW: Zero bounce/scale physics
+        dayCardDamping = Spring.DampingRatioNoBouncy,
+        dayCardStiffness = Spring.StiffnessMedium,
+        contentDamping = Spring.DampingRatioNoBouncy,
+        contentStiffness = Spring.StiffnessMedium,
+        settleDamping = Spring.DampingRatioNoBouncy,
+        settleStiffness = Spring.StiffnessMedium,
+        scaleInInitial = 1f // 1f means no scale-in animation
+    )
     "low" -> ReservationBounceParams(
         dayCardDamping = 0.9f,
         dayCardStiffness = Spring.StiffnessMediumLow,
@@ -224,10 +233,10 @@ fun ReservationScreen(
     val pendingCancelExchange by vm.pendingCancelExchange.collectAsState()
     val exchangeDialog by vm.exchangeDialog.collectAsState()
     val busyDayIndex by vm.busyDayIndex.collectAsState()
-    val bounciness by vm.bounciness.collectAsState()
+    val bounciness by vm.effectiveBounciness.collectAsState()
     val bounceParams = remember(bounciness) { bounceParamsFor(bounciness) }
-    val creditTransitionType by vm.creditTransitionType.collectAsState()
-    val morphMode = creditTransitionType == "morph" 
+    val creditTransitionType by vm.effectiveCreditTransitionType.collectAsState()
+    val morphMode = creditTransitionType == "morph"
 
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }

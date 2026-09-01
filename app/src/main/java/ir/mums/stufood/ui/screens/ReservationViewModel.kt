@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
 
 private const val TAG = "ReservationViewModel"
 
@@ -43,17 +44,17 @@ class ReservationViewModel(
     private val repo: StufoodRepository = BananiteApp.instance.repository
 ) : ViewModel() {
     
-    val bounciness: StateFlow<String> = BananiteApp.instance.userPrefs.bounciness.stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
-        "medium"
-    )
+    val bounciness: StateFlow<String> = BananiteApp.instance.userPrefs.bounciness.stateIn(viewModelScope, SharingStarted.Lazily, "medium")
+    val creditTransitionType: StateFlow<String> = BananiteApp.instance.userPrefs.creditTransitionType.stateIn(viewModelScope, SharingStarted.Lazily, "fade")
+    
+    // NEW: Global Disable Override
+    val disableAllAnimations: StateFlow<Boolean> = BananiteApp.instance.userPrefs.disableAllAnimations.stateIn(viewModelScope, SharingStarted.Lazily, false)
 
-    val creditTransitionType: StateFlow<String> = BananiteApp.instance.userPrefs.creditTransitionType.stateIn(
-        viewModelScope,
-        SharingStarted.Lazily,
-        "fade"
-    )
+    val effectiveBounciness: StateFlow<String> = combine(bounciness, disableAllAnimations) { b, d -> if (d) "none" else b }
+        .stateIn(viewModelScope, SharingStarted.Lazily, "medium")
+
+    val effectiveCreditTransitionType: StateFlow<String> = combine(creditTransitionType, disableAllAnimations) { c, d -> if (d) "fade" else c }
+        .stateIn(viewModelScope, SharingStarted.Lazily, "fade")
 
     private val _uiState = MutableStateFlow<ReservationUiState>(ReservationUiState.Idle)
     val uiState: StateFlow<ReservationUiState> = _uiState

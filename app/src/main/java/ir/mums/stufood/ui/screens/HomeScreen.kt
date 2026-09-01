@@ -59,6 +59,11 @@ fun HomeScreen(
 
     val context = LocalContext.current
     val studentName by vm.studentName.collectAsState()
+
+    val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
+    val disableAll by vm.disableAllAnimations.collectAsState()
+    val effectiveAnimationType = if (disableAll) "none" else animationType
+
     LaunchedEffect(Unit) { vm.loadStudentName() }
 
     Scaffold(
@@ -84,10 +89,14 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(36.dp) // Keeps it really tiny and neat
                             )
+                            Text("Bananite")
                         }
                         
                         Spacer(modifier = Modifier.weight(1f))
-                        WelcomeLabel(modifier = Modifier.padding(end = 16.dp))
+                        // CONDITIONALLY RENDER WELCOME LABEL
+                        if (welcomeNameEnabled) {
+                            WelcomeLabel(modifier = Modifier.padding(end = 16.dp))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -109,7 +118,13 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(0.dp) 
             ) {
-                WelcomeBanner(studentName = studentName, animationType = animationType, bounciness = bounciness)
+                if (welcomeNameEnabled) {
+                    WelcomeBanner(
+                        studentName = studentName, 
+                        animationType = effectiveAnimationType, 
+                        bounciness = bounciness
+                    )
+                }
                 Text(
                     text = "What would you like to do?",
                     style = MaterialTheme.typography.titleMedium,

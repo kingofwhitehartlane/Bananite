@@ -17,6 +17,8 @@ class SettingsViewModel(
     val themeMode = prefs.themeMode
     val pureBlack = prefs.pureBlack
     val colorScheme = prefs.colorScheme
+    val welcomeNameEnabled = prefs.welcomeNameEnabled
+    val disableAllAnimations = prefs.disableAllAnimations
 
     fun setAnimationType(type: String) { viewModelScope.launch { prefs.saveAnimationType(type) } }
     fun setBounciness(level: String) { viewModelScope.launch { prefs.saveBounciness(level) } }
@@ -26,6 +28,8 @@ class SettingsViewModel(
     fun setThemeMode(mode: String) { viewModelScope.launch { prefs.saveThemeMode(mode) } }
     fun setPureBlack(enabled: Boolean) { viewModelScope.launch { prefs.savePureBlack(enabled) } }
     fun setColorScheme(scheme: String) { viewModelScope.launch { prefs.saveColorScheme(scheme) } }
+    fun setWelcomeNameEnabled(enabled: Boolean) { viewModelScope.launch { prefs.saveWelcomeNameEnabled(enabled) } }
+    fun setDisableAllAnimations(disabled: Boolean) { viewModelScope.launch { prefs.saveDisableAllAnimations(disabled) } }
 
     // RESET
     fun resetToDefaults() {

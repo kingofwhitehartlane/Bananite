@@ -27,6 +27,8 @@ class UserPrefs(private val context: Context) {
         private val THEME_MODE = stringPreferencesKey("theme_mode") // "system", "light", "dark"
         private val PURE_BLACK = booleanPreferencesKey("pure_black")
         private val COLOR_SCHEME = stringPreferencesKey("color_scheme") // "dynamic", "custom"
+        private val WELCOME_NAME_ENABLED = booleanPreferencesKey("welcome_name_enabled")
+        private val DISABLE_ALL_ANIMATIONS = booleanPreferencesKey("disable_all_animations")
     }
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
@@ -41,6 +43,10 @@ class UserPrefs(private val context: Context) {
     val themeMode: Flow<String> = context.userDataStore.data.map { it[THEME_MODE] ?: "system" }
     val pureBlack: Flow<Boolean> = context.userDataStore.data.map { it[PURE_BLACK] ?: false }
     val colorScheme: Flow<String> = context.userDataStore.data.map { it[COLOR_SCHEME] ?: "dynamic" }
+
+    val welcomeNameEnabled: Flow<Boolean> = context.userDataStore.data.map { it[WELCOME_NAME_ENABLED] ?: true }
+    val disableAllAnimations: Flow<Boolean> = context.userDataStore.data.map { it[DISABLE_ALL_ANIMATIONS] ?: false }
+
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
         context.userDataStore.edit { prefs ->
@@ -64,6 +70,10 @@ class UserPrefs(private val context: Context) {
     suspend fun saveThemeMode(mode: String) { context.userDataStore.edit { it[THEME_MODE] = mode } }
     suspend fun savePureBlack(enabled: Boolean) { context.userDataStore.edit { it[PURE_BLACK] = enabled } }
     suspend fun saveColorScheme(scheme: String) { context.userDataStore.edit { it[COLOR_SCHEME] = scheme } }
+
+    suspend fun saveWelcomeNameEnabled(enabled: Boolean) { context.userDataStore.edit { it[WELCOME_NAME_ENABLED] = enabled } }
+    suspend fun saveDisableAllAnimations(disabled: Boolean) { context.userDataStore.edit { it[DISABLE_ALL_ANIMATIONS] = disabled } }
+
 
     // RESET TO DEFAULTS
     suspend fun resetToDefaults() {
