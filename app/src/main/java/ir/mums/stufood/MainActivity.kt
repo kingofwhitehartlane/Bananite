@@ -49,8 +49,14 @@ private fun App() {
         )
     }
 
-    BackHandler(enabled = currentScreen == Screen.Reservation || currentScreen == Screen.Settings || currentScreen == Screen.ThemeSettings || currentScreen == Screen.AnimationSettings) {
-        currentScreen = Screen.Home
+    BackHandler(enabled = currentScreen != Screen.Home && currentScreen != Screen.Login) {
+        currentScreen = when (currentScreen) {
+            Screen.Reservation      -> Screen.Home
+            Screen.Settings         -> Screen.Home
+            Screen.ThemeSettings    -> Screen.Settings
+            Screen.AnimationSettings -> Screen.Settings
+            else                    -> Screen.Home
+        }
     }
 
     BananiteTheme(

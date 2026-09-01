@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -95,16 +96,11 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Sub Menus
-            SubMenuCard(
-                title = "Theme & Color",
-                icon = Icons.Default.Palette,
-                onClick = { onNavigate(Screen.ThemeSettings) }
-            )
-
-            SubMenuCard(
-                title = "Animations",
-                icon = Icons.Default.Animation,
-                onClick = { onNavigate(Screen.AnimationSettings) }
+            SettingsGroup(
+                items = listOf(
+                    { SubMenuItem(title = "Theme & Color", icon = Icons.Default.Palette, onClick = { onNavigate(Screen.ThemeSettings) }) },
+                    { SubMenuItem(title = "Animations", icon = Icons.Default.Animation, onClick = { onNavigate(Screen.AnimationSettings) }) }
+                )
             )
 
             Spacer(modifier = Modifier.weight(1f))
@@ -129,45 +125,54 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SubMenuCard(
+private fun SettingsGroup(
+    items: List<@Composable () -> Unit>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        items.forEachIndexed { index, item ->
+            item()
+            if (index < items.lastIndex) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SubMenuItem(
     title: String,
     icon: ImageVector,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp)
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleLarge
-                )
-            }
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = "Go to $title",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
