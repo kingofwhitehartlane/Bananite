@@ -28,6 +28,22 @@ You do **not** need to install Android Studio or build the app from code! Pre-co
 
 ---
 
+## 🔄 Auto-Updates with Obtainium
+To get automatic updates directly from this GitHub repository without relying on an app store, you can use **[Obtainium](https://github.com/ImranR98/Obtainium)**. Obtainium checks this repository for new releases and installs the latest APK automatically.
+
+### How to add Bananite to Obtainium:
+1. Download and install **Obtainium** from its [official GitHub releases](https://github.com/ImranR98/Obtainium/releases) or F-Droid.
+2. Open Obtainium and tap the **"Add App"** button.
+3. Enter the following URL in the **App Source URL** field:
+   ```text
+   https://github.com/kingofwhitehartlane/Bananite
+   ```
+4. Tap **"Add"**. Obtainium will automatically detect the GitHub releases and filter for the correct APK asset (`Bananite-v*.apk`).
+5. Tap **"Install"** to download the latest version. 
+6. *(Optional)* Enable background updates in Obtainium's settings to keep Bananite automatically updated in the background whenever a new release is published!
+
+---
+
 ## ✨ Features
 
 - 🍲 **Weekly Meal Reservation:** Select meals (Lunch/Dinner), pick your cafeteria, and reserve food for upcoming weeks.
