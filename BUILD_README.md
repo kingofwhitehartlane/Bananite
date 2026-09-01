@@ -215,7 +215,7 @@ To sign your release APK for distribution, you can configure keystore credential
 If you don't already have a signing key, generate one using `keytool`:
 
 ```bash
-keytool -genkeypair -v   -keystore release.keystore   -alias stufood-key   -keyalg RSA   -keysize 2048   -validity 10000
+keytool -genkeypair -v   -keystore release.keystore   -alias bananite-key   -keyalg RSA   -keysize 2048   -validity 10000
 ```
 
 Place `release.keystore` in a secure location (or inside the project root, keeping it excluded from version control via `.gitignore`).
@@ -227,7 +227,7 @@ Add the following properties to your global or local `gradle.properties` file:
 ```properties
 KEYSTORE_FILE=../release.keystore
 KEYSTORE_PASSWORD=your_keystore_password
-KEY_ALIAS=stufood-key
+KEY_ALIAS=bananite-key
 KEY_PASSWORD=your_key_password
 ```
 
