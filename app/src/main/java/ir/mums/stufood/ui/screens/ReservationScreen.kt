@@ -1070,10 +1070,7 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
 
                 // ---- "تعویض غذا با سایرین": swap with a specific student ----
                 if (dialog.showStudentSearchFields) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = state.studentNumber,
                             onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
@@ -1081,17 +1078,32 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                             singleLine = true,
                             enabled = !state.busy,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        IconButton(
+                        // Changed from IconButton to a proper Button to match the web version
+                        Button(
                             onClick = { vm.searchDestinationStudent(state.studentNumber) },
-                            enabled = !state.busy && state.studentNumber.isNotBlank()
+                            enabled = !state.busy && state.studentNumber.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
                         ) {
-                            Icon(Icons.Default.Search, contentDescription = "جستجو")
+                            MultiScriptText("جستجو")
                         }
-                    }
-                    dialog.destStudentLabel?.let {
-                        MultiScriptText(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                        
+                        // Display the server's response (e.g., "دانشجوی مقصد غذایی رزرو نکرده است")
+                        dialog.destStudentLabel?.let {
+                            MultiScriptText(
+                                text = it, 
+                                style = MaterialTheme.typography.bodyMedium, 
+                                color = MaterialTheme.colorScheme.error // Maroon maps well to error color
+                            )
+                        }
+                        
+                        // Static warning text from the original HTML
+                        MultiScriptText(
+                            text = "در صورت تایید دانشجوی مقصد برای تعویض اختصاصی غذاها با هم تعویض خواهند شد",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     }
                 }
 
@@ -1126,8 +1138,9 @@ private fun DropdownField(
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = options.firstOrNull { it.second == selectedValue }?.first ?: selectedValue
-
+    // Fallback to "انتخاب کنید" if the value is "0" but somehow missing from options
+    val selectedLabel = options.firstOrNull { it.second == selectedValue }?.first ?: if (selectedValue == "0") "انتخاب کنید" else selectedValue
+    
     // ExposedDropdownMenuBox MUST be the direct parent of ExposedDropdownMenu 
     // to provide the correct Composable context and avoid compilation errors.
     ExposedDropdownMenuBox(
@@ -1158,8 +1171,13 @@ private fun DropdownField(
                     focusedTextColor = Color.Transparent,
                     unfocusedTextColor = Color.Transparent,
                     disabledTextColor = Color.Transparent,
-                    errorTextColor = Color.Transparent
-                    // Note: Container colors are left as default to keep the background visible.
+                    errorTextColor = Color.Transparent,
+                    // Make container colors transparent for a seamless look with the dialog background
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    errorContainerColor = Color.Transparent,
+                    cursorColor = Color.Transparent
                 )
             )
 
