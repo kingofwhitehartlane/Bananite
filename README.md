@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/bananite hero banner.png" alt="Hero Banner" width="100%">
+</p>
+
 # 🍌 Bananite — Native Android App
 A modern, native Android application for the **Mashhad University of Medical Sciences (MUMS)** food reservation system (`stufood.mums.ac.ir`).
 
