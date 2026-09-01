@@ -97,13 +97,18 @@ fun AnimationSettingsScreen(
                 
                 val options = listOf("None" to "none", "Smooth" to "smooth", "Bounce" to "bounce")
                 val selectedIndex = options.indexOfFirst { it.second == effectiveAnimationType }.coerceAtLeast(0)
+                
+                // NEW: The selector is only enabled if animations aren't globally disabled 
+                // AND the welcome name itself is enabled.
+                val isAnimationSelectorEnabled = !disableAll && welcomeNameEnabled
+
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     options.forEachIndexed { index, (label, value) ->
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                            onClick = { if (!disableAll) vm.setAnimationType(value) },
+                            onClick = { if (isAnimationSelectorEnabled) vm.setAnimationType(value) },
                             selected = selectedIndex == index,
-                            enabled = !disableAll,
+                            enabled = isAnimationSelectorEnabled, // UPDATED: Disables the buttons if welcomeNameEnabled is false
                             label = { Text(label) }
                         )
                     }
