@@ -75,13 +75,15 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
+
+                            Text("Bananite")
+
                             Icon(
                                 painter = painterResource(id = R.drawable.ic_launcher_foreground),
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp) // Keeps it really tiny and neat
+                                modifier = Modifier.size(36.dp) // Keeps it really tiny and neat
                             )
-                            Text("Bananite")
                         }
                         
                         Spacer(modifier = Modifier.weight(1f))
