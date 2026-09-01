@@ -307,10 +307,11 @@ class ReservationViewModel(
                 )
 
                 if (showChangeFood) {
-                    // Type "2": fetch cafeteria options via AJAX PageMethod,
-                    // exactly like the site's getSeachSelfData() JS function.
-                    val selfOptions = repo.fetchExchangeSelfOptions(current.mealValue, current.foodId)
-                    val selfOptions = listOf("انتخاب کنید" to "0") + rawSelfOptions // Add placeholder
+                    // Type "2": fetch cafeteria options via AJAX PageMethod
+                    val fetchedSelfOptions = repo.fetchExchangeSelfOptions(current.mealValue, current.foodId)
+                    // Prepend the placeholder to prevent "0" from showing as default
+                    val selfOptions = listOf("انتخاب کنید" to "0") + fetchedSelfOptions
+                    
                     updatedDialog = updatedDialog.copy(
                         selfOptions = selfOptions,
                         selectedSelf = "0",
@@ -342,10 +343,11 @@ class ReservationViewModel(
 
         viewModelScope.launch {
             try {
-                // Fetch food options via AJAX PageMethod, exactly like the site's
-                // dpSelectSelf.change JS handler.
-                val foodOptions = repo.fetchExchangeFoodOptions(current.mealValue, current.foodId, value)
-                val foodOptions = listOf("انتخاب غذا" to "0") + rawFoodOptions
+                // Fetch food options via AJAX PageMethod
+                val fetchedFoodOptions = repo.fetchExchangeFoodOptions(current.mealValue, current.foodId, value)
+                // Prepend the placeholder to prevent "0" from showing as default
+                val foodOptions = listOf("انتخاب غذا" to "0") + fetchedFoodOptions
+                
                 val updatedDialog = current.dialog.copy(
                     selectedSelf = value,
                     foodOptions = foodOptions,

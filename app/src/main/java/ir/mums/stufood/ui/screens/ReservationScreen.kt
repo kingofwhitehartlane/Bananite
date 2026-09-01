@@ -1071,30 +1071,34 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                 // ---- "تعویض غذا با سایرین": swap with a specific student ----
                 if (dialog.showStudentSearchFields) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = state.studentNumber,
-                            onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
-                            label = { MultiScriptText("شماره دانشجوی مقصد") },
-                            singleLine = true,
-                            enabled = !state.busy,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        // Changed from IconButton to a proper Button to match the web version
-                        Button(
-                            onClick = { vm.searchDestinationStudent(state.studentNumber) },
-                            enabled = !state.busy && state.studentNumber.isNotBlank(),
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            MultiScriptText("جستجو")
+                            OutlinedTextField(
+                                value = state.studentNumber,
+                                onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
+                                label = { MultiScriptText("شماره دانشجوی مقصد") },
+                                singleLine = true,
+                                enabled = !state.busy,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedButton(
+                                onClick = { vm.searchDestinationStudent(state.studentNumber) },
+                                enabled = !state.busy && state.studentNumber.isNotBlank(),
+                                contentPadding = PaddingValues(horizontal = 16.dp)
+                            ) {
+                                MultiScriptText("جستجو")
+                            }
                         }
                         
                         // Display the server's response (e.g., "دانشجوی مقصد غذایی رزرو نکرده است")
                         dialog.destStudentLabel?.let {
                             MultiScriptText(
-                                text = it, 
-                                style = MaterialTheme.typography.bodyMedium, 
-                                color = MaterialTheme.colorScheme.error // Maroon maps well to error color
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
                             )
                         }
                         
