@@ -29,7 +29,7 @@ You do **not** need to install Android Studio or build the app from code! Pre-co
 ---
 
 ## 🔄 Auto-Updates with Obtainium
-To get automatic updates directly from this GitHub repository without relying on an app store, you can use **[Obtainium](https://github.com/ImranR98/Obtainium)**. Obtainium checks this repository for new releases and installs the latest APK automatically.
+To get automatic updates directly from this GitHub repository without relying on Github releases directly, you can use **[Obtainium](https://github.com/ImranR98/Obtainium)**. Obtainium checks this repository for new releases and installs the latest APK automatically.
 
 ### How to add Bananite to Obtainium:
 1. Download and install **Obtainium** from its [official GitHub releases](https://github.com/ImranR98/Obtainium/releases) or F-Droid.
