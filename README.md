@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/bananite hero banner.png" alt="Hero Banner" width="100%">
+  <img src=".github/assets/bananiteherobanner.png" alt="Hero Banner" width="100%">
 </p>
 
 # 🍌 Bananite — Native Android App
