@@ -171,13 +171,12 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     }
 
     suspend fun login(username: String, password: String, captcha: String): LoginResult = withClient {
-        val jsonPayload = """
-            {
-                "username": "$username",
-                "password": "$password",
-                "captcha": "$captcha"
-            }
-        """.trimIndent()
+        // Safely build JSON payload using org.json.JSONObject to handle escaping automatically
+        val jsonPayload = org.json.JSONObject().apply {
+            put("username", username)
+            put("password", password)
+            put("captcha", captcha)
+        }.toString()
 
         val mediaType = "application/json; charset=utf-8".toMediaType()
         val body = jsonPayload.toRequestBody(mediaType)
