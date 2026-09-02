@@ -131,6 +131,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val SELECTED_FOOD_ID = "ctl00\$body\$hdnSelectFood"
         const val SELECTED_SELF_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedSelfForExchange"
         const val SELECTED_FOOD_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedFoodForExchange"
+        // NEW: mirrors rbList — the site's JS sets this for types 3/4 before submitting
+        const val HF_SELECTED_VALUE = "ctl00\$body\$hfSelectedValue"
     }
 
     // Badge labels for the header <div>'s CSS class, per the legend on the site:
@@ -410,7 +412,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             overrides = mapOf(
                 Fields.SELECTED_FOOD_ID to request.foodId,
                 Fields.EXCHANGE_TYPE to request.exchangeType,
-                Fields.EXCHANGE_STUDENT_NUM to request.studentNumber
+                Fields.EXCHANGE_STUDENT_NUM to request.studentNumber,
+                Fields.HF_SELECTED_VALUE to request.exchangeType   // NEW — matches HAR
             ),
             extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "جستجو")
         )
@@ -424,7 +427,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     suspend fun confirmExchange(current: ReservationPage, request: ExchangeRequest): ReservationPage {
         val overrides = mutableMapOf(
             Fields.SELECTED_FOOD_ID to request.foodId,
-            Fields.EXCHANGE_TYPE to request.exchangeType
+            Fields.EXCHANGE_TYPE to request.exchangeType,
+            Fields.HF_SELECTED_VALUE to request.exchangeType   // NEW
         )
         if (request.exchangeType == "2") {
             // The JS sets these hidden fields from the dropdown values before submitting.

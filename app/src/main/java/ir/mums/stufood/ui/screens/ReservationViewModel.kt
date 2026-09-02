@@ -256,8 +256,7 @@ class ReservationViewModel(
             }
 
             val foodId = option.exchangeFoodId.orEmpty()
-
-            val dialogData = page.exchangeDialog ?: StufoodRepository.ExchangeDialogData(
+            val baseDialog = page.exchangeDialog ?: StufoodRepository.ExchangeDialogData(
                 exchangeTypes = listOf(
                     "تبادل غذا" to "1",
                     "تعویض غذا" to "2",
@@ -273,7 +272,16 @@ class ReservationViewModel(
                 studentNumber         = null,
                 destStudentLabel      = null
             )
-
+            // Give a clean dialog on every open: the page still carries the previous
+            // search's destStudentLabel in its parsed modal — drop it, and reset the
+            // selected type + visibility so they always agree.
+            val dialogData = baseDialog.copy(
+                selectedExchangeType   = baseDialog.exchangeTypes.firstOrNull()?.second ?: "1",
+                showChangeFoodFields   = false,
+                showStudentSearchFields = false,
+                studentNumber          = null,
+                destStudentLabel       = null
+            )
             _exchangeDialog.value = ExchangeDialogUiState(
                 day       = day,
                 option    = option,
@@ -392,28 +400,20 @@ class ReservationViewModel(
             try {
                 val updated = repo.searchDestinationStudent(page, request)
                 _uiState.value = ReservationUiState.Ready(mergeDay(page, updated, current.day.index))
-                
-                val dialogData = updated.exchangeDialog
-                if (dialogData != null) {
-                    _exchangeDialog.value = current.copy(
-                        dialog = current.dialog.copy(
-                            // Preserve visibility flags to prevent the server from 
-                            // incorrectly hiding the section (e.g., returning display: none)
-                            showChangeFoodFields = current.dialog.showChangeFoodFields,
-                            showStudentSearchFields = current.dialog.showStudentSearchFields,
-                            destStudentLabel = dialogData.destStudentLabel
-                        ),
-                        studentNumber = studentNumber,
-                        busy = false
-                    )
-                } else {
-                    _exchangeDialog.value = current.copy(busy = false)
-                }
+                // Always surface the latest "destination student" result. copy() only
+                // touches destStudentLabel, so showStudentSearchFields stays true.
+                val newDestLabel = updated.exchangeDialog?.destStudentLabel
+                _exchangeDialog.value = current.copy(
+                    dialog = current.dialog.copy(destStudentLabel = newDestLabel),
+                    studentNumber = studentNumber,
+                    busy = false
+                )
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to search destination student", t)
                 postError(FRIENDLY_ERROR)
                 _exchangeDialog.value = current.copy(busy = false)
             }
+        }
         }
     }
 
