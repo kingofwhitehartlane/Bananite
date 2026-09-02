@@ -33,7 +33,7 @@ android {
     signingConfigs {
         create("release") {
             val storePath = System.getenv("KEYSTORE_FILE")
-            if (storePath != null) {
+            if (!storePath.isNullOrEmpty()) {
                 storeFile = file(storePath)
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
@@ -49,13 +49,21 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Falls back to debug signing only when no keystore secret is present
-            // (e.g. a local `assembleRelease` on your machine) so the build never
-            // just fails — but CI releases will always use the real key.
-            signingConfig = if (System.getenv("KEYSTORE_FILE") != null)
+            
+            // FAIL FAST: Check if the env var exists AND the file actually exists
+            val keystorePath = System.getenv("KEYSTORE_FILE")
+            val keystoreExists = !keystorePath.isNullOrEmpty() && file(keystorePath).exists()
+            
+            signingConfig = if (keystoreExists) {
                 signingConfigs.getByName("release")
-            else
-                signingConfigs.getByName("debug")
+            } else {
+                // Loudly abort instead of silently falling back to debug
+                throw GradleException(
+                    "⛔ RELEASE BUILD ABORTED: Valid keystore not found.\n" +
+                    "Expected path: $keystorePath\n" +
+                    "Ensure KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are set."
+                )
+            }
         }
     }
 
