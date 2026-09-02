@@ -67,7 +67,7 @@ fun HomeScreen(
     val studentName by vm.studentName.collectAsState()
 
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
-    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState()
+    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     val effectiveAnimationType by remember(animationType, disableAll) {

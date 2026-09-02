@@ -39,7 +39,7 @@ class HomeViewModel(
         viewModelScope, SharingStarted.Lazily, false
     )
 
-    val hapticFeedbackEnabled: StateFlow<Boolean> = BananiteApp.instance.userPrefs.hapticFeedbackEnabled.stateIn(viewModelScope, SharingStarted.Lazily, true)
+    val hapticFeedbackEnabled = BananiteApp.instance.userPrefs.hapticFeedbackEnabled
 
     fun refresh() {
         _isLoggedIn.value = repo.isLoggedIn()
