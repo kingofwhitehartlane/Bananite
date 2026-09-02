@@ -247,13 +247,15 @@ class ReservationViewModel(
     fun openExchangeDialog(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
         try {
             if (option.exchangeFieldName == null) {
-                postError("DEBUG: exchangeFieldName is null (day=${day.index}, field=${option.fieldName})")
+                Log.e(TAG, "exchangeFieldName is null (day=${day.index}, field=${option.fieldName})")
+                postError("مشکلی در باز کردن دیالوگ تبادل پیش آمد (اطلاعات نامعتبر)")
                 return
             }
 
             val page = (_uiState.value as? ReservationUiState.Ready)?.page
             if (page == null) {
-                postError("DEBUG: uiState not Ready, was ${_uiState.value::class.simpleName}")
+                Log.e(TAG, "uiState not Ready, was ${_uiState.value::class.simpleName}")
+                postError("مشکلی در باز کردن دیالوگ تبادل پیش آمد")
                 return
             }
 
@@ -274,6 +276,7 @@ class ReservationViewModel(
                 studentNumber         = null,
                 destStudentLabel      = null
             )
+            
             // Give a clean dialog on every open: the page still carries the previous
             // search's destStudentLabel in its parsed modal — drop it, and reset the
             // selected type + visibility so they always agree.
@@ -284,6 +287,7 @@ class ReservationViewModel(
                 studentNumber          = null,
                 destStudentLabel       = null
             )
+            
             _exchangeDialog.value = ExchangeDialogUiState(
                 day       = day,
                 option    = option,
@@ -293,7 +297,8 @@ class ReservationViewModel(
             )
 
         } catch (t: Throwable) {
-            postError("DEBUG CRASH: ${t::class.simpleName}: ${t.message}")
+            Log.e(TAG, "CRASH in openExchangeDialog: ${t::class.simpleName}: ${t.message}", t)
+            postError("خطای غیرمنتظره‌ای در باز کردن دیالوگ تبادل رخ داد")
         }
     }
 
