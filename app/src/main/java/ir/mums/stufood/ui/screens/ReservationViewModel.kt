@@ -414,7 +414,6 @@ class ReservationViewModel(
                 _exchangeDialog.value = current.copy(busy = false)
             }
         }
-        }
     }
 
     /** Taps "تایید و ثبت درخواست" inside the exchange dialog. */
