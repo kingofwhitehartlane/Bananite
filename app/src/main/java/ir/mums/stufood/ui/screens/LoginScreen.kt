@@ -56,6 +56,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -249,7 +250,7 @@ fun LoginScreen(
                                         // alone gave no hint that anything could be done about it.
                                         Column(
                                             horizontalAlignment = Alignment.CenterHorizontally,
-                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                            verticalArrangement = Arrangement.Center, // was spacedBy(2.dp)
                                             modifier = Modifier
                                                 .fillMaxSize()
                                                 .clickable(role = Role.Button) {
@@ -261,12 +262,15 @@ fun LoginScreen(
                                             Text(
                                                 "Failed to load",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.error
+                                                color = MaterialTheme.colorScheme.error,
+                                                textAlign = TextAlign.Center
                                             )
+                                            Spacer(Modifier.height(2.dp))
                                             Text(
                                                 "Tap to retry",
                                                 style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                textAlign = TextAlign.Center
                                             )
                                         }
                                     }

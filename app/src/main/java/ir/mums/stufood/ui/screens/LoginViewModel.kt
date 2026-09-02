@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 private const val TAG = "LoginViewModel"
 private const val FRIENDLY_NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
@@ -88,6 +89,7 @@ class LoginViewModel(
     fun loadLoginPage() {
         _uiState.value = LoginUiState.Loading
         viewModelScope.launch {
+            val startedAt = System.currentTimeMillis()
             try {
                 // FIX: landing on the Login screen (including the ↻ retry button)
                 // used to GET Default.aspx with whatever cookies were already sitting
@@ -107,6 +109,7 @@ class LoginViewModel(
                 val bitmap = data.captchaImage?.let { bytes ->
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                 }
+                awaitMinimumSpinnerTime(startedAt)
                 if (bitmap != null) {
                     _uiState.value = LoginUiState.PageReady(captcha = bitmap)
                 } else {
@@ -115,10 +118,19 @@ class LoginViewModel(
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load login page", t)
+                awaitMinimumSpinnerTime(startedAt)
                 _errorMessage.value = FRIENDLY_NETWORK_ERROR
                 _uiState.value = LoginUiState.PageReady(captcha = null)
             }
         }
+    }
+
+    /** Keeps the spinner on screen for at least [minMillis] so a fast failure (e.g. no
+     *  network) doesn't just flash and look like a glitch. Doesn't slow down the happy
+     *  path when the server is actually slow — only tops up the difference. */
+    private suspend fun awaitMinimumSpinnerTime(startedAtMillis: Long, minMillis: Long = 450L) {
+        val elapsed = System.currentTimeMillis() - startedAtMillis
+        if (elapsed < minMillis) delay(minMillis - elapsed)
     }
 
     /** Submits the login form. On success, calls onLoggedIn(). */
