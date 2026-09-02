@@ -68,6 +68,9 @@ fun HomeScreen(
 
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState()
+    // Add this alongside the other collectAsState() calls in HomeScreen:
+    val hapticEnabled by ir.mums.stufood.BananiteApp.instance.userPrefs
+        .hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     val effectiveAnimationType by remember(animationType, disableAll) {
@@ -145,18 +148,21 @@ fun HomeScreen(
                 title = "Reserve Food",
                 subtitle = "Pick meals for next week",
                 icon = Icons.Default.CalendarMonth,
+                hapticsEnabled = hapticEnabled, 
                 onClick = { onNavigate(Screen.Reservation) }
             )
             HomeMenuCard(
                 title = "Settings",
                 subtitle = "App preferences and animations",
                 icon = Icons.Default.Settings,
+                hapticsEnabled = hapticEnabled, 
                 onClick = { onNavigate(Screen.Settings) }
             )
             HomeMenuCard(
                 title = "Logout",
                 subtitle = "Forget this session",
                 icon = Icons.Default.Logout,
+                hapticsEnabled = hapticEnabled, 
                 onClick = {
                     haptic(HapticType.HEAVY)
                     vm.logout { onNavigate(Screen.Login) }
@@ -167,7 +173,10 @@ fun HomeScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .hapticClickable(type = HapticType.CLICK) {
+                    .hapticClickable(
+                        type = HapticType.CLICK,
+                        hapticsEnabled = hapticEnabled
+                    ) {
                         val intent = Intent(
                             Intent.ACTION_VIEW,
                             Uri.parse("https://stufood.mums.ac.ir")
@@ -243,12 +252,16 @@ private fun HomeMenuCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
+    hapticsEnabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .hapticClickable(type = HapticType.CLICK) { onClick() },
+            .hapticClickable(
+                type = HapticType.CLICK,
+                hapticsEnabled = hapticsEnabled
+            ) { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

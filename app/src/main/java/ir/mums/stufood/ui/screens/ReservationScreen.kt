@@ -371,7 +371,7 @@ fun ReservationScreen(
             dismissButton = {
                 TextButton(onClick = {
                     haptic(HapticType.CLICK)
-                    vm::dismissCancelRequest
+                    vm.dismissCancelRequest()
                 }) { MultiScriptText("خیر") }
             }
         )
@@ -385,13 +385,13 @@ fun ReservationScreen(
             confirmButton = {
                 TextButton(onClick = {
                     haptic(HapticType.HEAVY)
-                    vm::confirmCancelExchange
+                    vm.confirmCancelExchange()
                 }) { MultiScriptText("بله") }
             },
             dismissButton = {
                 TextButton(onClick = {
                     haptic(HapticType.CLICK)
-                    vm::dismissCancelExchangeRequest
+                    vm.dismissCancelExchangeRequest()
                 }) { MultiScriptText("خیر") }
             }
         )
@@ -1222,7 +1222,7 @@ private fun ExchangeDialogSheet(
         dismissButton = {
             TextButton(onClick = {
                 haptic(HapticType.CLICK)
-                vm::dismissExchangeDialog
+                vm.dismissExchangeDialog()
             }, enabled = !state.busy) {
                 MultiScriptText("انصراف")
             }
