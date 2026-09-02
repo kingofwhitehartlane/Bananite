@@ -28,6 +28,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.remember
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
@@ -60,13 +62,17 @@ fun HomeScreen(
 
     val animationType by vm.animationType.collectAsState()
     val bounciness by vm.bounciness.collectAsState()
-
+    val disableAll by vm.disableAllAnimations.collectAsState() 
     val context = LocalContext.current
     val studentName by vm.studentName.collectAsState()
 
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState()
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
+
+    val effectiveAnimationType by remember(animationType, disableAll) {
+        derivedStateOf { if (disableAll) "none" else animationType }
+    }
 
     LaunchedEffect(Unit) { vm.loadStudentName() }
 

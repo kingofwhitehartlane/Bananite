@@ -35,7 +35,7 @@ fun rememberHapticFeedback(enabled: Boolean = true): (HapticType) -> Unit {
 
             val constant = when (type) {
                 HapticType.TICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    HapticFeedbackConstants.CONTEXT_TICK
+                    HapticFeedbackConstants.CLOCK_TICK
                 } else {
                     HapticFeedbackConstants.VIRTUAL_KEY
                 }

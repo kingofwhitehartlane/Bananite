@@ -121,7 +121,7 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
                         // It should ALWAYS tick so the user knows the physical toggle worked.
                         view.performHapticFeedback(
                             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                android.view.HapticFeedbackConstants.CONTEXT_TICK
+                                android.view.HapticFeedbackConstants.CLOCK_TICK
                             } else {
                                 android.view.HapticFeedbackConstants.VIRTUAL_KEY
                             }

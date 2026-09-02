@@ -873,7 +873,8 @@ private fun DayCard(
                                 onSelect = {},
                                 onCancel = {},
                                 onRequestExchange = { vm.openExchangeDialog(animatedDay, it) },
-                                onCancelExchange = { vm.requestCancelExchange(animatedDay, it) }
+                                onCancelExchange = { vm.requestCancelExchange(animatedDay, it) },
+                                haptic = haptic
                             )
                         }
 
