@@ -77,6 +77,16 @@ class UserPrefs(private val context: Context) {
 
     // RESET TO DEFAULTS
     suspend fun resetToDefaults() {
-        context.userDataStore.edit { it.clear() }
+        context.userDataStore.edit { prefs ->
+            // Only remove UI/Animation settings, preserve credentials
+            prefs.remove(ANIMATION_TYPE)
+            prefs.remove(BOUNCINESS)
+            prefs.remove(CREDIT_TRANSITION)
+            prefs.remove(THEME_MODE)
+            prefs.remove(PURE_BLACK)
+            prefs.remove(COLOR_SCHEME)
+            prefs.remove(WELCOME_NAME_ENABLED)
+            prefs.remove(DISABLE_ALL_ANIMATIONS)
+        }
     }
 }
