@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <data-extraction-rules>
     <cloud-backup>
-        <!-- Use domain="file" and include the datastore/ directory in the path -->
-        <include domain="file" path="datastore/user_prefs.preferences_pb"/>
+        <!-- Exclude encrypted credentials (prevents cloud leak & broken restores) -->
+        <exclude domain="sharedpref" path="secure_user_prefs.xml"/>
+        <!-- Exclude UI preferences (optional, but best practice to avoid bloating backups) -->
+        <exclude domain="sharedpref" path="ui_prefs.xml"/>
+        <!-- Legacy exclusion, just in case the old file still exists on some devices -->
+        <exclude domain="file" path="datastore/user_prefs.preferences_pb"/>
     </cloud-backup>
     <device-transfer>
-        <!-- Use domain="file" and include the datastore/ directory in the path -->
-        <include domain="file" path="datastore/user_prefs.preferences_pb"/>
+        <exclude domain="sharedpref" path="secure_user_prefs.xml"/>
+        <exclude domain="sharedpref" path="ui_prefs.xml"/>
+        <exclude domain="file" path="datastore/user_prefs.preferences_pb"/>
     </device-transfer>
 </data-extraction-rules>

@@ -44,25 +44,30 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = false // Kept as false per your original config
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
             
-            // FAIL FAST: Check if the env var exists AND the file actually exists
             val keystorePath = System.getenv("KEYSTORE_FILE")
             val keystoreExists = !keystorePath.isNullOrEmpty() && file(keystorePath).exists()
+            val isCI = System.getenv("CI") == "true" // GitHub Actions sets this automatically
             
             signingConfig = if (keystoreExists) {
+                // Valid keystore found: use it (works for both CI and local if configured)
                 signingConfigs.getByName("release")
-            } else {
-                // Loudly abort instead of silently falling back to debug
+            } else if (isCI) {
+                // We are in CI, but the keystore is missing: FAIL LOUDLY
                 throw GradleException(
-                    "⛔ RELEASE BUILD ABORTED: Valid keystore not found.\n" +
+                    "⛔ CI RELEASE BUILD ABORTED: Valid keystore not found.\n" +
                     "Expected path: $keystorePath\n" +
-                    "Ensure KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are set."
+                    "Ensure KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, and KEY_PASSWORD are set in GitHub Secrets."
                 )
+            } else {
+                // Local development without a keystore: gracefully fallback to debug signing
+                // so `./gradlew assembleRelease` still produces a testable APK.
+                signingConfigs.getByName("debug")
             }
         }
     }
@@ -102,4 +107,6 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
 
     debugImplementation(libs.androidx.ui.tooling)
+
+    implementation("androidx.security:security-crypto:1.1.0-alpha06") // Or latest stable
 }
