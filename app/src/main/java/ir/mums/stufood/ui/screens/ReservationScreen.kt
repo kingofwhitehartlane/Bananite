@@ -1102,7 +1102,7 @@ private fun ExchangeDialogSheet(
 
         AlertDialog(
             onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
-            title = { MultiScriptText("تبادل غذا", style = MaterialTheme.typography.titleLarge, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Right)  },
+            title = { MultiScriptText("تبادل غذا") },
             text = {
                 Column(
                     modifier = Modifier

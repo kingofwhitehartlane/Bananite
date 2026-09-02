@@ -68,9 +68,6 @@ fun HomeScreen(
 
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState()
-    // Add this alongside the other collectAsState() calls in HomeScreen:
-    val hapticEnabled by ir.mums.stufood.BananiteApp.instance.userPrefs
-        .hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     val effectiveAnimationType by remember(animationType, disableAll) {
