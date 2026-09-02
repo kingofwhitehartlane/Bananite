@@ -25,7 +25,8 @@ fun ThemeSettingsScreen(
     val themeMode by vm.themeMode.collectAsState(initial = "system")
     val pureBlack by vm.pureBlack.collectAsState(initial = false)
     val colorScheme by vm.colorScheme.collectAsState(initial = "dynamic")
-    val haptic = rememberHapticFeedback()
+    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
+    val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     Scaffold(
         topBar = {

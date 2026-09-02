@@ -95,6 +95,8 @@ class ReservationViewModel(
     private val _busyDayIndex = MutableStateFlow<Int?>(null)
     val busyDayIndex: StateFlow<Int?> = _busyDayIndex
 
+    val hapticFeedbackEnabled: StateFlow<Boolean> = BananiteApp.instance.userPrefs.hapticFeedbackEnabled.stateIn(viewModelScope, SharingStarted.Lazily, true)
+
     // Remembers the last meal the user actually picked (never the "0" placeholder) so
     // a plain page reload (pull-to-refresh, or the very first load) can silently
     // restore it. The site itself resets the meal dropdown to the placeholder on a

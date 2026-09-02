@@ -34,13 +34,23 @@ fun rememberHapticFeedback(enabled: Boolean = true): (HapticType) -> Unit {
             if (!enabled) return@remember
 
             val constant = when (type) {
-                HapticType.TICK -> HapticFeedbackConstants.CONTEXT_TICK
-                HapticType.CLICK -> HapticFeedbackConstants.KEYBOARD_TAP
+                HapticType.TICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    HapticFeedbackConstants.CONTEXT_TICK
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
+                HapticType.CLICK -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    HapticFeedbackConstants.KEYBOARD_TAP
+                } else {
+                    HapticFeedbackConstants.VIRTUAL_KEY
+                }
                 HapticType.HEAVY -> HapticFeedbackConstants.LONG_PRESS
                 HapticType.SUCCESS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    HapticFeedbackConstants.CONFIRM // API 30+ "Success" feel
+                    HapticFeedbackConstants.CONFIRM
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    HapticFeedbackConstants.KEYBOARD_TAP
                 } else {
-                    HapticFeedbackConstants.KEYBOARD_TAP // Fallback
+                    HapticFeedbackConstants.VIRTUAL_KEY
                 }
             }
             view.performHapticFeedback(constant)

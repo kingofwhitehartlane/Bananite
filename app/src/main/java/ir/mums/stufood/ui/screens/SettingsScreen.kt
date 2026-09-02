@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -40,11 +41,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val view = LocalView.current // Used for the Master Switch Bypass
     
-    // 1. Hoist the master toggle state to the top
-    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
-    
-    // 2. Bind the haptic engine to the toggle state
-    val haptic = rememberHapticFeedback(enabled = hapticEnabled)
+val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
+val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     Scaffold(
         topBar = {
@@ -121,7 +119,13 @@ fun SettingsScreen(
                         // THE PARADOX FIX: 
                         // We bypass the app-level toggle for the master switch itself.
                         // It should ALWAYS tick so the user knows the physical toggle worked.
-                        view.performHapticFeedback(HapticFeedbackConstants.CONTEXT_TICK)
+                        view.performHapticFeedback(
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                android.view.HapticFeedbackConstants.CONTEXT_TICK
+                            } else {
+                                android.view.HapticFeedbackConstants.VIRTUAL_KEY
+                            }
+                        )
                         vm.setHapticFeedbackEnabled(newValue)
                     }
                 )

@@ -27,6 +27,8 @@ fun AnimationSettingsScreen(
     
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState(initial = true)
     val disableAll by vm.disableAllAnimations.collectAsState(initial = false)
+    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
+    val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     // Derived states to override UI and logic when "Disable all animations" is ON
     val effectiveAnimationType by remember(animationType, disableAll) {
@@ -38,8 +40,6 @@ fun AnimationSettingsScreen(
     val effectiveCreditTransition by remember(creditTransitionType, disableAll) {
         derivedStateOf { if (disableAll) "fade" else creditTransitionType }
     }
-
-    val haptic = rememberHapticFeedback(enabled = !disableAll)
 
     Scaffold(
         topBar = {

@@ -102,8 +102,8 @@ fun LoginScreen(
         errorMessage?.let { snackbarHost.showSnackbar(it) }
     }
 
-    val disableAll by ir.mums.stufood.BananiteApp.instance.userPrefs.disableAllAnimations.collectAsState(initial = false)
-    val haptic = rememberHapticFeedback(enabled = !disableAll)
+    val hapticEnabled by ir.mums.stufood.BananiteApp.instance.userPrefs.hapticFeedbackEnabled.collectAsState(initial = true)
+    val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     LaunchedEffect(state) {
         if (state is LoginUiState.Submitting) {
@@ -278,7 +278,7 @@ fun LoginScreen(
                                 value = rememberMe,
                                 onValueChange = {
                                     haptic(HapticType.TICK) 
-                                    vm::updateRememberMe(it)
+                                    vm.updateRememberMe(it)
                                 },
                                 role = Role.Checkbox
                             )

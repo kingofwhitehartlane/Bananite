@@ -242,13 +242,11 @@ fun ReservationScreen(
     val morphMode = creditTransitionType == "morph"
     val snackbarHost = remember { SnackbarHostState() }
 
-    // 1. ADD THIS MISSING LINE (Fixes compilation error)
-    val disableAll by vm.disableAllAnimations.collectAsState(initial = false) 
+    val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
+    val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }
     LaunchedEffect(Unit) { vm.load() }
-
-    val haptic = rememberHapticFeedback(enabled = !disableAll) // disableAll is already collected in this screen
 
     // --- HAPTIC LOADING HEARTBEAT & SUCCESS PULSE ---
     LaunchedEffect(state) {
@@ -289,8 +287,6 @@ fun ReservationScreen(
     val creditCollapsedForMorph by remember { derivedStateOf { collapseFraction >= 1f } }
     val settleScope = rememberCoroutineScope()
     var settleJob: Job? by remember { mutableStateOf(null) }
-
-    val haptic = rememberHapticFeedback()
 
     fun settleToNearestEdge() {
         if (collapsedPx > 0f && collapsedPx < collapseRangePx) {
@@ -606,7 +602,8 @@ fun ReservationScreen(
                             busyDayIndex = if (dimmed) null else busyDayIndex,
                             status = status,
                             vm = vm,
-                            bounceParams = bounceParams
+                            bounceParams = bounceParams,
+                            haptic = haptic
                         )
                     }
                 }
@@ -658,7 +655,8 @@ private fun ReservationContent(
                         options = page.mealOptions,
                         selectedValue = page.selectedMeal,
                         enabled = controlsEnabled,
-                        onSelected = { vm.selectMeal(it) }
+                        onSelected = { vm.selectMeal(it) },
+                        haptic = haptic
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -1145,14 +1143,16 @@ private fun ExchangeDialogSheet(
                         options = dialog.selfOptions,
                         selectedValue = dialog.selectedSelf ?: "0",
                         enabled = !state.busy,
-                        onSelected = { vm.selectExchangeSelf(it) }
+                        onSelected = { vm.selectExchangeSelf(it) },
+                        haptic = haptic
                     )
                     DropdownField(
                         label = "انتخاب غذا برای معاوضه",
                         options = dialog.foodOptions,
                         selectedValue = dialog.selectedFood ?: "0",
                         enabled = !state.busy,
-                        onSelected = { vm.selectExchangeFood(it) }
+                        onSelected = { vm.selectExchangeFood(it) },
+                        haptic = haptic
                     )
                 }
 
