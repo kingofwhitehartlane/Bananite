@@ -27,8 +27,4 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     // New Sub-menus
     object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
     object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
-    
-    object Logout : Screen("logout", "Logout", Icons.Default.Logout)
 }
-
-val bottomNavScreens = listOf(Screen.Home, Screen.Reservation, Screen.Logout)

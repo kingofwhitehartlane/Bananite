@@ -76,7 +76,6 @@ private fun App() {
                 Screen.Settings -> SettingsScreen(onNavigate = { target -> currentScreen = target })
                 Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
-                Screen.Logout -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
             }
         }
     }
