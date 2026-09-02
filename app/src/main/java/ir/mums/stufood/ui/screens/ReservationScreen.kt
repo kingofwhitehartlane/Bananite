@@ -398,7 +398,7 @@ fun ReservationScreen(
     }
 
     exchangeDialog?.let { dialogState ->
-        ExchangeDialogSheet(state = dialogState, vm = vm)
+        ExchangeDialogSheet(state = dialogState, vm = vm, haptic=haptic)
     }
 
     val currentCredit = displayPage?.creditToman
