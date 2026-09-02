@@ -1190,7 +1190,7 @@ private fun ExchangeDialogSheet(
                             MultiScriptText(
                                 text = it,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         
