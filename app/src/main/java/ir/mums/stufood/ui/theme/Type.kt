@@ -52,6 +52,14 @@ val Typography = Typography(
         lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
+    //  ADDED: Fixes the credit number font in the collapsing header 
+    headlineSmall = TextStyle(
+        fontFamily = AppFontFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp,
+        letterSpacing = 0.sp
+    ),
     titleLarge = TextStyle(
         fontFamily = AppFontFamily,
         fontWeight = FontWeight.SemiBold,
@@ -65,6 +73,14 @@ val Typography = Typography(
         fontSize = 16.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.15.sp
+    ),
+    // ADDED: Fixes the credit number font in the TopAppBar pill 
+    titleSmall = TextStyle(
+        fontFamily = AppFontFamily,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = AppFontFamily,
