@@ -57,6 +57,16 @@ To get automatic updates directly from this GitHub repository without relying on
 
 ---
 
+🤖 **Vibe Coded: AI-Assisted Development**
+Let’s be transparent: Bananite is "vibe coded." A significant portion of the architecture, Jetpack Compose UI, and boilerplate was written and debugged with AI assistance. 
+
+**Why it's perfectly fine:**
+* **100% Auditable:** It's fully open-source. Every line of code is visible—no hidden telemetry, backdoors, or AI bloat.
+* **Human-Directed:** AI handles the syntax heavy-lifting, freeing up development time to focus on UX and the actual student experience.
+* **Zero Security Risk:** AI was only used to generate local, client-side code. It has absolutely zero access to MUMS servers, the app's runtime, or your login credentials.
+
+---
+
 ## ⚠️ Disclaimer & Project Status
 **Bananite is an independent, unofficial open-source project.** It is **not** developed, maintained, officially supported, or endorsed by **Mashhad University of Medical Sciences (MUMS)** or its IT department. Use the app at your own discretion and risk.
 

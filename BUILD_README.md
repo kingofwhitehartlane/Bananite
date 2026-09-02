@@ -247,12 +247,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
-            proguardFiles(
-                getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
-            )
+            // Currently disabled. Enable and configure proguard-rules.pro when ready for R8.
+            isMinifyEnabled = false 
             signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -292,15 +288,6 @@ The repository includes a GitHub Actions workflow defined in `.github/workflows/
 ### Issue 3: `Network Security Exception` / Campus SSL Connection Failures
 - **Cause:** The targeted portal (`stufood.mums.ac.ir`) utilizes university-specific SSL certificates or requires specific CA certificates.
 - **Solution:** Custom CA certificates (`stufood_ca1.pem`, `stufood_ca2.pem`, `stufood_ca3.pem`) are declared under `app/src/main/res/raw/` and referenced in `network_security_config.xml`. Ensure cleartext/HTTPS settings match target campus server endpoints.
-
-### Issue 4: ProGuard / R8 Obfuscation Issues
-- **Cause:** Reflection-based JSON serializations or Jsoup HTML parsing rules being stripped during release builds (`isMinifyEnabled = true`).
-- **Solution:** Add required preserve rules in `app/proguard-rules.pro` for OkHttp, Jsoup, DataStore, and Kotlin Serialization models:
-  ```proguard
-  -keepclassmembers class * {
-      @kotlinx.serialization.Serializable <fields>;
-  }
-  ```
 
 ---
 
