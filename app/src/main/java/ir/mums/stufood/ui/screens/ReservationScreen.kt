@@ -86,6 +86,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -1095,139 +1098,142 @@ private fun ExchangeDialogSheet(
 ) {
     val dialog = state.dialog
 
-    AlertDialog(
-        onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
-        title = { MultiScriptText("تبادل غذا") },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                // ---- Exchange type ----
-                dialog.exchangeTypes.forEach { (label, value) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .selectable(
-                                selected = dialog.selectedExchangeType == value,
-                                enabled = !state.busy,
-                                onClick = { vm.selectExchangeType(value) }
-                            ),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = dialog.selectedExchangeType == value,
-                            onClick = { 
-                                haptic(HapticType.TICK)
-                                vm.selectExchangeType(value) 
-                            },
-                            enabled = !state.busy
-                        )
-                        MultiScriptText(label, style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
 
-                MultiScriptText(
-                    "آیا از درخواست تبادل/تعویض اطمینان دارید؟ " +
-                        "فقط در صورت لغو تبادل/تعویض، امکان دریافت غذای خود را دارید " +
-                        "در صورت عدم تبادل/تعویض و عدم دریافت غذا، طبق قوانین جریمه خواهید شد",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                // ---- "تعویض غذا": swap for a specific cafeteria + food ----
-                if (dialog.showChangeFoodFields) {
-                    DropdownField(
-                        label = "سلف", 
-                        options = dialog.selfOptions,
-                        selectedValue = dialog.selectedSelf ?: "0",
-                        enabled = !state.busy,
-                        onSelected = { vm.selectExchangeSelf(it) },
-                        haptic = haptic
-                    )
-                    DropdownField(
-                        label = "انتخاب غذا برای معاوضه",
-                        options = dialog.foodOptions,
-                        selectedValue = dialog.selectedFood ?: "0",
-                        enabled = !state.busy,
-                        onSelected = { vm.selectExchangeFood(it) },
-                        haptic = haptic
-                    )
-                }
-
-                // ---- "تعویض غذا با سایرین": swap with a specific student ----
-                if (dialog.showStudentSearchFields) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AlertDialog(
+            onDismissRequest = { if (!state.busy) vm.dismissExchangeDialog() },
+            title = { MultiScriptText("تبادل غذا", style = MaterialTheme.typography.titleLarge, modifier = Modifier.fillMaxWidth(), textAlign = androidx.compose.ui.text.style.TextAlign.Right)  },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // ---- Exchange type ----
+                    dialog.exchangeTypes.forEach { (label, value) ->
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .selectable(
+                                    selected = dialog.selectedExchangeType == value,
+                                    enabled = !state.busy,
+                                    onClick = { vm.selectExchangeType(value) }
+                                ),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            OutlinedTextField(
-                                value = state.studentNumber,
-                                onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
-                                label = { MultiScriptText("شماره دانشجوی مقصد") },
-                                singleLine = true,
-                                enabled = !state.busy,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                modifier = Modifier.weight(1f)
-                            )
-                            OutlinedButton(
+                            RadioButton(
+                                selected = dialog.selectedExchangeType == value,
                                 onClick = { 
-                                    haptic(HapticType.CLICK)
-                                    vm.searchDestinationStudent(state.studentNumber) 
+                                    haptic(HapticType.TICK)
+                                    vm.selectExchangeType(value) 
                                 },
-                                enabled = !state.busy && state.studentNumber.isNotBlank(),
-                                contentPadding = PaddingValues(horizontal = 16.dp)
-                            ) {
-                                MultiScriptText("جستجو")
-                            }
-                        }
-                        
-                        // Display the server's response (e.g., "دانشجوی مقصد غذایی رزرو نکرده است")
-                        dialog.destStudentLabel?.let {
-                            MultiScriptText(
-                                text = it,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurface
+                                enabled = !state.busy
                             )
+                            MultiScriptText(label, style = MaterialTheme.typography.bodyMedium)
                         }
-                        
-                        // Static warning text from the original HTML
-                        MultiScriptText(
-                            text = "در صورت تایید دانشجوی مقصد برای تعویض اختصاصی غذاها با هم تعویض خواهند شد",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
+                    }
+
+                    MultiScriptText(
+                        "آیا از درخواست تبادل/تعویض اطمینان دارید؟ " +
+                            "فقط در صورت لغو تبادل/تعویض، امکان دریافت غذای خود را دارید " +
+                            "در صورت عدم تبادل/تعویض و عدم دریافت غذا، طبق قوانین جریمه خواهید شد",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // ---- "تعویض غذا": swap for a specific cafeteria + food ----
+                    if (dialog.showChangeFoodFields) {
+                        DropdownField(
+                            label = "سلف", 
+                            options = dialog.selfOptions,
+                            selectedValue = dialog.selectedSelf ?: "0",
+                            enabled = !state.busy,
+                            onSelected = { vm.selectExchangeSelf(it) },
+                            haptic = haptic
+                        )
+                        DropdownField(
+                            label = "انتخاب غذا برای معاوضه",
+                            options = dialog.foodOptions,
+                            selectedValue = dialog.selectedFood ?: "0",
+                            enabled = !state.busy,
+                            onSelected = { vm.selectExchangeFood(it) },
+                            haptic = haptic
                         )
                     }
-                }
 
-                if (state.busy) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        LoadingDots(dotSize = 5.dp)
-                        MultiScriptText("در حال ارسال…", style = MaterialTheme.typography.bodySmall)
+                    // ---- "تعویض غذا با سایرین": swap with a specific student ----
+                    if (dialog.showStudentSearchFields) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedTextField(
+                                    value = state.studentNumber,
+                                    onValueChange = { if (it.length <= 14) vm.updateExchangeStudentNumber(it) },
+                                    label = { MultiScriptText("شماره دانشجوی مقصد") },
+                                    singleLine = true,
+                                    enabled = !state.busy,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                OutlinedButton(
+                                    onClick = { 
+                                        haptic(HapticType.CLICK)
+                                        vm.searchDestinationStudent(state.studentNumber) 
+                                    },
+                                    enabled = !state.busy && state.studentNumber.isNotBlank(),
+                                    contentPadding = PaddingValues(horizontal = 16.dp)
+                                ) {
+                                    MultiScriptText("جستجو")
+                                }
+                            }
+                            
+                            // Display the server's response (e.g., "دانشجوی مقصد غذایی رزرو نکرده است")
+                            dialog.destStudentLabel?.let {
+                                MultiScriptText(
+                                    text = it,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                            
+                            // Static warning text from the original HTML
+                            MultiScriptText(
+                                text = "در صورت تایید دانشجوی مقصد برای تعویض اختصاصی غذاها با هم تعویض خواهند شد",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+
+                    if (state.busy) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LoadingDots(dotSize = 5.dp)
+                            MultiScriptText("در حال ارسال…", style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
+            },
+            confirmButton = {
+                TextButton(onClick = { 
+                    haptic(HapticType.CLICK)
+                    vm.confirmExchange() 
+                }, enabled = !state.busy) {
+                    MultiScriptText("تایید و ثبت درخواست")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    haptic(HapticType.CLICK)
+                    vm.dismissExchangeDialog()
+                }, enabled = !state.busy) {
+                    MultiScriptText("انصراف")
+                }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { 
-                haptic(HapticType.CLICK)
-                vm.confirmExchange() 
-            }, enabled = !state.busy) {
-                MultiScriptText("تایید و ثبت درخواست")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = {
-                haptic(HapticType.CLICK)
-                vm.dismissExchangeDialog()
-            }, enabled = !state.busy) {
-                MultiScriptText("انصراف")
-            }
-        }
-    )
+        )
+    }    
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
