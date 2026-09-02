@@ -59,6 +59,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.components.LoadingDots
+import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.rememberHapticFeedback
+import kotlinx.coroutines.delay // Required for the loading heartbeat
 
 /**
  * Login screen.
@@ -97,6 +100,22 @@ fun LoginScreen(
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(errorMessage) {
         errorMessage?.let { snackbarHost.showSnackbar(it) }
+    }
+
+    val disableAll by ir.mums.stufood.BananiteApp.instance.userPrefs.disableAllAnimations.collectAsState(initial = false)
+    val haptic = rememberHapticFeedback(enabled = !disableAll)
+
+    LaunchedEffect(state) {
+        if (state is LoginUiState.Submitting) {
+            haptic(HapticType.TICK)
+            delay(1500)
+            while (state is LoginUiState.Submitting) {
+                haptic(HapticType.TICK)
+                delay(1500)
+            }
+        } else if (state is LoginUiState.Success) {
+            haptic(HapticType.SUCCESS)
+        }
     }
 
     Scaffold(
@@ -162,7 +181,10 @@ fun LoginScreen(
                         visualTransformation = if (showPass) VisualTransformation.None
                                                else PasswordVisualTransformation(),
                         trailingIcon = {
-                            IconButton(onClick = { showPass = !showPass }) {
+                            IconButton(onClick = { 
+                                haptic(HapticType.TICK)
+                                showPass = !showPass 
+                            }) {
                                 Icon(
                                     imageVector = if (showPass) Icons.Default.VisibilityOff
                                                   else Icons.Default.Visibility,
@@ -219,7 +241,10 @@ fun LoginScreen(
                         }
 
                         IconButton(
-                            onClick = { vm.loadLoginPage() },
+                            onClick = { 
+                                haptic(HapticType.CLICK)
+                                vm.loadLoginPage() 
+                            },
                             modifier = Modifier
                                 .padding(top = 8.dp)
                                 .size(46.dp) // bumped up again — a bit bigger to tap
@@ -251,7 +276,10 @@ fun LoginScreen(
                             .fillMaxWidth()
                             .toggleable(
                                 value = rememberMe,
-                                onValueChange = vm::updateRememberMe,
+                                onValueChange = {
+                                    haptic(HapticType.TICK) 
+                                    vm::updateRememberMe(it)
+                                },
                                 role = Role.Checkbox
                             )
                             .padding(horizontal = 10.dp) // Adds horizontal spacing only (no vertical extra)
@@ -266,7 +294,10 @@ fun LoginScreen(
 
                     Spacer(Modifier.height(2.dp))
                     Button(
-                        onClick = { vm.submit(onLoggedIn) },
+                        onClick = { 
+                            haptic(HapticType.CLICK)
+                            vm.submit(onLoggedIn) 
+                        },
                         enabled = state !is LoginUiState.Submitting &&
                                   state !is LoginUiState.Loading,
                         modifier = Modifier

@@ -29,6 +29,8 @@ class UserPrefs(private val context: Context) {
         private val COLOR_SCHEME = stringPreferencesKey("color_scheme") // "dynamic", "custom"
         private val WELCOME_NAME_ENABLED = booleanPreferencesKey("welcome_name_enabled")
         private val DISABLE_ALL_ANIMATIONS = booleanPreferencesKey("disable_all_animations")
+
+        private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
     }
 
     val username: Flow<String> = context.userDataStore.data.map { it[USERNAME] ?: "" }
@@ -46,6 +48,10 @@ class UserPrefs(private val context: Context) {
 
     val welcomeNameEnabled: Flow<Boolean> = context.userDataStore.data.map { it[WELCOME_NAME_ENABLED] ?: true }
     val disableAllAnimations: Flow<Boolean> = context.userDataStore.data.map { it[DISABLE_ALL_ANIMATIONS] ?: false }
+
+    val hapticFeedbackEnabled: Flow<Boolean> = context.userDataStore.data.map { 
+        it[HAPTIC_ENABLED] ?: true // Enabled by default
+    }
 
 
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
@@ -73,6 +79,10 @@ class UserPrefs(private val context: Context) {
 
     suspend fun saveWelcomeNameEnabled(enabled: Boolean) { context.userDataStore.edit { it[WELCOME_NAME_ENABLED] = enabled } }
     suspend fun saveDisableAllAnimations(disabled: Boolean) { context.userDataStore.edit { it[DISABLE_ALL_ANIMATIONS] = disabled } }
+
+    suspend fun saveHapticFeedbackEnabled(enabled: Boolean) { 
+        context.userDataStore.edit { it[HAPTIC_ENABLED] = enabled } 
+    }
 
 
     // RESET TO DEFAULTS

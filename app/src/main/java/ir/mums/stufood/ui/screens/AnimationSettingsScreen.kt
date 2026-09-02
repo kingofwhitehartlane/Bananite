@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.rememberHapticFeedback
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,12 +39,17 @@ fun AnimationSettingsScreen(
         derivedStateOf { if (disableAll) "fade" else creditTransitionType }
     }
 
+    val haptic = rememberHapticFeedback(enabled = !disableAll)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Animations") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        haptic(HapticType.CLICK)
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -72,7 +79,10 @@ fun AnimationSettingsScreen(
                 }
                 Switch(
                     checked = disableAll,
-                    onCheckedChange = { vm.setDisableAllAnimations(it) }
+                    onCheckedChange = { 
+                        haptic(HapticType.TICK)
+                        vm.setDisableAllAnimations(it) 
+                    }
                 )
             }
             HorizontalDivider()
@@ -91,7 +101,10 @@ fun AnimationSettingsScreen(
                     // This toggle remains active even if disableAll is true
                     Switch(
                         checked = welcomeNameEnabled,
-                        onCheckedChange = { vm.setWelcomeNameEnabled(it) }
+                        onCheckedChange = { 
+                            haptic(HapticType.TICK)
+                            vm.setWelcomeNameEnabled(it) 
+                        }
                     )
                 }
                 
@@ -106,7 +119,10 @@ fun AnimationSettingsScreen(
                     options.forEachIndexed { index, (label, value) ->
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                            onClick = { if (isAnimationSelectorEnabled) vm.setAnimationType(value) },
+                            onClick = { if (isAnimationSelectorEnabled) {
+                                haptic(HapticType.TICK)
+                                vm.setAnimationType(value)
+                            } },
                             selected = selectedIndex == index,
                             enabled = isAnimationSelectorEnabled, // UPDATED: Disables the buttons if welcomeNameEnabled is false
                             label = { Text(label) }
@@ -160,7 +176,10 @@ fun AnimationSettingsScreen(
                     creditOptions.forEachIndexed { index, (label, value) ->
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = creditOptions.size),
-                            onClick = { if (!disableAll) vm.setCreditTransitionType(value) },
+                            onClick = { if (!disableAll) {
+                                haptic(HapticType.TICK)
+                                vm.setCreditTransitionType(value)
+                            } },
                             selected = creditSelectedIndex == index,
                             enabled = !disableAll,
                             label = { Text(label) }

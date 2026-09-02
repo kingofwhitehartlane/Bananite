@@ -40,7 +40,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.components.WelcomeBanner
 import ir.mums.stufood.ui.components.WelcomeLabel // Imported for the TopAppBar
+import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.rememberHapticFeedback
+import ir.mums.stufood.ui.components.hapticClickable
 import ir.mums.stufood.R
+import kotlinx.coroutines.delay // Required for the loading heartbeat
 
 /**
  * Home / menu screen. A vertical stack of cards, each launching one feature.
@@ -63,6 +67,7 @@ fun HomeScreen(
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState()
     val disableAll by vm.disableAllAnimations.collectAsState()
     val effectiveAnimationType = if (disableAll) "none" else animationType
+    val haptic = rememberHapticFeedback(enabled = !disableAll)
 
     LaunchedEffect(Unit) { vm.loadStudentName() }
 
@@ -148,20 +153,22 @@ fun HomeScreen(
                 subtitle = "Forget this session",
                 icon = Icons.Default.Logout,
                 onClick = {
+                    haptic(HapticType.HEAVY)
                     vm.logout { onNavigate(Screen.Login) }
                 }
             )
 
             // ---- SWAPPED: Disclaimer card is now FIRST ----
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                onClick = {
-                    val intent = Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://stufood.mums.ac.ir")
-                    )
-                    context.startActivity(intent)
-                }
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .hapticClickable(type = HapticType.CLICK) {
+                        val intent = Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://stufood.mums.ac.ir")
+                        )
+                        context.startActivity(intent)
+                    }
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -234,8 +241,9 @@ private fun HomeMenuCard(
     onClick: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .hapticClickable(type = HapticType.CLICK) { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(

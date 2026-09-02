@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.rememberHapticFeedback
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,13 +25,17 @@ fun ThemeSettingsScreen(
     val themeMode by vm.themeMode.collectAsState(initial = "system")
     val pureBlack by vm.pureBlack.collectAsState(initial = false)
     val colorScheme by vm.colorScheme.collectAsState(initial = "dynamic")
+    val haptic = rememberHapticFeedback()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Theme & Color") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        haptic(HapticType.CLICK)
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -72,7 +78,10 @@ fun ThemeSettingsScreen(
                             val isSelected = selectedIndex == index
                             SegmentedButton(
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = themeOptions.size),
-                                onClick = { vm.setThemeMode(value) },
+                                onClick = { 
+                                    haptic(HapticType.TICK)
+                                    vm.setThemeMode(value) 
+                                },
                                 selected = isSelected,
                                 icon = { SegmentedButtonDefaults.Icon(active = isSelected) },
                                 label = { Icon(icon, contentDescription = value) }
@@ -107,7 +116,10 @@ fun ThemeSettingsScreen(
                 }
                 Switch(
                     checked = pureBlack,
-                    onCheckedChange = { vm.setPureBlack(it) },
+                    onCheckedChange = { 
+                        haptic(HapticType.TICK)
+                        vm.setPureBlack(it) 
+                    },
                     enabled = isDarkMode
                 )
             }
@@ -152,6 +164,7 @@ fun ThemeSettingsScreen(
                             DropdownMenuItem(
                                 text = { Text(label) },
                                 onClick = {
+                                    haptic(HapticType.TICK)
                                     vm.setColorScheme(value)
                                     expanded = false
                                 }

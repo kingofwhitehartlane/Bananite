@@ -103,6 +103,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.ui.components.LoadingDots
 import ir.mums.stufood.ui.components.MultiScriptText
+import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.rememberHapticFeedback
 import ir.mums.stufood.data.StufoodRepository.DayInfo
 import ir.mums.stufood.data.StufoodRepository.DayStatus
 import ir.mums.stufood.data.StufoodRepository.DietOption
@@ -110,6 +112,7 @@ import ir.mums.stufood.data.StufoodRepository.ExchangeDialogData
 import ir.mums.stufood.data.StufoodRepository.ReservationPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay // Required for the loading heartbeat
 
 /**
  * Bounciness levels for the reservation screen's springs. "medium" is byte-for-byte
@@ -237,10 +240,33 @@ fun ReservationScreen(
     val bounceParams = remember(bounciness) { bounceParamsFor(bounciness) }
     val creditTransitionType by vm.effectiveCreditTransitionType.collectAsState()
     val morphMode = creditTransitionType == "morph"
-
     val snackbarHost = remember { SnackbarHostState() }
+
+    // 1. ADD THIS MISSING LINE (Fixes compilation error)
+    val disableAll by vm.disableAllAnimations.collectAsState(initial = false) 
+
     LaunchedEffect(error) { error?.let { snackbarHost.showSnackbar(it.message) } }
     LaunchedEffect(Unit) { vm.load() }
+
+    val haptic = rememberHapticFeedback(enabled = !disableAll) // disableAll is already collected in this screen
+
+    // --- HAPTIC LOADING HEARTBEAT & SUCCESS PULSE ---
+    LaunchedEffect(state) {
+        if (state is ReservationUiState.Working) {
+            // 1. Initial acknowledgment
+            haptic(HapticType.TICK) 
+            
+            // 2. Heartbeat if it takes a while
+            delay(1500) 
+            while (state is ReservationUiState.Working) {
+                haptic(HapticType.TICK)
+                delay(1500)
+            }
+        } else if (state is ReservationUiState.Ready) {
+            // 3. Success pulse when data arrives
+            haptic(HapticType.SUCCESS) 
+        }
+    }
 
     // A single source of truth for "what page to show" and "are we mid page-wide
     // refresh" — this is what lets ReservationContent be called from exactly one
@@ -263,6 +289,8 @@ fun ReservationScreen(
     val creditCollapsedForMorph by remember { derivedStateOf { collapseFraction >= 1f } }
     val settleScope = rememberCoroutineScope()
     var settleJob: Job? by remember { mutableStateOf(null) }
+
+    val haptic = rememberHapticFeedback()
 
     fun settleToNearestEdge() {
         if (collapsedPx > 0f && collapsedPx < collapseRangePx) {
@@ -339,10 +367,16 @@ fun ReservationScreen(
             title = { MultiScriptText("کنسل رزرو") },
             text = { MultiScriptText("آیا از کنسل کردن غذا اطمینان دارید؟") },
             confirmButton = {
-                TextButton(onClick = vm::confirmCancel) { MultiScriptText("بله") }
+                TextButton(onClick = {
+                    haptic(HapticType.HEAVY)
+                    vm::confirmCancel
+                }) { MultiScriptText("بله") }
             },
             dismissButton = {
-                TextButton(onClick = vm::dismissCancelRequest) { MultiScriptText("خیر") }
+                TextButton(onClick = {
+                    haptic(HapticType.CLICK)
+                    vm::dismissCancelRequest
+                }) { MultiScriptText("خیر") }
             }
         )
     }
@@ -353,10 +387,16 @@ fun ReservationScreen(
             title = { MultiScriptText("لغو درخواست تبادل") }, 
             text = { MultiScriptText("آیا از انصراف از تبادل این وعده اطمینان دارید؟") },
             confirmButton = {
-                TextButton(onClick = vm::confirmCancelExchange) { MultiScriptText("بله") }
+                TextButton(onClick = {
+                    haptic(HapticType.HEAVY)
+                    vm::confirmCancelExchange
+                }) { MultiScriptText("بله") }
             },
             dismissButton = {
-                TextButton(onClick = vm::dismissCancelExchangeRequest) { MultiScriptText("خیر") }
+                TextButton(onClick = {
+                    haptic(HapticType.CLICK)
+                    vm::dismissCancelExchangeRequest
+                }) { MultiScriptText("خیر") }
             }
         )
     }
@@ -373,7 +413,10 @@ fun ReservationScreen(
             TopAppBar(
                 title = { Text("Reserve Food") },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    IconButton(onClick = {
+                        haptic(HapticType.CLICK)
+                        onBack()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
@@ -433,7 +476,10 @@ fun ReservationScreen(
     ) { padding ->
         PullToRefreshBox(
             isRefreshing = dimmed,
-            onRefresh = { vm.load() },
+            onRefresh = { 
+                haptic(HapticType.CLICK)
+                vm.load() 
+            },
             modifier = Modifier.fillMaxSize().padding(padding)
         ) {
             if (displayPage == null) {
@@ -577,7 +623,8 @@ private fun ReservationContent(
     busyDayIndex: Int?,
     status: String?,
     vm: ReservationViewModel,
-    bounceParams: ReservationBounceParams
+    bounceParams: ReservationBounceParams,
+    haptic: (HapticType) -> Unit
 ) {
     // Any postback in flight — page-wide or single-day — disables the day-level
     // controls so two postbacks can never race each other, even though only the
@@ -621,7 +668,10 @@ private fun ReservationContent(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     OutlinedButton(
-                        onClick = { vm.lastWeek() },
+                        onClick = { 
+                            haptic(HapticType.CLICK)
+                            vm.lastWeek() 
+                        },
                         enabled = controlsEnabled && page.lastWeek.isUsable,
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
@@ -632,7 +682,10 @@ private fun ReservationContent(
                     }
 
                     OutlinedButton(
-                        onClick = { vm.nextWeek() },
+                        onClick = { 
+                            haptic(HapticType.CLICK)
+                            vm.nextWeek() 
+                        },
                         enabled = controlsEnabled && page.nextWeek.isUsable,
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 8.dp)
@@ -644,7 +697,10 @@ private fun ReservationContent(
                 }
                 Spacer(Modifier.height(8.dp))
                 OutlinedButton(
-                    onClick = { vm.today() },
+                    onClick = { 
+                        haptic(HapticType.CLICK)
+                        vm.today() 
+                    },
                     enabled = controlsEnabled && page.today.isUsable,
                     modifier = Modifier.fillMaxWidth()
                 ) {
@@ -673,7 +729,8 @@ private fun ReservationContent(
                         isBusy = busyDayIndex == day.index,
                         mealSelected = mealSelected,
                         vm = vm,
-                        bounceParams = bounceParams
+                        bounceParams = bounceParams,
+                        haptic = haptic
                     )
                 }
             }
@@ -689,7 +746,15 @@ private fun ReservationContent(
 }
 
 @Composable
-private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelected: Boolean, vm: ReservationViewModel, bounceParams: ReservationBounceParams) {
+private fun DayCard(
+    day: DayInfo, 
+    enabled: Boolean, 
+    isBusy: Boolean, 
+    mealSelected: Boolean, 
+    vm: ReservationViewModel, 
+    bounceParams: ReservationBounceParams,
+    haptic: (HapticType) -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -840,7 +905,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                         options = animatedDay.cafeteriaOptions,
                                         selectedValue = animatedDay.selectedCafeteria ?: "0",
                                         enabled = enabled,
-                                        onSelected = { vm.selectCafeteria(animatedDay, it) }
+                                        onSelected = { vm.selectCafeteria(animatedDay, it) },
+                                        haptic = haptic
                                     )
                                 }
                             }
@@ -857,7 +923,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                         options = animatedDay.cafeteriaOptions,
                                         selectedValue = animatedDay.selectedCafeteria ?: "0",
                                         enabled = enabled,
-                                        onSelected = { vm.selectCafeteria(animatedDay, it) }
+                                        onSelected = { vm.selectCafeteria(animatedDay, it) },
+                                        haptic = haptic
                                     )
                                     Spacer(Modifier.height(4.dp))
                                 } else if (!animatedDay.selfLabel.isNullOrBlank()) {
@@ -875,7 +942,8 @@ private fun DayCard(day: DayInfo, enabled: Boolean, isBusy: Boolean, mealSelecte
                                     onSelect = { vm.selectDiet(animatedDay, it) },
                                     onCancel = { vm.requestCancel(animatedDay, it) },
                                     onRequestExchange = { vm.openExchangeDialog(animatedDay, it) },
-                                    onCancelExchange = { vm.requestCancelExchange(animatedDay, it) }
+                                    onCancelExchange = { vm.requestCancelExchange(animatedDay, it) },
+                                    haptic = haptic
                                 )
                             }
                         }
@@ -930,7 +998,8 @@ private fun DietList(
     onSelect: (DietOption) -> Unit,
     onCancel: (DietOption) -> Unit,
     onRequestExchange: ((DietOption) -> Unit)? = null,
-    onCancelExchange: ((DietOption) -> Unit)? = null
+    onCancelExchange: ((DietOption) -> Unit)? = null,
+    haptic: (HapticType) -> Unit
 ) {
     if (options.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -948,7 +1017,12 @@ private fun DietList(
             ) {
                 RadioButton(
                     selected = option.checked,
-                    onClick = if (selectable && !option.disabled) { { onSelect(option) } } else null,
+                    onClick = if (selectable && !option.disabled) { 
+                        { 
+                            haptic(HapticType.TICK)
+                            onSelect(option) 
+                        } 
+                    } else null,
                     enabled = selectable && !option.disabled
                 )
                 Column(modifier = Modifier.weight(1f)) {
@@ -960,7 +1034,10 @@ private fun DietList(
 
                 // ---- Cancel reservation outright (only when the site allows it) ----
                 if (option.checked && option.cancelFieldName != null) {
-                    IconButton(onClick = { onCancel(option) }) {
+                    IconButton(onClick = { 
+                        haptic(HapticType.HEAVY)
+                        onCancel(option) 
+                    }) {
                         Icon(
                             Icons.Default.RemoveCircle,
                             contentDescription = "کنسل رزرو", 
@@ -973,6 +1050,7 @@ private fun DietList(
                 // withdraw an already-placed offer ("انصراف از تبادل غذا") ----
                 if (option.checked && option.exchangeFieldName != null && !option.exchangePending && onRequestExchange != null) {
                     IconButton(onClick = {
+                        haptic(HapticType.CLICK)
                         onRequestExchange?.invoke(option)
                     }) {
                         Icon(
@@ -983,7 +1061,10 @@ private fun DietList(
                     }
                 }
                 if (option.checked && option.exchangePending && onRequestExchange != null) {
-                    IconButton(onClick = { onCancelExchange?.invoke(option) }) {
+                    IconButton(onClick = {
+                        haptic(HapticType.CLICK)
+                        onCancelExchange?.invoke(option) 
+                    }) {
                         Icon(
                             Icons.Default.SwapHoriz,
                             contentDescription = "انصراف از تبادل غذا",
@@ -1008,7 +1089,11 @@ private fun DietList(
  * changes which fields go with which type, this follows along automatically.
  */
 @Composable
-private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiState, vm: ReservationViewModel) {
+private fun ExchangeDialogSheet(
+    state: ReservationViewModel.ExchangeDialogUiState, 
+    vm: ReservationViewModel,
+    haptic: (HapticType) -> Unit
+) {
     val dialog = state.dialog
 
     AlertDialog(
@@ -1035,7 +1120,10 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                     ) {
                         RadioButton(
                             selected = dialog.selectedExchangeType == value,
-                            onClick = { vm.selectExchangeType(value) },
+                            onClick = { 
+                                haptic(HapticType.TICK)
+                                vm.selectExchangeType(value) 
+                            },
                             enabled = !state.busy
                         )
                         MultiScriptText(label, style = MaterialTheme.typography.bodyMedium)
@@ -1085,7 +1173,10 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
                                 modifier = Modifier.weight(1f)
                             )
                             OutlinedButton(
-                                onClick = { vm.searchDestinationStudent(state.studentNumber) },
+                                onClick = { 
+                                    haptic(HapticType.CLICK)
+                                    vm.searchDestinationStudent(state.studentNumber) 
+                                },
                                 enabled = !state.busy && state.studentNumber.isNotBlank(),
                                 contentPadding = PaddingValues(horizontal = 16.dp)
                             ) {
@@ -1120,12 +1211,18 @@ private fun ExchangeDialogSheet(state: ReservationViewModel.ExchangeDialogUiStat
             }
         },
         confirmButton = {
-            TextButton(onClick = { vm.confirmExchange() }, enabled = !state.busy) {
+            TextButton(onClick = { 
+                haptic(HapticType.CLICK)
+                vm.confirmExchange() 
+            }, enabled = !state.busy) {
                 MultiScriptText("تایید و ثبت درخواست")
             }
         },
         dismissButton = {
-            TextButton(onClick = vm::dismissExchangeDialog, enabled = !state.busy) {
+            TextButton(onClick = {
+                haptic(HapticType.CLICK)
+                vm::dismissExchangeDialog
+            }, enabled = !state.busy) {
                 MultiScriptText("انصراف")
             }
         }
@@ -1139,7 +1236,8 @@ private fun DropdownField(
     options: List<Pair<String, String>>,
     selectedValue: String,
     enabled: Boolean,
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    haptic: (HapticType) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
     // Fallback to "انتخاب کنید" if the value is "0" but somehow missing from options
@@ -1208,6 +1306,7 @@ private fun DropdownField(
                 DropdownMenuItem(
                     text = { MultiScriptText(optLabel) },
                     onClick = {
+                        haptic(HapticType.CLICK)
                         onSelected(optValue)
                         expanded = false
                     }
