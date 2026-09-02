@@ -15,6 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +46,33 @@ fun SettingsScreen(
     
 val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
 val haptic = rememberHapticFeedback(enabled = hapticEnabled)
+
+    // Destructive action — guarded by a confirm dialog, same pattern used for
+    // cancel-reservation / cancel-exchange on the Reservation screen, rather than
+    // firing immediately on tap.
+    var showResetConfirm by remember { mutableStateOf(false) }
+
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            icon = { Icon(Icons.Default.RestartAlt, contentDescription = null) },
+            title = { Text("Reset all settings?") },
+            text = { Text("This will restore theme, animation, and haptic preferences to their defaults. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    haptic(HapticType.HEAVY)
+                    vm.resetToDefaults()
+                    showResetConfirm = false
+                }) { Text("Reset") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    haptic(HapticType.CLICK)
+                    showResetConfirm = false
+                }) { Text("Cancel") }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -144,8 +174,8 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
             // Reset to Defaults
             Button(
                 onClick = { 
-                    haptic(HapticType.HEAVY) // Will only fire if hapticEnabled is true
-                    vm.resetToDefaults() 
+                    haptic(HapticType.CLICK) // Just acknowledges the tap; the destructive HEAVY tick now fires on actual confirm
+                    showResetConfirm = true
                 },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(

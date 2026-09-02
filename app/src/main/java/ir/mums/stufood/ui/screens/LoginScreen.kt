@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
@@ -56,8 +57,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.R
 import ir.mums.stufood.ui.components.LoadingDots
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.rememberHapticFeedback
@@ -152,10 +155,21 @@ fun LoginScreen(
                     modifier = Modifier.padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        text = "Bananite",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Bananite",
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
                     Text(
                         text = "Log in to reserve meals.",
                         style = MaterialTheme.typography.bodyMedium,
@@ -230,10 +244,31 @@ fun LoginScreen(
                                                 .scale(1.18f)
                                         )
                                     } else {
-                                        Text(
-                                            "Failed",
-                                            style = MaterialTheme.typography.labelSmall
-                                        )
+                                        // Tapping the failed state itself retries, in addition to
+                                        // the reload button next to it — the fixed "Failed" label
+                                        // alone gave no hint that anything could be done about it.
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clickable(role = Role.Button) {
+                                                    haptic(HapticType.CLICK)
+                                                    vm.loadLoginPage()
+                                                }
+                                                .padding(4.dp),
+                                        ) {
+                                            Text(
+                                                "Failed to load",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.error
+                                            )
+                                            Text(
+                                                "Tap to retry",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                     }
                                 }
                                 LoginUiState.Success -> {}
