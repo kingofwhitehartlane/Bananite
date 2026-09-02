@@ -54,10 +54,20 @@ class InMemoryCookieJar : CookieJar {
         storage.clear()
     }
 
-    /** True if we appear to have a session cookie for this host. */
+    /** True if we appear to have a valid, non-expired session cookie for this host. */
     fun hasSessionFor(host: String): Boolean {
         val bucket = storage[host] ?: return false
-        return bucket.any { it.name.equals("ASP.NET_SessionId", ignoreCase = true) ||
-                            it.name.equals(".ASPXAUTH", ignoreCase = true) }
+        val now = System.currentTimeMillis()
+        
+        // Synchronize to ensure thread-safety while reading the underlying MutableList
+        synchronized(bucket) {
+            return bucket.any { 
+                // 1. Check if the cookie is still valid (not expired)
+                it.expiresAt > now && 
+                // 2. Check if it's one of our target session cookies
+                (it.name.equals("ASP.NET_SessionId", ignoreCase = true) || 
+                it.name.equals(".ASPXAUTH", ignoreCase = true)) 
+            }
+        }
     }
 }
