@@ -368,7 +368,7 @@ fun ReservationScreen(
             confirmButton = {
                 TextButton(onClick = {
                     haptic(HapticType.HEAVY)
-                    vm::confirmCancel
+                    vm.confirmCancel()
                 }) { MultiScriptText("بله") }
             },
             dismissButton = {
