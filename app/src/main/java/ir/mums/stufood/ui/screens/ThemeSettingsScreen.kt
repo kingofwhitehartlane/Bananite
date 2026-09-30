@@ -24,12 +24,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import ir.mums.stufood.ui.theme.md_dark_primary
-import ir.mums.stufood.ui.theme.md_dark_secondary
-import ir.mums.stufood.ui.theme.md_dark_tertiary
-import ir.mums.stufood.ui.theme.md_light_primaryContainer
-import ir.mums.stufood.ui.theme.md_light_secondary
-import ir.mums.stufood.ui.theme.md_light_tertiary
+import ir.mums.stufood.ui.theme.DarkColors
+import ir.mums.stufood.ui.theme.LightColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,7 +168,12 @@ fun ThemeSettingsScreen(
                         label = { Text("Palette Style") },
                         // Dots for the currently selected palette
                         leadingIcon = { PaletteDots(palettePreviewColors(colorScheme, isDarkMode)) },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        trailingIcon = {
+                            PaletteDots(
+                                palettePreviewColors(value, isDarkMode),
+                                modifier = Modifier.padding(start = 16.dp)
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(
@@ -257,28 +258,23 @@ fun ThemeSettingsScreen(
     }
 }
 
-/** The 3 preview colors for a palette option, matching what BananiteTheme would actually use. */
+/** The 2 preview colors for a palette option, taken from the real scheme BananiteTheme would use. */
 @Composable
 private fun palettePreviewColors(paletteType: String, dark: Boolean): List<Color> {
     val context = LocalContext.current
-    return if (paletteType == "dynamic" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        val scheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        listOf(scheme.primary, scheme.secondary, scheme.tertiary)
-    } else if (dark) {
-        listOf(md_dark_primary, md_dark_secondary, md_dark_tertiary)
-    } else {
-        // Light "primary" is a dark brown; the yellow the user actually sees is primaryContainer.
-        listOf(md_light_primaryContainer, md_light_secondary, md_light_tertiary)
-    }
+    val scheme = if (paletteType == "dynamic" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else if (dark) DarkColors else LightColors
+    return listOf(scheme.primary, scheme.secondaryContainer)
 }
 
 @Composable
-private fun PaletteDots(colors: List<Color>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+private fun PaletteDots(colors: List<Color>, modifier: Modifier = Modifier) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         colors.forEach { color ->
             Box(
                 modifier = Modifier
-                    .size(12.dp)
+                    .size(14.dp)
                     .background(color, CircleShape)
                     .border(
                         1.dp,

@@ -22,7 +22,7 @@ import androidx.core.view.WindowCompat
 val LocalPersianFontFamily = staticCompositionLocalOf<FontFamily> { GanjnamehFamily }
 val LocalPersianFontScale = staticCompositionLocalOf { 1f }
 
-private val LightColors = lightColorScheme(
+internal val LightColors = lightColorScheme(
     primary = md_light_primary, onPrimary = md_light_onPrimary, primaryContainer = md_light_primaryContainer, onPrimaryContainer = md_light_onPrimaryContainer,
     secondary = md_light_secondary, onSecondary = md_light_onSecondary, secondaryContainer = md_light_secondaryContainer, onSecondaryContainer = md_light_onSecondaryContainer,
     tertiary = md_light_tertiary, onTertiary = md_light_onTertiary, tertiaryContainer = md_light_tertiaryContainer, onTertiaryContainer = md_light_onTertiaryContainer,
@@ -32,7 +32,7 @@ private val LightColors = lightColorScheme(
     inverseSurface = md_light_inverseSurface, inverseOnSurface = md_light_inverseOnSurface, inversePrimary = md_light_inversePrimary,
 )
 
-private val DarkColors = darkColorScheme(
+internal val DarkColors = darkColorScheme(
     primary = md_dark_primary, onPrimary = md_dark_onPrimary, primaryContainer = md_dark_primaryContainer, onPrimaryContainer = md_dark_onPrimaryContainer,
     secondary = md_dark_secondary, onSecondary = md_dark_onSecondary, secondaryContainer = md_dark_secondaryContainer, onSecondaryContainer = md_dark_onSecondaryContainer,
     tertiary = md_dark_tertiary, onTertiary = md_dark_onTertiary, tertiaryContainer = md_dark_tertiaryContainer, onTertiaryContainer = md_dark_onTertiaryContainer,
