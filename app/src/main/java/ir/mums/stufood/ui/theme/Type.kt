@@ -26,6 +26,60 @@ val GanjnamehFamily = FontFamily(
     Font(R.font.ganjnameh_regular, FontWeight.Bold)
 )
 
+val VazirFamily = FontFamily(
+    Font(R.font.vazirmatn_regular, FontWeight.Normal),
+    Font(R.font.vazirmatn_medium, FontWeight.Medium),
+    Font(R.font.vazirmatn_bold, FontWeight.SemiBold),
+    Font(R.font.vazirmatn_bold, FontWeight.Bold)
+)
+
+val SahelFamily = FontFamily(
+    Font(R.font.sahel_light, FontWeight.Normal),
+    Font(R.font.sahel_regular, FontWeight.Medium),
+    Font(R.font.sahel_semibold, FontWeight.SemiBold),
+    Font(R.font.sahel_bold, FontWeight.Bold)
+)
+
+val ParastooFamily = FontFamily(
+    Font(R.font.parastoo_regular, FontWeight.Normal),
+    Font(R.font.parastoo_regular, FontWeight.Medium),
+    Font(R.font.parastoo_bold, FontWeight.SemiBold),
+    Font(R.font.parastoo_bold, FontWeight.Bold)
+)
+
+val GandomFamily = FontFamily(
+    Font(R.font.gandom_regular, FontWeight.Normal),
+    Font(R.font.gandom_regular, FontWeight.Medium),
+    Font(R.font.gandom_regular, FontWeight.SemiBold),
+    Font(R.font.gandom_regular, FontWeight.Bold)
+)
+
+val SamimFamily = FontFamily(
+    Font(R.font.samim_regular, FontWeight.Normal),
+    Font(R.font.samim_medium, FontWeight.Medium),
+    Font(R.font.samim_bold, FontWeight.SemiBold),
+    Font(R.font.samim_bold, FontWeight.Bold)
+)
+
+data class PersianFontOption(
+    val id: String,          // stored in prefs, never change once shipped
+    val label: String,       // shown in the dropdown
+    val family: FontFamily
+)
+
+val PersianFontOptions: List<PersianFontOption> = listOf(
+    PersianFontOption("ganjnameh", "Ganjnameh (Default)", GanjnamehFamily),
+    PersianFontOption("vazirmatn", "Vazirmatn", VazirFamily),
+    PersianFontOption("parastoo", "Parastoo", ParastooFamily),
+    PersianFontOption("gandom", "Gandom", GandomFamily),
+    PersianFontOption("samim", "Samim", SamimFamily),
+)
+
+const val DEFAULT_PERSIAN_FONT_ID = "ganjnameh"
+
+fun persianFontFor(id: String): FontFamily =
+    PersianFontOptions.firstOrNull { it.id == id }?.family ?: GanjnamehFamily
+
 // Keep this as the "default" for pure-Latin UI labels
 val AppFontFamily = MontserratFamily
 

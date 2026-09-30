@@ -4,6 +4,7 @@ package ir.mums.stufood.ui.components
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.SpanStyle
@@ -13,7 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
-import ir.mums.stufood.ui.theme.GanjnamehFamily
+import ir.mums.stufood.ui.theme.LocalPersianFontFamily
 import ir.mums.stufood.ui.theme.MontserratFamily
 
 /**
@@ -29,18 +30,17 @@ fun MultiScriptText(
     color: Color = Color.Unspecified,
     fontSize: TextUnit = TextUnit.Unspecified
 ) {
-    val annotated = buildAnnotatedString {
-        var i = 0
-        while (i < text.length) {
-            val isPersian = isPersianChar(text[i])
-            // Consume the full run of same-script characters
-            val start = i
-            while (i < text.length && isPersianChar(text[i]) == isPersian) i++
-
-            withStyle(
-                SpanStyle(fontFamily = if (isPersian) GanjnamehFamily else MontserratFamily)
-            ) {
-                append(text, start, i)
+    val persianFamily = LocalPersianFontFamily.current
+    val annotated = remember(text, persianFamily) {   
+        buildAnnotatedString {
+            var i = 0
+            while (i < text.length) {
+                val isPersian = isPersianChar(text[i])
+                val start = i
+                while (i < text.length && isPersianChar(text[i]) == isPersian) i++
+                withStyle(SpanStyle(fontFamily = if (isPersian) persianFamily else MontserratFamily)) {
+                    append(text, start, i)
+                }
             }
         }
     }

@@ -64,6 +64,9 @@ class UserPrefs(private val context: Context) {
     private val _rememberMe = MutableStateFlow(securePrefs.getBoolean(KEY_REMEMBER, true))
     val rememberMe: Flow<Boolean> = _rememberMe.asStateFlow()
 
+    private val PERSIAN_FONT = stringPreferencesKey("persian_font")
+    val persianFont: Flow<String> = context.uiDataStore.data.map { it[PERSIAN_FONT] ?: "ganjnameh" }
+
     // -----------------------------------------------------------------------
     // NON-SENSITIVE UI SETTINGS (Standard DataStore)
     // -----------------------------------------------------------------------
@@ -110,6 +113,7 @@ class UserPrefs(private val context: Context) {
     suspend fun saveWelcomeNameEnabled(enabled: Boolean) { context.uiDataStore.edit { it[WELCOME_NAME_ENABLED] = enabled } }
     suspend fun saveDisableAllAnimations(disabled: Boolean) { context.uiDataStore.edit { it[DISABLE_ALL_ANIMATIONS] = disabled } }
     suspend fun saveHapticFeedbackEnabled(enabled: Boolean) { context.uiDataStore.edit { it[HAPTIC_ENABLED] = enabled } }
+    suspend fun savePersianFont(id: String) { context.uiDataStore.edit { it[PERSIAN_FONT] = id } }
 
     // -----------------------------------------------------------------------
     // RESET TO DEFAULTS (Preserves credentials, clears UI prefs)
@@ -124,6 +128,7 @@ class UserPrefs(private val context: Context) {
             prefs.remove(COLOR_SCHEME)
             prefs.remove(WELCOME_NAME_ENABLED)
             prefs.remove(DISABLE_ALL_ANIMATIONS)
+            prefs.remove(PERSIAN_FONT)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }

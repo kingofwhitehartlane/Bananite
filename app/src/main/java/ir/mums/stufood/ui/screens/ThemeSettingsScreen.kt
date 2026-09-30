@@ -12,9 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontFamily
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.rememberHapticFeedback
+import ir.mums.stufood.ui.theme.PersianFontOptions
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,6 +29,7 @@ fun ThemeSettingsScreen(
     val colorScheme by vm.colorScheme.collectAsState(initial = "dynamic")
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
+    val persianFont by vm.persianFont.collectAsState(initial = "ganjnameh")
 
     Scaffold(
         topBar = {
@@ -175,6 +178,60 @@ fun ThemeSettingsScreen(
                 }
                 Text(
                     text = "Material You uses dynamic wallpaper colors (Android 12+). Banana Yellow is the app's default vibrant theme.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // 4. PERSIAN FONT
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.TextFields, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text(text = "Persian Font", style = MaterialTheme.typography.titleMedium)
+                }
+                var fontExpanded by remember { mutableStateOf(false) }
+                val currentFont = PersianFontOptions.firstOrNull { it.id == persianFont } ?: PersianFontOptions.first()
+
+                ExposedDropdownMenuBox(
+                    expanded = fontExpanded,
+                    onExpandedChange = { fontExpanded = !fontExpanded }
+                ) {
+                    OutlinedTextField(
+                        value = currentFont.label,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Font") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = fontExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = fontExpanded,
+                        onDismissRequest = { fontExpanded = false }
+                    ) {
+                        PersianFontOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(option.label)
+                                        // Live preview in the option's own font
+                                        Text(
+                                            text = "خوش آمدید، غذای امروز",
+                                            fontFamily = option.family,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    haptic(HapticType.TICK)
+                                    vm.setPersianFont(option.id)
+                                    fontExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                Text(
+                    text = "Applies to Persian text such as food names and messages.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

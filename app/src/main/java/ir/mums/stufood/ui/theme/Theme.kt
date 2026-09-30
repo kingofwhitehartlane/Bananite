@@ -10,11 +10,16 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.FontFamily
 import androidx.core.view.WindowCompat
+
+val LocalPersianFontFamily = staticCompositionLocalOf<FontFamily> { GanjnamehFamily }
 
 private val LightColors = lightColorScheme(
     primary = md_light_primary, onPrimary = md_light_onPrimary, primaryContainer = md_light_primaryContainer, onPrimaryContainer = md_light_onPrimaryContainer,
@@ -41,6 +46,7 @@ fun BananiteTheme(
     themeMode: String = "system",       // "system", "light", "dark"
     pureBlack: Boolean = false,         // OLED pure black toggle
     colorSchemeType: String = "dynamic",// "dynamic" (Material You) or "custom" (Expressive/Warm Palette)
+    persianFontId: String = DEFAULT_PERSIAN_FONT_ID,
     content: @Composable () -> Unit
 ) {
     val systemDarkTheme = isSystemInDarkTheme()
@@ -89,4 +95,12 @@ fun BananiteTheme(
         typography = Typography,
         content = content
     )
+    
+    CompositionLocalProvider(LocalPersianFontFamily provides persianFontFor(persianFontId)) {
+        MaterialTheme(
+            colorScheme = finalColorScheme,
+            typography = Typography,
+            content = content
+        )
+    }
 }

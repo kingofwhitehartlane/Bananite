@@ -21,6 +21,9 @@ class SettingsViewModel(
     val disableAllAnimations = prefs.disableAllAnimations
     val hapticFeedbackEnabled = prefs.hapticFeedbackEnabled
 
+    val persianFont = prefs.persianFont
+    fun setPersianFont(id: String) { viewModelScope.launch { prefs.savePersianFont(id) } }
+
     fun setAnimationType(type: String) { viewModelScope.launch { prefs.saveAnimationType(type) } }
     fun setBounciness(level: String) { viewModelScope.launch { prefs.saveBounciness(level) } }
     fun setCreditTransitionType(type: String) { viewModelScope.launch { prefs.saveCreditTransitionType(type) } }

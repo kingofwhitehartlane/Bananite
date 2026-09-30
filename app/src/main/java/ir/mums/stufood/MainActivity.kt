@@ -42,6 +42,7 @@ private fun App() {
     val themeMode by prefs.themeMode.collectAsState(initial = "system")
     val pureBlack by prefs.pureBlack.collectAsState(initial = false)
     val colorSchemeType by prefs.colorScheme.collectAsState(initial = "dynamic")
+    val persianFont by prefs.persianFont.collectAsState(initial = "ganjnameh")
     
     var currentScreen by remember {
         mutableStateOf<Screen>(
@@ -62,7 +63,8 @@ private fun App() {
     BananiteTheme(
         themeMode = themeMode,
         pureBlack = pureBlack,
-        colorSchemeType = colorSchemeType
+        colorSchemeType = colorSchemeType,
+        persianFontId = persianFont
     ) {
         AnimatedContent(
             targetState = currentScreen,
