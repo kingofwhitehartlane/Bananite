@@ -166,14 +166,8 @@ fun ThemeSettingsScreen(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Palette Style") },
-                        // Dots for the currently selected palette
                         leadingIcon = { PaletteDots(palettePreviewColors(colorScheme, isDarkMode)) },
-                        trailingIcon = {
-                            PaletteDots(
-                                palettePreviewColors(value, isDarkMode),
-                                modifier = Modifier.padding(start = 16.dp)
-                            )
-                        },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
                     ExposedDropdownMenu(
@@ -183,7 +177,12 @@ fun ThemeSettingsScreen(
                         colorOptions.forEach { (label, value) ->
                             DropdownMenuItem(
                                 text = { Text(label) },
-                                trailingIcon = { PaletteDots(palettePreviewColors(value, isDarkMode)) },
+                                trailingIcon = {
+                                    PaletteDots(
+                                        palettePreviewColors(value, isDarkMode),
+                                        modifier = Modifier.padding(start = 16.dp)
+                                    )
+                                },
                                 onClick = {
                                     haptic(HapticType.TICK)
                                     vm.setColorScheme(value)
