@@ -14,8 +14,10 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
 import ir.mums.stufood.ui.theme.LocalPersianFontFamily
 import ir.mums.stufood.ui.theme.MontserratFamily
+import ir.mums.stufood.ui.theme.LocalPersianFontScale
 
 /**
  * Renders mixed Latin/Persian text with the correct font per script.
@@ -31,14 +33,19 @@ fun MultiScriptText(
     fontSize: TextUnit = TextUnit.Unspecified
 ) {
     val persianFamily = LocalPersianFontFamily.current
-    val annotated = remember(text, persianFamily) {   
+    val persianScale = LocalPersianFontScale.current
+    val annotated = remember(text, persianFamily, persianScale) {
         buildAnnotatedString {
             var i = 0
             while (i < text.length) {
                 val isPersian = isPersianChar(text[i])
                 val start = i
                 while (i < text.length && isPersianChar(text[i]) == isPersian) i++
-                withStyle(SpanStyle(fontFamily = if (isPersian) persianFamily else MontserratFamily)) {
+
+                withStyle(
+                    if (isPersian) SpanStyle(fontFamily = persianFamily, fontSize = persianScale.em)
+                    else SpanStyle(fontFamily = MontserratFamily)
+                ) {
                     append(text, start, i)
                 }
             }

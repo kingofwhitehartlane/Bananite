@@ -64,13 +64,14 @@ val SamimFamily = FontFamily(
 data class PersianFontOption(
     val id: String,          // stored in prefs, never change once shipped
     val label: String,       // shown in the dropdown
-    val family: FontFamily
+    val family: FontFamily,
+    val sizeScale: Float = 1f      // NEW: compensates for fonts that render small/large
 )
 
 val PersianFontOptions: List<PersianFontOption> = listOf(
     PersianFontOption("ganjnameh", "Ganjnameh (Default)", GanjnamehFamily),
     PersianFontOption("vazirmatn", "Vazirmatn", VazirFamily),
-    PersianFontOption("parastoo", "Parastoo", ParastooFamily),
+    PersianFontOption("parastoo", "Parastoo", ParastooFamily, sizeScale = 1.15f),
     PersianFontOption("gandom", "Gandom", GandomFamily),
     PersianFontOption("samim", "Samim", SamimFamily),
 )
@@ -79,6 +80,9 @@ const val DEFAULT_PERSIAN_FONT_ID = "ganjnameh"
 
 fun persianFontFor(id: String): FontFamily =
     PersianFontOptions.firstOrNull { it.id == id }?.family ?: GanjnamehFamily
+
+fun persianFontScaleFor(id: String): Float =
+    PersianFontOptions.firstOrNull { it.id == id }?.sizeScale ?: 1f
 
 // Keep this as the "default" for pure-Latin UI labels
 val AppFontFamily = MontserratFamily

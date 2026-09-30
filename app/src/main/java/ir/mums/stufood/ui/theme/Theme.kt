@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.core.view.WindowCompat
 
 val LocalPersianFontFamily = staticCompositionLocalOf<FontFamily> { GanjnamehFamily }
+val LocalPersianFontScale = staticCompositionLocalOf { 1f }
 
 private val LightColors = lightColorScheme(
     primary = md_light_primary, onPrimary = md_light_onPrimary, primaryContainer = md_light_primaryContainer, onPrimaryContainer = md_light_onPrimaryContainer,
@@ -95,8 +96,11 @@ fun BananiteTheme(
         typography = Typography,
         content = content
     )
-    
-    CompositionLocalProvider(LocalPersianFontFamily provides persianFontFor(persianFontId)) {
+
+    CompositionLocalProvider(
+        LocalPersianFontFamily provides persianFontFor(persianFontId),
+        LocalPersianFontScale provides persianFontScaleFor(persianFontId)
+    ) {
         MaterialTheme(
             colorScheme = finalColorScheme,
             typography = Typography,

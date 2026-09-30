@@ -18,6 +18,19 @@ import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.rememberHapticFeedback
 import ir.mums.stufood.ui.theme.PersianFontOptions
 
+import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import ir.mums.stufood.ui.theme.md_dark_primary
+import ir.mums.stufood.ui.theme.md_dark_secondary
+import ir.mums.stufood.ui.theme.md_dark_tertiary
+import ir.mums.stufood.ui.theme.md_light_primaryContainer
+import ir.mums.stufood.ui.theme.md_light_secondary
+import ir.mums.stufood.ui.theme.md_light_tertiary
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemeSettingsScreen(
@@ -157,6 +170,8 @@ fun ThemeSettingsScreen(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Palette Style") },
+                        // Dots for the currently selected palette
+                        leadingIcon = { PaletteDots(palettePreviewColors(colorScheme, isDarkMode)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor()
                     )
@@ -167,6 +182,7 @@ fun ThemeSettingsScreen(
                         colorOptions.forEach { (label, value) ->
                             DropdownMenuItem(
                                 text = { Text(label) },
+                                trailingIcon = { PaletteDots(palettePreviewColors(value, isDarkMode)) },
                                 onClick = {
                                     haptic(HapticType.TICK)
                                     vm.setColorScheme(value)
@@ -214,8 +230,9 @@ fun ThemeSettingsScreen(
                                         Text(option.label)
                                         // Live preview in the option's own font
                                         Text(
-                                            text = "خوش آمدید، غذای امروز",
+                                            text = "غذای شنبه سلف پردیس چلو ماکارونی با ماهی",
                                             fontFamily = option.family,
+                                            fontSize = MaterialTheme.typography.bodyMedium.fontSize * option.sizeScale,
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -236,6 +253,39 @@ fun ThemeSettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+        }
+    }
+}
+
+/** The 3 preview colors for a palette option, matching what BananiteTheme would actually use. */
+@Composable
+private fun palettePreviewColors(paletteType: String, dark: Boolean): List<Color> {
+    val context = LocalContext.current
+    return if (paletteType == "dynamic" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val scheme = if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        listOf(scheme.primary, scheme.secondary, scheme.tertiary)
+    } else if (dark) {
+        listOf(md_dark_primary, md_dark_secondary, md_dark_tertiary)
+    } else {
+        // Light "primary" is a dark brown; the yellow the user actually sees is primaryContainer.
+        listOf(md_light_primaryContainer, md_light_secondary, md_light_tertiary)
+    }
+}
+
+@Composable
+private fun PaletteDots(colors: List<Color>) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        colors.forEach { color ->
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .background(color, CircleShape)
+                    .border(
+                        1.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                        CircleShape
+                    )
+            )
         }
     }
 }
