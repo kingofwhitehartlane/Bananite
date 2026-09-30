@@ -69,9 +69,9 @@ data class PersianFontOption(
 )
 
 val PersianFontOptions: List<PersianFontOption> = listOf(
-    PersianFontOption("ganjnameh", "Ganjnameh (Default)", GanjnamehFamily),
+    PersianFontOption("ganjnameh", "Ganjnameh (Default)", GanjnamehFamily, sizeScale = 0.9f),
     PersianFontOption("vazirmatn", "Vazirmatn", VazirFamily),
-    PersianFontOption("parastoo", "Parastoo", ParastooFamily, sizeScale = 1.15f),
+    PersianFontOption("parastoo", "Parastoo", ParastooFamily, sizeScale = 1.25f),
     PersianFontOption("gandom", "Gandom", GandomFamily),
     PersianFontOption("samim", "Samim", SamimFamily),
 )
