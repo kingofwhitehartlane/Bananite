@@ -96,88 +96,110 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Header: App Logo, Name, Version
+            // ---- Scrollable area ----
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kingofwhitehartlane/Bananite"))
-                        context.startActivity(intent)
-                    }
-                    .padding(vertical = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.ic_launcher_foreground),
-                    contentDescription = "App Logo",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(72.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Bananite",
-                    style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Version ${BuildConfig.VERSION_NAME}",
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Thin),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // --- THE HAPTIC MASTER SWITCH ---
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Default.Vibration, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Text("Haptic Feedback", style = MaterialTheme.typography.bodyLarge)
+                // 1. Logo + name + version (GitHub link)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/kingofwhitehartlane/Bananite"))
+                            context.startActivity(intent)
+                        }
+                        .padding(vertical = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        painter = painterResource(id = R.drawable.ic_launcher_foreground),
+                        contentDescription = "App Logo",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(72.dp)
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Bananite",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Version ${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Thin),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Switch(
-                    checked = hapticEnabled,
-                    onCheckedChange = { newValue ->
-                        // THE PARADOX FIX: 
-                        // We bypass the app-level toggle for the master switch itself.
-                        // It should ALWAYS tick so the user knows the physical toggle worked.
-                        view.performHapticFeedback(
-                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                                android.view.HapticFeedbackConstants.CLOCK_TICK
-                            } else {
-                                android.view.HapticFeedbackConstants.VIRTUAL_KEY
-                            }
-                        )
-                        vm.setHapticFeedbackEnabled(newValue)
-                    }
+
+                // 2. Sub menus
+                SettingsGroup(
+                    items = listOf(
+                        { SubMenuItem("Theme & Color", Icons.Default.Palette, hapticEnabled) { onNavigate(Screen.ThemeSettings) } },
+                        { SubMenuItem("Animations", Icons.Default.Animation, hapticEnabled) { onNavigate(Screen.AnimationSettings) } }
+                    )
                 )
+
+                // 3. Haptic master switch
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Default.Vibration, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        Text("Haptic Feedback", style = MaterialTheme.typography.bodyLarge)
+                    }
+                    Switch(
+                        checked = hapticEnabled,
+                        onCheckedChange = { newValue ->
+                            view.performHapticFeedback(
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                                    android.view.HapticFeedbackConstants.CLOCK_TICK
+                                } else {
+                                    android.view.HapticFeedbackConstants.VIRTUAL_KEY
+                                }
+                            )
+                            vm.setHapticFeedbackEnabled(newValue)
+                        }
+                    )
+                }
+
+                // 4. Heads up card (moved from Home)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "Heads up",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Text(
+                            text = "Your phone must not be connected to foreign VPN for the app to reach stufood.mums.ac.ir",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    }
+                }
             }
 
-            // Sub Menus (Passing hapticEnabled down to the children)
-            SettingsGroup(
-                items = listOf(
-                    { SubMenuItem("Theme & Color", Icons.Default.Palette, hapticEnabled) { onNavigate(Screen.ThemeSettings) } },
-                    { SubMenuItem("Animations", Icons.Default.Animation, hapticEnabled) { onNavigate(Screen.AnimationSettings) } }
-                )
-            )
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Reset to Defaults
+            // ---- Pinned at the bottom, outside the scroll area ----
             Button(
-                onClick = { 
-                    haptic(HapticType.CLICK) // Just acknowledges the tap; the destructive HEAVY tick now fires on actual confirm
+                onClick = {
+                    haptic(HapticType.CLICK)
                     showResetConfirm = true
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.errorContainer,
                     contentColor = MaterialTheme.colorScheme.onErrorContainer
@@ -187,8 +209,6 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
                 Spacer(Modifier.width(8.dp))
                 Text("Reset All Settings to Default")
             }
-            
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }

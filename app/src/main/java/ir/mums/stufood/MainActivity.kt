@@ -54,6 +54,7 @@ private fun App() {
         currentScreen = when (currentScreen) {
             Screen.Reservation      -> Screen.Home
             Screen.Settings         -> Screen.Home
+            Screen.ReceiveExchange -> Screen.Home
             Screen.ThemeSettings    -> Screen.Settings
             Screen.AnimationSettings -> Screen.Settings
             else                    -> Screen.Home
@@ -78,6 +79,7 @@ private fun App() {
                 Screen.Settings -> SettingsScreen(onNavigate = { target -> currentScreen = target })
                 Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
+                Screen.ReceiveExchange -> ReceiveExchangeScreen(onBack = { currentScreen = Screen.Home })
             }
         }
     }

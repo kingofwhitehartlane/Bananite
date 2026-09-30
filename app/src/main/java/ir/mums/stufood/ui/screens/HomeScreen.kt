@@ -148,6 +148,15 @@ fun HomeScreen(
                 hapticsEnabled = hapticEnabled, 
                 onClick = { onNavigate(Screen.Reservation) }
             )
+
+            HomeMenuCard(
+                title = "Receive Exchange Food",
+                subtitle = "Don't miss out on today's meal",
+                icon = Icons.Default.SwapHoriz,
+                hapticsEnabled = hapticEnabled,
+                onClick = { onNavigate(Screen.ReceiveExchange) }
+            )
+            
             HomeMenuCard(
                 title = "Settings",
                 subtitle = "App preferences and animations",
@@ -216,27 +225,6 @@ fun HomeScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
-
-            // ---- SWAPPED: Tip card is now SECOND ----
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Heads up",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "Your phone must not be connected to foreign VPN for the app to reach stufood.mums.ac.ir",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                 }
             }
