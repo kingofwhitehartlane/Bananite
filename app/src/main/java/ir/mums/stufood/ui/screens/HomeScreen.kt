@@ -150,11 +150,11 @@ fun HomeScreen(
             )
 
             HomeMenuCard(
-                title = "Receive Exchange Food",
+                title = "Buy Food",
                 subtitle = "Don't miss out on today's meal",
                 icon = Icons.Default.SwapHoriz,
                 hapticsEnabled = hapticEnabled,
-                onClick = { onNavigate(Screen.ReceiveExchange) }
+                onClick = { onNavigate(Screen.BuyFood) }
             )
             
             HomeMenuCard(

@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.FormBody
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -79,6 +80,18 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     private val baseUrl = "https://stufood.mums.ac.ir"
     private val reservationUrl = "$baseUrl/WebForm/StudentReserveFood.aspx"
     private val mainStudentUrl = "$baseUrl/WebForm/Student/Form_MainStudent.aspx"
+
+    private val buyFoodUrl = "$baseUrl/WebForm/Student/BuyFood.aspx"
+
+    private object BuyFields {
+        const val DATE = "ctl00\$body\$pdFromDate"
+        const val MEAL = "ctl00\$body\$dpFoodMeals"
+        const val SEARCH_BTN = "ctl00\$body\$btnSearch"
+        const val GRID_FOODS = "ctl00\$body\$grdFoods"
+        const val GRID_ALL = "ctl00\$body\$grdAll"
+        const val DX_FILTER_MENU =
+            "{&quot;selectedItemIndexPath&quot;:&quot;&quot;,&quot;checkedState&quot;:&quot;&quot;}"
+    }
 
     // In-memory cache for the student's full name
     private val _studentName = MutableStateFlow<String?>(null)
@@ -460,6 +473,157 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             overrides = emptyMap(),
             extraFields = mapOf("$cancelField.x" to "1", "$cancelField.y" to "1")
         )
+    }
+
+    // ----------------------------------------------------------------------
+    // (BuyFood.aspx)
+    // ----------------------------------------------------------------------
+
+    suspend fun fetchBuyFoodPage(): BuyFoodPage = withClient {
+        val html = get(buyFoodUrl).use { it.body?.string().orEmpty() }
+        parseBuyFoodPage(html)
+    }
+
+    /** The "جستجو" button: same date + meal the user typed, full-form postback. */
+    suspend fun searchBuyFood(current: BuyFoodPage, date: String, mealValue: String): BuyFoodPage =
+        postBuyFood(
+            current = current,
+            overrides = mapOf(BuyFields.DATE to date, BuyFields.MEAL to mealValue),
+            extra = mapOf(BuyFields.SEARCH_BTN to "جستجو")
+        )
+
+    /**
+     * ASSUMPTION: the HAR's grdFoods was empty, so the real "دریافت غذا" button markup
+     * was never seen. We replay whatever control we find in that cell (image button,
+     * submit button or __doPostBack link). Verify against a HAR of a real receive click.
+     */
+    suspend fun BuyFood(current: BuyFoodPage, row: ExchangeableFood): BuyFoodPage? {
+        val a = row.receive ?: return null
+        return when (a.kind) {
+            ReceiveKind.IMAGE -> postBuyFood(
+                current, extra = mapOf("${a.name}.x" to "1", "${a.name}.y" to "1")
+            )
+            ReceiveKind.SUBMIT -> postBuyFood(current, extra = mapOf(a.name to a.argument))
+            ReceiveKind.POSTBACK -> postBuyFood(
+                current, eventTarget = a.name, eventArgument = a.argument
+            )
+        }
+    }
+
+    private suspend fun postBuyFood(
+        current: BuyFoodPage,
+        eventTarget: String = "",
+        eventArgument: String = "",
+        overrides: Map<String, String> = emptyMap(),
+        extra: Map<String, String> = emptyMap()
+    ): BuyFoodPage = withClient {
+        val fields = LinkedHashMap(current.fieldSnapshot)
+        fields["__EVENTTARGET"] = eventTarget
+        fields["__EVENTARGUMENT"] = eventArgument
+        overrides.forEach { (k, v) -> fields[k] = v }
+
+        val body = FormBody.Builder()
+        fields.forEach { (k, v) -> body.add(k, v) }
+        extra.forEach { (k, v) -> body.add(k, v) }
+
+        val request = Request.Builder()
+            .url(buyFoodUrl)
+            .header("Referer", buyFoodUrl)
+            .header("Origin", baseUrl)
+            .post(body.build())
+            .build()
+
+        val html = client.newCall(request).execute().use { it.body?.string().orEmpty() }
+        parseBuyFoodPage(html)
+    }
+
+    private fun parseBuyFoodPage(html: String): BuyFoodPage {
+        val doc = Jsoup.parse(html, buyFoodUrl)
+
+        val mealSelect = doc.selectFirst("select[name='${BuyFields.MEAL}']")
+            ?: throw IllegalStateException("BuyFood form not found (session expired?)")
+        val mealOptions = mealSelect.select("option")
+            .map { it.text().trim() to it.attr("value").ifEmpty { it.text() } }
+        val selectedMeal = mealSelect.select("option[selected]").firstOrNull()?.attr("value")
+            ?: mealOptions.firstOrNull()?.second ?: "-1"
+        val date = doc.getElementById("ctl00_body_pdFromDate")?.attr("value").orEmpty()
+
+        // Generic form snapshot (viewstate, eventvalidation, date, meal, filter-row editors…)
+        val snapshot = LinkedHashMap(snapshotForm(doc))
+
+        // DevExpress grid state fields + resource lists: JS-built in the browser, so rebuild.
+        for ((gridId, field) in listOf(
+            "body_grdFoods" to BuyFields.GRID_FOODS,
+            "body_grdAll" to BuyFields.GRID_ALL
+        )) {
+            buildDxGridState(html, gridId)?.let { snapshot[field] = it }
+            snapshot["$field\$DXFilterRowMenu"] = BuyFields.DX_FILTER_MENU
+        }
+        Regex("DXR\\.axd\\?r=([0-9_]+(?:,[0-9_]+)+)-s_itw").find(html)
+            ?.let { snapshot["DXScript"] = it.groupValues[1] }
+        Regex("DXR\\.axd\\?r=([0-9_]+(?:,[0-9_]+)+)-t_itw").find(html)
+            ?.let { snapshot["DXCss"] = it.groupValues[1] }
+
+        val available = doc.select("tr[id^=body_grdFoods_DXDataRow]").map { tr ->
+            val c = tr.children()
+            ExchangeableFood(
+                meal = c.getOrNull(0)?.text()?.trim().orEmpty(),
+                menu = c.getOrNull(1)?.text()?.trim().orEmpty(),
+                food = c.getOrNull(2)?.text()?.trim()?.trimEnd('-', ' ').orEmpty(),
+                self = c.getOrNull(3)?.text()?.trim().orEmpty(),
+                receive = c.getOrNull(4)?.let { parseReceiveAction(it) }
+            )
+        }
+
+        val waiting = doc.select("tr[id^=body_grdAll_DXDataRow]").map { tr ->
+            val c = tr.children()
+            WaitingFood(
+                date = c.getOrNull(0)?.text()?.trim().orEmpty(),
+                day = c.getOrNull(1)?.text()?.trim().orEmpty(),
+                meal = c.getOrNull(2)?.text()?.trim().orEmpty(),
+                food = c.getOrNull(3)?.text()?.trim()?.trimEnd('-', ' ').orEmpty(),
+                self = c.getOrNull(4)?.text()?.trim().orEmpty(),
+                stock = c.getOrNull(5)?.text()?.trim()?.let { normalizePersianDigits(it) }?.toIntOrNull()
+            )
+        }
+
+        return BuyFoodPage(
+            fieldSnapshot = snapshot,
+            date = date,
+            mealOptions = mealOptions,
+            selectedMeal = selectedMeal,
+            availableFoods = available,
+            waitingFoods = waiting
+        )
+    }
+
+    /** Rebuilds the hidden JSON the DevExpress client JS would send for a grid. */
+    private fun buildDxGridState(html: String, gridId: String): String? {
+        val m = Regex(
+            "ASPxClientGridView,'$gridId'.*?'stateObject':\\{'keys':\\[(.*?)\\],'callbackState':'([^']*)'",
+            RegexOption.DOT_MATCHES_ALL
+        ).find(html) ?: return null
+        val q = "&quot;"
+        val keys = Regex("'([^']*)'").findAll(m.groupValues[1])
+            .joinToString(",") { "$q${it.groupValues[1]}$q" }
+        return "{${q}keys$q:[$keys],${q}callbackState$q:$q${m.groupValues[2]}$q," +
+            "${q}groupLevelState$q:{},${q}selection$q:$q$q,${q}toolbar$q:null}"
+    }
+
+    private fun parseReceiveAction(cell: Element): ReceiveAction? {
+        cell.selectFirst("input[type=image][name]")?.let {
+            return ReceiveAction(it.attr("name"), ReceiveKind.IMAGE)
+        }
+        cell.selectFirst("input[type=submit][name], input[type=button][name]")?.let {
+            return ReceiveAction(it.attr("name"), ReceiveKind.SUBMIT, it.attr("value"))
+        }
+        val postBack = Regex("__doPostBack\\('([^']*)'\\s*,\\s*'([^']*)'\\)")
+        for (el in cell.select("[href],[onclick]")) {
+            postBack.find(el.attr("href") + " " + el.attr("onclick"))?.let {
+                return ReceiveAction(it.groupValues[1], ReceiveKind.POSTBACK, it.groupValues[2])
+            }
+        }
+        return null
     }
 
     // ----------------------------------------------------------------------
@@ -882,6 +1046,32 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
     // PUBLIC DATA CLASSES
     // ----------------------------------------------------------------------
+
+    enum class ReceiveKind { IMAGE, SUBMIT, POSTBACK }
+
+    /** name = control name (IMAGE/SUBMIT) or __EVENTTARGET (POSTBACK); argument = value / __EVENTARGUMENT. */
+    data class ReceiveAction(val name: String, val kind: ReceiveKind, val argument: String = "")
+
+    /** Row of grdFoods — foods you can receive. */
+    data class ExchangeableFood(
+        val meal: String, val menu: String, val food: String, val self: String,
+        val receive: ReceiveAction?
+    )
+
+    /** Row of grdAll — "لیست غذاهای در انتظار تبادل". */
+    data class WaitingFood(
+        val date: String, val day: String, val meal: String,
+        val food: String, val self: String, val stock: Int?
+    )
+
+    data class BuyFoodPage(
+        val fieldSnapshot: Map<String, String>,
+        val date: String,
+        val mealOptions: List<Pair<String, String>>,
+        val selectedMeal: String,
+        val availableFoods: List<ExchangeableFood>,
+        val waitingFoods: List<WaitingFood>
+    )
 
     data class LoginPageData(val captchaImage: ByteArray?)
 
