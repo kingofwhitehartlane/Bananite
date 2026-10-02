@@ -33,7 +33,7 @@ class BuyFoodViewModel(
 
     companion object {
         const val DEFAULT_AUTO_INTERVAL_MS = 2_000L
-        const val MIN_AUTO_INTERVAL_MS = 1_000L
+        const val MIN_AUTO_INTERVAL_MS = 0L
         const val MAX_AUTO_INTERVAL_MS = 30_000L
     }
 
@@ -50,7 +50,9 @@ class BuyFoodViewModel(
         /** Minimum time from the START of one auto search to the START of the next. */
         val autoIntervalMs: Long = BuyFoodViewModel.DEFAULT_AUTO_INTERVAL_MS,
         /** Incremented every time an auto cycle (re)starts — drives the countdown ring. */
-        val refreshTick: Int = 0
+        val refreshTick: Int = 0,
+        /** SystemClock.elapsedRealtime() when the current auto cycle began — drives the ring. */
+        val cycleStartedAt: Long = 0L
     )
 
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
@@ -71,7 +73,6 @@ class BuyFoodViewModel(
 
     private var started = false
     private var autoJob: Job? = null
-    private var lastNotifiedSignature: String? = null
 
     // ------------------------------------------------------------------
     // Loading
@@ -162,7 +163,7 @@ class BuyFoodViewModel(
         try {
             val updated = repo.searchBuyFood(page, date, s.meal)
             _state.update { it.copy(page = updated, busy = false) }
-            maybeNotify(updated, manual)
+            maybeNotify(previous = page, updated = updated)
         } catch (e: CancellationException) {
             _state.update { it.copy(busy = false) }
             throw e
@@ -173,19 +174,20 @@ class BuyFoodViewModel(
         }
     }
 
-    private fun maybeNotify(page: StufoodRepository.BuyFoodPage, manual: Boolean) {
-        if (page.availableFoods.isEmpty()) {
-            lastNotifiedSignature = null
-            return
-        }
+    /**
+     * Rings only when the "available to receive" list gained at least one item compared
+     * with what was there before this search — never for food that was already listed.
+     */
+    private fun maybeNotify(
+        previous: StufoodRepository.BuyFoodPage,
+        updated: StufoodRepository.BuyFoodPage
+    ) {
         if (!_state.value.soundEnabled) return
-        val signature = page.availableFoods.joinToString("|") { "${it.meal}/${it.food}/${it.self}" }
-        // Manual searches always ring; auto cycles only ring when the available set changes,
-        // so the phone doesn't beep every cycle for the same food.
-        if (manual || signature != lastNotifiedSignature) {
-            lastNotifiedSignature = signature
-            _foodAvailable.tryEmit(Unit)
-        }
+        fun key(f: StufoodRepository.ExchangeableFood) = "${f.meal}/${f.menu}/${f.food}/${f.self}"
+        val before = previous.availableFoods.groupingBy(::key).eachCount()
+        val after = updated.availableFoods.groupingBy(::key).eachCount()
+        val hasNewItem = after.any { (k, n) -> n > (before[k] ?: 0) }
+        if (hasNewItem) _foodAvailable.tryEmit(Unit)
     }
 
     // ------------------------------------------------------------------
@@ -211,7 +213,7 @@ class BuyFoodViewModel(
             // interval (none if the search itself took longer) -> search again.
             while (isActive) {
                 val startedAt = SystemClock.elapsedRealtime()
-                _state.update { it.copy(refreshTick = it.refreshTick + 1) } // restarts the ring
+                _state.update { it.copy(refreshTick = it.refreshTick + 1, cycleStartedAt = startedAt) } // restarts the ring
                 performSearch(manual = false)
                 val remaining = _state.value.autoIntervalMs - (SystemClock.elapsedRealtime() - startedAt)
                 if (remaining > 0) delay(remaining)
@@ -226,14 +228,12 @@ class BuyFoodViewModel(
     }
 
     fun setSoundEnabled(enabled: Boolean) {
-        if (!enabled) lastNotifiedSignature = null
         _state.update { it.copy(soundEnabled = enabled) }
     }
 
     private fun stopAutoRefresh() {
         autoJob?.cancel()
         autoJob = null
-        lastNotifiedSignature = null
         _state.update { it.copy(autoRefresh = false, soundEnabled = false) }
     }
 
@@ -241,7 +241,6 @@ class BuyFoodViewModel(
     fun resetToggles() {
         autoJob?.cancel()
         autoJob = null
-        lastNotifiedSignature = null
         _state.update { it.copy(autoRefresh = false, soundEnabled = false, mealError = false, busy = false) }
     }
 

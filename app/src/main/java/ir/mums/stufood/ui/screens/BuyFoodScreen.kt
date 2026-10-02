@@ -3,10 +3,8 @@ package ir.mums.stufood.ui.screens
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.Ringtone
+import android.os.SystemClock
 import android.media.RingtoneManager
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -33,6 +31,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlin.math.roundToInt
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.JalaliDateField
@@ -96,17 +95,20 @@ fun BuyFoodScreen(
         onDispose { view.keepScreenOn = false }
     }
 
-    // Countdown ring around the auto-refresh toggle.
-    val ring = remember { Animatable(0f) }
-    LaunchedEffect(state.refreshTick, state.autoRefresh) {
-        if (state.autoRefresh) {
-            ring.snapTo(0f)
-            ring.animateTo(
-                1f,
-                tween(state.autoIntervalMs.toInt(), easing = LinearEasing)
-            )
-        } else {
-            ring.snapTo(0f)
+    // Countdown ring around the auto-refresh toggle. Driven by the real clock (not an
+    // animation spec) so it always matches the actual cooldown exactly.
+    var ringProgress by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(state.refreshTick, state.autoRefresh, state.cycleStartedAt) {
+        if (!state.autoRefresh) {
+            ringProgress = 0f
+            return@LaunchedEffect
+        }
+        val interval = state.autoIntervalMs
+        while (true) {
+            val elapsed = SystemClock.elapsedRealtime() - state.cycleStartedAt
+            ringProgress = if (interval <= 0L) 1f else (elapsed.toFloat() / interval).coerceIn(0f, 1f)
+            if (ringProgress >= 1f) break
+            withFrameNanos { }
         }
     }
 
@@ -125,13 +127,13 @@ fun BuyFoodScreen(
                         value = state.autoIntervalMs / 1000f,
                         onValueChange = {
                             haptic(HapticType.TICK)
-                            vm.setAutoInterval((it.toInt() * 1000).toLong())
+                            vm.setAutoInterval((it.roundToInt() * 1000).toLong())
                         },
-                        valueRange = 1f..30f,
-                        steps = 28
+                        valueRange = 0f..30f,
+                        steps = 29
                     )
                     Text(
-                        "If a search takes longer than this, the next one starts right after it finishes.",
+                        "Keep an eye on that setting, since it will send requests back to back.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -220,15 +222,17 @@ fun BuyFoodScreen(
                         isError = state.mealError,
                         label = { Text("Meal") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        supportingText = {
-                            if (state.mealError) {
+                        // null (not an empty lambda) when there's no error, so the field
+                        // keeps the exact same height as the date field next to it.
+                        supportingText = if (state.mealError) {
+                            {
                                 MultiScriptText(
                                     "وعده را انتخاب نمایید",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.error
                                 )
                             }
-                        },
+                        } else null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .menuAnchor(MenuAnchorType.PrimaryNotEditable)
@@ -276,7 +280,7 @@ fun BuyFoodScreen(
                     },
                     icon = Icons.Default.Search,
                     description = "Auto refresh (long-press to set interval)",
-                    ringProgress = if (state.autoRefresh) ring.value else null,
+                    ringProgress = if (state.autoRefresh) ringProgress else null,
                     onLongClick = {
                         haptic(HapticType.HEAVY)
                         showIntervalDialog = true
