@@ -5,26 +5,48 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
+import ir.mums.stufood.util.JalaliCalendar
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 private const val TAG = "BuyFoodViewModel"
 private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a moment."
 
+/** The site's "همه وعده ها" option (also detected by label, see [isAllMeals]). */
+private const val ALL_MEALS_VALUE = "-1"
+
 class BuyFoodViewModel(
     private val repo: StufoodRepository = BananiteApp.instance.repository
 ) : ViewModel() {
+
+    companion object {
+        /** Gap between automatic searches. Raise it if the server ever starts throttling. */
+        const val AUTO_REFRESH_INTERVAL_MS = 10_000L
+    }
 
     data class UiState(
         val page: StufoodRepository.BuyFoodPage? = null,
         val loading: Boolean = true,
         val busy: Boolean = false,
         val date: String = "",
-        val meal: String = "-1"
+        val meal: String = ALL_MEALS_VALUE,
+        /** Shows the red "وعده را انتخاب نمایید" hint under the meal dropdown. */
+        val mealError: Boolean = false,
+        val autoRefresh: Boolean = false,
+        val soundEnabled: Boolean = false,
+        /** Incremented every time an auto cycle (re)starts — drives the countdown ring. */
+        val refreshTick: Int = 0
     )
 
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
@@ -35,11 +57,21 @@ class BuyFoodViewModel(
     private val _error = MutableStateFlow<ErrorEvent?>(null)
     val error: StateFlow<ErrorEvent?> = _error
 
+    /** Fires when a search turns up food that can be received/bought (and sound is on). */
+    private val _foodAvailable = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val foodAvailable: SharedFlow<Unit> = _foodAvailable.asSharedFlow()
+
     val hapticFeedbackEnabled: StateFlow<Boolean> =
         BananiteApp.instance.userPrefs.hapticFeedbackEnabled
             .stateIn(viewModelScope, SharingStarted.Lazily, true)
 
     private var started = false
+    private var autoJob: Job? = null
+    private var lastNotifiedSignature: String? = null
+
+    // ------------------------------------------------------------------
+    // Loading
+    // ------------------------------------------------------------------
 
     fun load(force: Boolean = false) {
         if (started && !force) return
@@ -48,9 +80,14 @@ class BuyFoodViewModel(
         viewModelScope.launch {
             try {
                 val page = repo.fetchBuyFoodPage()
-                _state.value = UiState(
-                    page = page, loading = false, date = page.date, meal = page.selectedMeal
-                )
+                _state.update {
+                    it.copy(
+                        page = page,
+                        loading = false,
+                        date = defaultDate(page),
+                        meal = page.selectedMeal
+                    )
+                }
             } catch (t: Throwable) {
                 Log.e(TAG, "load failed", t)
                 started = false
@@ -60,31 +97,143 @@ class BuyFoodViewModel(
         }
     }
 
+    /** Earliest food waiting for exchange, otherwise today (both Jalali). */
+    private fun defaultDate(page: StufoodRepository.BuyFoodPage): String {
+        val earliest = page.waitingFoods.mapNotNull { JalaliCalendar.parse(it.date) }.minOrNull()
+        return (earliest ?: JalaliCalendar.today()).format()
+    }
+
+    // ------------------------------------------------------------------
+    // Filters
+    // ------------------------------------------------------------------
+
     fun setDate(v: String) = _state.update { it.copy(date = v) }
-    fun setMeal(v: String) = _state.update { it.copy(meal = v) }
+
+    fun setMeal(v: String) {
+        _state.update { it.copy(meal = v, mealError = false) }
+        // Auto-refresh can't run on "all meals" — stop it if the user switches to that.
+        val page = _state.value.page
+        if (_state.value.autoRefresh && page != null && page.isAllMeals(v)) {
+            stopAutoRefresh()
+            _state.update { it.copy(mealError = true) }
+        }
+    }
+
+    private fun StufoodRepository.BuyFoodPage.isAllMeals(mealValue: String): Boolean {
+        if (mealValue == ALL_MEALS_VALUE) return true
+        val label = mealOptions.firstOrNull { it.second == mealValue }?.first.orEmpty()
+        val normalized = label.replace(" ", "").replace("\u200c", "")
+        return normalized.contains("همهوعده")
+    }
+
+    // ------------------------------------------------------------------
+    // Search (manual + auto share one code path)
+    // ------------------------------------------------------------------
 
     fun search() {
+        if (_state.value.busy) return
+        viewModelScope.launch { performSearch(manual = true) }
+    }
+
+    private suspend fun performSearch(manual: Boolean) {
         val s = _state.value
         val page = s.page ?: return
         if (s.busy) return
-        val date = s.date.map { if (it in '\u06F0'..'\u06F9') '0' + (it - '\u06F0') else it }
-            .joinToString("").trim()
-        if (!Regex("^\\d{4}/\\d{2}/\\d{2}$").matches(date)) {
-            _error.value = ErrorEvent("Date must look like 1405/07/09")
+
+        // The site errors out when "all meals" is searched, so mirror that locally.
+        if (page.isAllMeals(s.meal)) {
+            stopAutoRefresh()
+            _state.update { it.copy(mealError = true) }
             return
         }
-        _state.update { it.copy(busy = true, date = date) }
-        viewModelScope.launch {
-            try {
-                val updated = repo.searchBuyFood(page, date, s.meal)
-                _state.update { it.copy(page = updated, busy = false) }
-            } catch (t: Throwable) {
-                Log.e(TAG, "search failed", t)
-                _error.value = ErrorEvent(FRIENDLY_ERROR)
-                _state.update { it.copy(busy = false) }
+
+        val date = s.date.map { if (it in '\u06F0'..'\u06F9') '0' + (it - '\u06F0') else it }
+            .joinToString("").trim()
+        if (JalaliCalendar.parse(date) == null) {
+            if (manual) _error.value = ErrorEvent("Date must look like 1405/07/09")
+            return
+        }
+
+        _state.update { it.copy(busy = true, date = date, mealError = false) }
+        try {
+            val updated = repo.searchBuyFood(page, date, s.meal)
+            _state.update { it.copy(page = updated, busy = false) }
+            maybeNotify(updated, manual)
+        } catch (e: CancellationException) {
+            _state.update { it.copy(busy = false) }
+            throw e
+        } catch (t: Throwable) {
+            Log.e(TAG, "search failed", t)
+            if (manual) _error.value = ErrorEvent(FRIENDLY_ERROR) // auto cycles fail quietly
+            _state.update { it.copy(busy = false) }
+        }
+    }
+
+    private fun maybeNotify(page: StufoodRepository.BuyFoodPage, manual: Boolean) {
+        if (page.availableFoods.isEmpty()) {
+            lastNotifiedSignature = null
+            return
+        }
+        if (!_state.value.soundEnabled) return
+        val signature = page.availableFoods.joinToString("|") { "${it.meal}/${it.food}/${it.self}" }
+        // Manual searches always ring; auto cycles only ring when the available set changes,
+        // so the phone doesn't beep every 10s for the same food.
+        if (manual || signature != lastNotifiedSignature) {
+            lastNotifiedSignature = signature
+            _foodAvailable.tryEmit(Unit)
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Toggles
+    // ------------------------------------------------------------------
+
+    /** Turning auto-refresh on/off also turns the sound on/off; sound stays freely toggleable afterwards. */
+    fun setAutoRefresh(enabled: Boolean) {
+        if (!enabled) {
+            stopAutoRefresh()
+            return
+        }
+        val s = _state.value
+        val page = s.page ?: return
+        if (page.isAllMeals(s.meal)) {
+            _state.update { it.copy(mealError = true) }
+            return
+        }
+        _state.update { it.copy(autoRefresh = true, soundEnabled = true, mealError = false) }
+        autoJob?.cancel()
+        autoJob = viewModelScope.launch {
+            while (isActive) {
+                performSearch(manual = false)
+                _state.update { it.copy(refreshTick = it.refreshTick + 1) }
+                delay(AUTO_REFRESH_INTERVAL_MS)
             }
         }
     }
+
+    fun setSoundEnabled(enabled: Boolean) {
+        if (!enabled) lastNotifiedSignature = null
+        _state.update { it.copy(soundEnabled = enabled) }
+    }
+
+    private fun stopAutoRefresh() {
+        autoJob?.cancel()
+        autoJob = null
+        lastNotifiedSignature = null
+        _state.update { it.copy(autoRefresh = false, soundEnabled = false) }
+    }
+
+    /** Called on entering/leaving the screen: both toggles always start OFF. */
+    fun resetToggles() {
+        autoJob?.cancel()
+        autoJob = null
+        lastNotifiedSignature = null
+        _state.update { it.copy(autoRefresh = false, soundEnabled = false, mealError = false, busy = false) }
+    }
+
+    // ------------------------------------------------------------------
+    // Receive
+    // ------------------------------------------------------------------
 
     fun receive(row: StufoodRepository.ExchangeableFood) {
         val s = _state.value
