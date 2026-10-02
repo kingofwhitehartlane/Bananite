@@ -44,6 +44,9 @@ import ir.mums.stufood.util.JalaliDate
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
+/** Shared fixed height for the date and meal boxes so they always match. */
+val PickerFieldHeight = 56.dp
+
 /** Year wheel range, always relative to today's Jalali year (never hardcoded). */
 private const val YEARS_BACK = 2
 private const val YEARS_AHEAD = 5
@@ -73,7 +76,7 @@ fun JalaliDateField(
             label = { Text(label) },
             textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
             trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth().height(PickerFieldHeight)
         )
         // Transparent overlay so the whole field (not just the icon) opens the picker.
         Box(

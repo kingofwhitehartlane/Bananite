@@ -38,6 +38,7 @@ import kotlin.math.roundToInt
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.JalaliDateField
+import ir.mums.stufood.ui.components.PickerFieldHeight
 import ir.mums.stufood.ui.components.LoadingDots
 import ir.mums.stufood.ui.components.MultiScriptText
 import ir.mums.stufood.ui.components.rememberHapticFeedback
@@ -215,48 +216,49 @@ fun BuyFoodScreen(
                 val mealLabel = page.mealOptions.firstOrNull { it.second == state.meal }?.first.orEmpty()
                 // Built the same way as JalaliDateField (read-only OutlinedTextField with a
                 // transparent click overlay) so both boxes are guaranteed the same height.
-                Box(modifier = Modifier.weight(1f)) {
-                    OutlinedTextField(
-                        value = mealLabel,
-                        onValueChange = {},
-                        readOnly = true,
-                        singleLine = true,
-                        isError = state.mealError,
-                        label = { Text("Meal") },
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
-                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                        // null (not an empty lambda) when there's no error, so the box
-                        // height never changes.
-                        supportingText = if (state.mealError) {
-                            {
-                                MultiScriptText(
-                                    "وعده را انتخاب نمایید",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.error
+                Column(modifier = Modifier.weight(1f)) {
+                    Box {
+                        OutlinedTextField(
+                            value = mealLabel,
+                            onValueChange = {},
+                            readOnly = true,
+                            singleLine = true,
+                            isError = state.mealError,
+                            label = { Text("Meal") },
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
+                            trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                            // Same fixed height as the date box; the font can't change it.
+                            modifier = Modifier.fillMaxWidth().height(PickerFieldHeight)
+                        )
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .clickable {
+                                    haptic(HapticType.CLICK)
+                                    expanded = true
+                                }
+                        )
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            page.mealOptions.forEach { (label, value) ->
+                                DropdownMenuItem(
+                                    text = { MultiScriptText(label) },
+                                    onClick = {
+                                        haptic(HapticType.TICK)
+                                        vm.setMeal(value)
+                                        expanded = false
+                                    }
                                 )
                             }
-                        } else null,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Box(
-                        Modifier
-                            .matchParentSize()
-                            .clickable {
-                                haptic(HapticType.CLICK)
-                                expanded = true
-                            }
-                    )
-                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                        page.mealOptions.forEach { (label, value) ->
-                            DropdownMenuItem(
-                                text = { MultiScriptText(label) },
-                                onClick = {
-                                    haptic(HapticType.TICK)
-                                    vm.setMeal(value)
-                                    expanded = false
-                                }
-                            )
                         }
+                    }
+                    // Error text lives OUTSIDE the box so it can never change its height.
+                    if (state.mealError) {
+                        MultiScriptText(
+                            "وعده را انتخاب نمایید",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                        )
                     }
                 }
             }
