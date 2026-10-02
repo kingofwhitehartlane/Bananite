@@ -13,13 +13,17 @@ class SettingsViewModel(
     val bounciness = prefs.bounciness
     val creditTransitionType = prefs.creditTransitionType
     
-    // NEW
     val themeMode = prefs.themeMode
     val pureBlack = prefs.pureBlack
     val colorScheme = prefs.colorScheme
     val welcomeNameEnabled = prefs.welcomeNameEnabled
     val disableAllAnimations = prefs.disableAllAnimations
     val hapticFeedbackEnabled = prefs.hapticFeedbackEnabled
+
+    val wheel3dEnabled = prefs.wheel3dEnabled                        // <-- add
+    fun setWheel3dEnabled(enabled: Boolean) {                        // <-- add
+        viewModelScope.launch { prefs.saveWheel3dEnabled(enabled) }
+    }
 
     val persianFont = prefs.persianFont
     fun setPersianFont(id: String) { viewModelScope.launch { prefs.savePersianFont(id) } }
