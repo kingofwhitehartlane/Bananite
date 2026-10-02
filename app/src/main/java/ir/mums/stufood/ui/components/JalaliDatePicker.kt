@@ -51,7 +51,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /** Shared fixed height for the date and meal boxes so they always match. */
-val PickerFieldHeight = 73.dp
+val PickerFieldHeight = 69.dp
 
 /** Year wheel range, always relative to today's Jalali year (never hardcoded). */
 private const val YEARS_BACK = 2
@@ -59,6 +59,9 @@ private const val YEARS_AHEAD = 5
 
 /** Angle (radians) between two neighbouring rows on the virtual cylinder (~30°). */
 private const val ROW_ANGLE = 0.52f
+
+/** Rows away from the center at which a row is fully invisible. */
+private const val FADE_ROWS = 2f
 
 /**
  * Read-only field that shows a Jalali date ("1405/07/09") and opens the 3-wheel
@@ -253,7 +256,6 @@ fun WheelPicker(
 
     // Radius of the virtual cylinder so neighbouring rows sit ROW_ANGLE apart.
     val radiusPx = itemHeightPx / ROW_ANGLE
-    val fadeSpan = pad + 0.5f
 
     Box(modifier = modifier.height(itemHeight * visibleCount)) {
         Box(
@@ -283,11 +285,11 @@ fun WheelPicker(
                                 (info.viewportStartOffset + info.viewportEndOffset) / 2f
                             // Distance from the middle row, measured in rows (negative = above).
                             val d = (row.offset + row.size / 2f - viewportCenter) / itemHeightPx
-                            val dist = abs(d).coerceAtMost(fadeSpan)
+                            val dist = abs(d)
 
-                            // Edge fade (always on).
-                            val t = dist / fadeSpan
-                            alpha = (1f - t * t).coerceIn(0.08f, 1f)
+                            // Edge fade (always on): 1.0 at the center, ~0.25 one row away, 0 at two rows.
+                            val t = (dist / FADE_ROWS).coerceIn(0f, 1f)
+                            alpha = (1f - t) * (1f - t)
 
                             if (cylinder) {
                                 val theta = (d * ROW_ANGLE).coerceIn(-1.35f, 1.35f)
