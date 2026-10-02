@@ -138,7 +138,7 @@ fun BuyFoodScreen(
                         steps = 29
                     )
                     Text(
-                        "0 = search again as soon as the previous one finishes. If a search takes longer than this, the next one starts right after it finishes.",
+                        "Keep an eye on that setting, since it will send requests back to back.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

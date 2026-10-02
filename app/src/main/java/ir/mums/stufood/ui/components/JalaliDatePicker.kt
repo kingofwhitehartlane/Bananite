@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -35,21 +36,29 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.util.JalaliCalendar
 import ir.mums.stufood.util.JalaliDate
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 /** Shared fixed height for the date and meal boxes so they always match. */
-val PickerFieldHeight = 100.dp
+val PickerFieldHeight = 73.dp
 
 /** Year wheel range, always relative to today's Jalali year (never hardcoded). */
 private const val YEARS_BACK = 2
 private const val YEARS_AHEAD = 5
+
+/** Angle (radians) between two neighbouring rows on the virtual cylinder (~30°). */
+private const val ROW_ANGLE = 0.52f
 
 /**
  * Read-only field that shows a Jalali date ("1405/07/09") and opens the 3-wheel
@@ -118,6 +127,12 @@ fun JalaliDatePickerDialog(
     var day by remember { mutableIntStateOf(initial.day) }
     var resetKey by remember { mutableIntStateOf(0) } // bumped by "Today" to re-seed the wheels
 
+    // 3D cylinder effect: user toggle (Animations settings), overridden by "Disable all animations".
+    val prefs = BananiteApp.instance.userPrefs
+    val wheel3d by prefs.wheel3dEnabled.collectAsState(initial = true)
+    val disableAll by prefs.disableAllAnimations.collectAsState(initial = false)
+    val cylinder = wheel3d && !disableAll
+
     val years = remember {
         val lo = minOf(initial.year, today.year - YEARS_BACK)
         val hi = maxOf(initial.year, today.year + YEARS_AHEAD)
@@ -141,6 +156,7 @@ fun JalaliDatePickerDialog(
                             selectedIndex = years.indexOf(year).coerceAtLeast(0),
                             onSelectedIndexChange = { year = years[it] },
                             modifier = Modifier.weight(1.1f),
+                            cylinder = cylinder,
                             haptic = haptic
                         )
                         WheelPicker(
@@ -148,6 +164,7 @@ fun JalaliDatePickerDialog(
                             selectedIndex = month - 1,
                             onSelectedIndexChange = { month = it + 1 },
                             modifier = Modifier.weight(1.5f),
+                            cylinder = cylinder,
                             haptic = haptic
                         )
                     }
@@ -159,6 +176,7 @@ fun JalaliDatePickerDialog(
                             selectedIndex = safeDay - 1,
                             onSelectedIndexChange = { day = it + 1 },
                             modifier = Modifier.weight(0.8f),
+                            cylinder = cylinder,
                             haptic = haptic
                         )
                     }
@@ -190,6 +208,9 @@ fun JalaliDatePickerDialog(
  * middle row is the selection (reported once the scroll settles).
  * Implemented with blank spacer items above/below instead of contentPadding so
  * `firstVisibleItemIndex` maps 1:1 to the centered item.
+ *
+ * Edges always fade out. When [cylinder] is true, rows are additionally squashed and
+ * pulled toward the center as if wrapped around a barrel (3D roller look).
  */
 @Composable
 fun WheelPicker(
@@ -199,6 +220,7 @@ fun WheelPicker(
     modifier: Modifier = Modifier,
     itemHeight: Dp = 44.dp,
     visibleCount: Int = 5,
+    cylinder: Boolean = true,
     haptic: (HapticType) -> Unit = {}
 ) {
     val pad = visibleCount / 2
@@ -229,6 +251,10 @@ fun WheelPicker(
         }
     }
 
+    // Radius of the virtual cylinder so neighbouring rows sit ROW_ANGLE apart.
+    val radiusPx = itemHeightPx / ROW_ANGLE
+    val fadeSpan = pad + 0.5f
+
     Box(modifier = modifier.height(itemHeight * visibleCount)) {
         Box(
             Modifier
@@ -245,18 +271,53 @@ fun WheelPicker(
                     modifier = Modifier
                         .height(itemHeight)
                         .fillMaxWidth()
-                        .clickable {
-                            // Tap any visible option to roll it into the middle.
-                            scope.launch { listState.animateScrollToItem(index) }
+                        // Runs in the draw phase: scrolling never triggers recomposition.
+                        .graphicsLayer {
+                            val info = listState.layoutInfo
+                            val row = info.visibleItemsInfo.firstOrNull { it.index == index + pad }
+                            if (row == null) {
+                                alpha = 0f
+                                return@graphicsLayer
+                            }
+                            val viewportCenter =
+                                (info.viewportStartOffset + info.viewportEndOffset) / 2f
+                            // Distance from the middle row, measured in rows (negative = above).
+                            val d = (row.offset + row.size / 2f - viewportCenter) / itemHeightPx
+                            val dist = abs(d).coerceAtMost(fadeSpan)
+
+                            // Edge fade (always on).
+                            val t = dist / fadeSpan
+                            alpha = (1f - t * t).coerceIn(0.08f, 1f)
+
+                            if (cylinder) {
+                                val theta = (d * ROW_ANGLE).coerceIn(-1.35f, 1.35f)
+                                // Position on a cylinder vs. flat position -> pull rows inward.
+                                translationY = radiusPx * sin(theta) - d * itemHeightPx
+                                // Foreshortening as the row turns away from the viewer.
+                                val c = cos(theta)
+                                scaleY = c
+                                scaleX = 0.88f + 0.12f * c
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    MultiScriptText(
-                        text = text,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = if (index == centered) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(itemHeight)
+                            .clickable {
+                                // Tap any visible option to roll it into the middle.
+                                scope.launch { listState.animateScrollToItem(index) }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        MultiScriptText(
+                            text = text,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = if (index == centered) MaterialTheme.colorScheme.onPrimaryContainer
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
                 }
             }
             items(pad) { Spacer(Modifier.height(itemHeight)) }

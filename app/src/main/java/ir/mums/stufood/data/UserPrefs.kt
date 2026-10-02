@@ -55,6 +55,7 @@ class UserPrefs(private val context: Context) {
         private val DISABLE_ALL_ANIMATIONS = booleanPreferencesKey("disable_all_animations")
         private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         private val AUTO_SEARCH_INTERVAL = longPreferencesKey("auto_search_interval_ms")
+        private val WHEEL_3D = booleanPreferencesKey("wheel_3d_enabled")
     }
 
     // -----------------------------------------------------------------------
@@ -85,6 +86,7 @@ class UserPrefs(private val context: Context) {
     val welcomeNameEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[WELCOME_NAME_ENABLED] ?: true }
     val disableAllAnimations: Flow<Boolean> = context.uiDataStore.data.map { it[DISABLE_ALL_ANIMATIONS] ?: false }
     val hapticFeedbackEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[HAPTIC_ENABLED] ?: true }
+    val wheel3dEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[WHEEL_3D] ?: true }
 
     /** Buy Food auto-search interval (ms). Only the interval is saved — never the toggles. */
     val autoSearchIntervalMs: Flow<Long> =
@@ -124,6 +126,7 @@ class UserPrefs(private val context: Context) {
     suspend fun saveHapticFeedbackEnabled(enabled: Boolean) { context.uiDataStore.edit { it[HAPTIC_ENABLED] = enabled } }
     suspend fun savePersianFont(id: String) { context.uiDataStore.edit { it[PERSIAN_FONT] = id } }
     suspend fun saveAutoSearchInterval(ms: Long) { context.uiDataStore.edit { it[AUTO_SEARCH_INTERVAL] = ms } }
+    suspend fun saveWheel3dEnabled(enabled: Boolean) { context.uiDataStore.edit { it[WHEEL_3D] = enabled } }
 
     // -----------------------------------------------------------------------
     // RESET TO DEFAULTS (Preserves credentials, clears UI prefs)
@@ -140,6 +143,7 @@ class UserPrefs(private val context: Context) {
             prefs.remove(DISABLE_ALL_ANIMATIONS)
             prefs.remove(PERSIAN_FONT)
             prefs.remove(AUTO_SEARCH_INTERVAL)
+            prefs.remove(WHEEL_3D)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }

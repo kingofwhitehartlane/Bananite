@@ -28,6 +28,7 @@ fun AnimationSettingsScreen(
     val welcomeNameEnabled by vm.welcomeNameEnabled.collectAsState(initial = true)
     val disableAll by vm.disableAllAnimations.collectAsState(initial = false)
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
+    val wheel3d by vm.wheel3dEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
     // Derived states to override UI and logic when "Disable all animations" is ON
@@ -186,6 +187,33 @@ fun AnimationSettingsScreen(
                         )
                     }
                 }
+            }
+
+            // 4. 3D date wheels
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Default.ViewInAr, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Column {
+                        Text("3D date wheels", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Cylinder effect on the date picker rollers.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                Switch(
+                    checked = wheel3d && !disableAll,
+                    onCheckedChange = {
+                        haptic(HapticType.TICK)
+                        vm.setWheel3dEnabled(it)
+                    },
+                    enabled = !disableAll
+                )
             }
         }
     }
