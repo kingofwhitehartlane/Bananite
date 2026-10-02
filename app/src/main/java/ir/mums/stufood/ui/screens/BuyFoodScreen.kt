@@ -7,6 +7,7 @@ import android.os.SystemClock
 import android.media.RingtoneManager
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -14,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -30,6 +32,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlin.math.roundToInt
 import ir.mums.stufood.data.StufoodRepository
@@ -129,11 +132,12 @@ fun BuyFoodScreen(
                             haptic(HapticType.TICK)
                             vm.setAutoInterval((it.roundToInt() * 1000).toLong())
                         },
+                        onValueChangeFinished = { vm.saveAutoInterval() },
                         valueRange = 0f..30f,
                         steps = 29
                     )
                     Text(
-                        "Keep an eye on that setting, since it will send requests back to back.",
+                        "0 = search again as soon as the previous one finishes. If a search takes longer than this, the next one starts right after it finishes.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -209,11 +213,9 @@ fun BuyFoodScreen(
 
                 var expanded by remember { mutableStateOf(false) }
                 val mealLabel = page.mealOptions.firstOrNull { it.second == state.meal }?.first.orEmpty()
-                ExposedDropdownMenuBox(
-                    expanded = expanded,
-                    onExpandedChange = { expanded = !expanded },
-                    modifier = Modifier.weight(1f)
-                ) {
+                // Built the same way as JalaliDateField (read-only OutlinedTextField with a
+                // transparent click overlay) so both boxes are guaranteed the same height.
+                Box(modifier = Modifier.weight(1f)) {
                     OutlinedTextField(
                         value = mealLabel,
                         onValueChange = {},
@@ -221,9 +223,10 @@ fun BuyFoodScreen(
                         singleLine = true,
                         isError = state.mealError,
                         label = { Text("Meal") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        // null (not an empty lambda) when there's no error, so the field
-                        // keeps the exact same height as the date field next to it.
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
+                        trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
+                        // null (not an empty lambda) when there's no error, so the box
+                        // height never changes.
                         supportingText = if (state.mealError) {
                             {
                                 MultiScriptText(
@@ -233,11 +236,17 @@ fun BuyFoodScreen(
                                 )
                             }
                         } else null,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    Box(
+                        Modifier
+                            .matchParentSize()
+                            .clickable {
+                                haptic(HapticType.CLICK)
+                                expanded = true
+                            }
+                    )
+                    DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         page.mealOptions.forEach { (label, value) ->
                             DropdownMenuItem(
                                 text = { MultiScriptText(label) },

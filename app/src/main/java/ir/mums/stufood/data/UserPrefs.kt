@@ -6,6 +6,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.security.crypto.EncryptedSharedPreferences
@@ -40,6 +41,9 @@ class UserPrefs(private val context: Context) {
         private const val KEY_PASSWORD = "password"
         private const val KEY_REMEMBER = "remember"
 
+        /** Default gap between automatic searches on the Buy Food screen. */
+        const val DEFAULT_AUTO_SEARCH_INTERVAL_MS = 3_000L
+
         // UI Keys (Stored in DataStore)
         private val ANIMATION_TYPE = stringPreferencesKey("animation_type")
         private val BOUNCINESS = stringPreferencesKey("bounciness")
@@ -50,6 +54,7 @@ class UserPrefs(private val context: Context) {
         private val WELCOME_NAME_ENABLED = booleanPreferencesKey("welcome_name_enabled")
         private val DISABLE_ALL_ANIMATIONS = booleanPreferencesKey("disable_all_animations")
         private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
+        private val AUTO_SEARCH_INTERVAL = longPreferencesKey("auto_search_interval_ms")
     }
 
     // -----------------------------------------------------------------------
@@ -80,6 +85,10 @@ class UserPrefs(private val context: Context) {
     val welcomeNameEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[WELCOME_NAME_ENABLED] ?: true }
     val disableAllAnimations: Flow<Boolean> = context.uiDataStore.data.map { it[DISABLE_ALL_ANIMATIONS] ?: false }
     val hapticFeedbackEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[HAPTIC_ENABLED] ?: true }
+
+    /** Buy Food auto-search interval (ms). Only the interval is saved — never the toggles. */
+    val autoSearchIntervalMs: Flow<Long> =
+        context.uiDataStore.data.map { it[AUTO_SEARCH_INTERVAL] ?: DEFAULT_AUTO_SEARCH_INTERVAL_MS }
 
     // -----------------------------------------------------------------------
     // SAVE METHODS
@@ -114,6 +123,7 @@ class UserPrefs(private val context: Context) {
     suspend fun saveDisableAllAnimations(disabled: Boolean) { context.uiDataStore.edit { it[DISABLE_ALL_ANIMATIONS] = disabled } }
     suspend fun saveHapticFeedbackEnabled(enabled: Boolean) { context.uiDataStore.edit { it[HAPTIC_ENABLED] = enabled } }
     suspend fun savePersianFont(id: String) { context.uiDataStore.edit { it[PERSIAN_FONT] = id } }
+    suspend fun saveAutoSearchInterval(ms: Long) { context.uiDataStore.edit { it[AUTO_SEARCH_INTERVAL] = ms } }
 
     // -----------------------------------------------------------------------
     // RESET TO DEFAULTS (Preserves credentials, clears UI prefs)
@@ -129,6 +139,7 @@ class UserPrefs(private val context: Context) {
             prefs.remove(WELCOME_NAME_ENABLED)
             prefs.remove(DISABLE_ALL_ANIMATIONS)
             prefs.remove(PERSIAN_FONT)
+            prefs.remove(AUTO_SEARCH_INTERVAL)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }

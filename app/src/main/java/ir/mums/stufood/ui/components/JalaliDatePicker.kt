@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ir.mums.stufood.util.JalaliCalendar
 import ir.mums.stufood.util.JalaliDate
 import kotlinx.coroutines.flow.filter
@@ -70,6 +71,7 @@ fun JalaliDateField(
             enabled = enabled,
             singleLine = true,
             label = { Text(label) },
+            textStyle = MaterialTheme.typography.bodyLarge.copy(lineHeight = 24.sp),
             trailingIcon = { Icon(Icons.Default.CalendarMonth, contentDescription = null) },
             modifier = Modifier.fillMaxWidth()
         )

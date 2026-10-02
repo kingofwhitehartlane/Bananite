@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
+import ir.mums.stufood.data.UserPrefs
 import ir.mums.stufood.util.JalaliCalendar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -28,11 +30,12 @@ private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a 
 private const val ALL_MEALS_VALUE = "-1"
 
 class BuyFoodViewModel(
-    private val repo: StufoodRepository = BananiteApp.instance.repository
+    private val repo: StufoodRepository = BananiteApp.instance.repository,
+    private val prefs: UserPrefs = BananiteApp.instance.userPrefs
 ) : ViewModel() {
 
     companion object {
-        const val DEFAULT_AUTO_INTERVAL_MS = 2_000L
+        const val DEFAULT_AUTO_INTERVAL_MS = 3_000L
         const val MIN_AUTO_INTERVAL_MS = 0L
         const val MAX_AUTO_INTERVAL_MS = 30_000L
     }
@@ -72,6 +75,16 @@ class BuyFoodViewModel(
             .stateIn(viewModelScope, SharingStarted.Lazily, true)
 
     private var started = false
+
+    init {
+        // Interval is a saved setting; the toggles themselves are never saved.
+        viewModelScope.launch {
+            val saved = prefs.autoSearchIntervalMs.first()
+            _state.update {
+                it.copy(autoIntervalMs = saved.coerceIn(MIN_AUTO_INTERVAL_MS, MAX_AUTO_INTERVAL_MS))
+            }
+        }
+    }
     private var autoJob: Job? = null
 
     // ------------------------------------------------------------------
@@ -225,6 +238,12 @@ class BuyFoodViewModel(
         _state.update {
             it.copy(autoIntervalMs = ms.coerceIn(MIN_AUTO_INTERVAL_MS, MAX_AUTO_INTERVAL_MS))
         }
+    }
+
+    /** Persists the current interval (called when the slider is released). */
+    fun saveAutoInterval() {
+        val ms = _state.value.autoIntervalMs
+        viewModelScope.launch { prefs.saveAutoSearchInterval(ms) }
     }
 
     fun setSoundEnabled(enabled: Boolean) {
