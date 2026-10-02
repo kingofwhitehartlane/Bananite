@@ -61,7 +61,7 @@ private const val YEARS_AHEAD = 5
 private const val ROW_ANGLE = 0.52f
 
 /** Rows away from the center at which a row is fully invisible. */
-private const val FADE_ROWS = 2f
+private const val FADE_ROWS = 3f
 
 /**
  * Read-only field that shows a Jalali date ("1405/07/09") and opens the 3-wheel
