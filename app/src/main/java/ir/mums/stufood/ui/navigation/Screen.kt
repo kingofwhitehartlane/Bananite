@@ -4,11 +4,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Animation
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.ui.graphics.vector.ImageVector
 
 /**
@@ -23,7 +23,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Login : Screen("login", "Login", Icons.Default.Person)
     object Home : Screen("home", "Bananite", Icons.Default.Fastfood)
     object Reservation : Screen("reservation", "Reserve Food", Icons.Default.CalendarMonth)
-    object BuyFood : Screen("buy_food", "Buy Food", Icons.Default.SwapHoriz)
+    object BuyFood : Screen("buy_food", "Buy Food", Icons.Default.Handshake)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     
     // New Sub-menus

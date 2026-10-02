@@ -45,7 +45,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 
 /** Shared fixed height for the date and meal boxes so they always match. */
-val PickerFieldHeight = 56.dp
+val PickerFieldHeight = 100.dp
 
 /** Year wheel range, always relative to today's Jalali year (never hardcoded). */
 private const val YEARS_BACK = 2

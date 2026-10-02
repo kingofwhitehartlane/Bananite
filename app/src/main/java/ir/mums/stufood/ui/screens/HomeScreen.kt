@@ -14,7 +14,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -153,7 +153,7 @@ fun HomeScreen(
             HomeMenuCard(
                 title = "Buy Food",
                 subtitle = "Don't miss out on today's meal",
-                icon = Icons.Default.SwapHoriz,
+                icon = Icons.Default.Handshake,
                 hapticsEnabled = hapticEnabled,
                 onClick = { onNavigate(Screen.BuyFood) }
             )
