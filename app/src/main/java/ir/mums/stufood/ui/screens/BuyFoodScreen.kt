@@ -7,7 +7,11 @@ import android.media.RingtoneManager
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -19,7 +23,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -97,11 +103,42 @@ fun BuyFoodScreen(
             ring.snapTo(0f)
             ring.animateTo(
                 1f,
-                tween(BuyFoodViewModel.AUTO_REFRESH_INTERVAL_MS.toInt(), easing = LinearEasing)
+                tween(state.autoIntervalMs.toInt(), easing = LinearEasing)
             )
         } else {
             ring.snapTo(0f)
         }
+    }
+
+    var showIntervalDialog by remember { mutableStateOf(false) }
+    if (showIntervalDialog) {
+        AlertDialog(
+            onDismissRequest = { showIntervalDialog = false },
+            title = { Text("Auto-refresh interval") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "${state.autoIntervalMs / 1000} seconds between searches",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Slider(
+                        value = state.autoIntervalMs / 1000f,
+                        onValueChange = {
+                            haptic(HapticType.TICK)
+                            vm.setAutoInterval((it.toInt() * 1000).toLong())
+                        },
+                        valueRange = 1f..30f,
+                        steps = 28
+                    )
+                    Text(
+                        "If a search takes longer than this, the next one starts right after it finishes.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { showIntervalDialog = false }) { Text("Done") } }
+        )
     }
 
     var pending by remember { mutableStateOf<StufoodRepository.ExchangeableFood?>(null) }
@@ -238,8 +275,12 @@ fun BuyFoodScreen(
                         vm.setAutoRefresh(it)
                     },
                     icon = Icons.Default.Search,
-                    description = "Auto refresh",
-                    ringProgress = if (state.autoRefresh) ring.value else null
+                    description = "Auto refresh (long-press to set interval)",
+                    ringProgress = if (state.autoRefresh) ring.value else null,
+                    onLongClick = {
+                        haptic(HapticType.HEAVY)
+                        showIntervalDialog = true
+                    }
                 )
 
                 CircleToggle(
@@ -323,9 +364,11 @@ fun BuyFoodScreen(
 }
 
 /**
- * Circular on/off button: coloured when on, greyed out when off. When [ringProgress]
- * is non-null a thin ring fills around it (used as the auto-refresh countdown).
+ * Circular on/off button: coloured when on, greyed out when off. Supports long-press
+ * via [onLongClick]. When [ringProgress] is non-null a thin ring fills around it
+ * (used as the auto-refresh countdown).
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun CircleToggle(
     checked: Boolean,
@@ -333,22 +376,27 @@ private fun CircleToggle(
     icon: ImageVector,
     description: String,
     modifier: Modifier = Modifier,
-    ringProgress: Float? = null
+    ringProgress: Float? = null,
+    onLongClick: (() -> Unit)? = null
 ) {
-    Box(modifier = modifier.size(48.dp), contentAlignment = Alignment.Center) {
-        FilledIconToggleButton(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            modifier = Modifier.size(48.dp),
-            colors = IconButtonDefaults.filledIconToggleButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                contentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                checkedContainerColor = MaterialTheme.colorScheme.primary,
-                checkedContentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Icon(icon, contentDescription = description)
-        }
+    val container = if (checked) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.surfaceVariant
+    val content = if (checked) MaterialTheme.colorScheme.onPrimary
+    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
+
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(container)
+            .combinedClickable(
+                role = Role.Switch,
+                onClick = { onCheckedChange(!checked) },
+                onLongClick = onLongClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = description, tint = content)
         if (ringProgress != null) {
             CircularProgressIndicator(
                 progress = { ringProgress },

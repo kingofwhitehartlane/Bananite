@@ -1,5 +1,6 @@
 package ir.mums.stufood.ui.screens
 
+import android.os.SystemClock
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,8 +32,9 @@ class BuyFoodViewModel(
 ) : ViewModel() {
 
     companion object {
-        /** Gap between automatic searches. Raise it if the server ever starts throttling. */
-        const val AUTO_REFRESH_INTERVAL_MS = 10_000L
+        const val DEFAULT_AUTO_INTERVAL_MS = 2_000L
+        const val MIN_AUTO_INTERVAL_MS = 1_000L
+        const val MAX_AUTO_INTERVAL_MS = 30_000L
     }
 
     data class UiState(
@@ -45,6 +47,8 @@ class BuyFoodViewModel(
         val mealError: Boolean = false,
         val autoRefresh: Boolean = false,
         val soundEnabled: Boolean = false,
+        /** Minimum time from the START of one auto search to the START of the next. */
+        val autoIntervalMs: Long = BuyFoodViewModel.DEFAULT_AUTO_INTERVAL_MS,
         /** Incremented every time an auto cycle (re)starts — drives the countdown ring. */
         val refreshTick: Int = 0
     )
@@ -177,7 +181,7 @@ class BuyFoodViewModel(
         if (!_state.value.soundEnabled) return
         val signature = page.availableFoods.joinToString("|") { "${it.meal}/${it.food}/${it.self}" }
         // Manual searches always ring; auto cycles only ring when the available set changes,
-        // so the phone doesn't beep every 10s for the same food.
+        // so the phone doesn't beep every cycle for the same food.
         if (manual || signature != lastNotifiedSignature) {
             lastNotifiedSignature = signature
             _foodAvailable.tryEmit(Unit)
@@ -203,11 +207,21 @@ class BuyFoodViewModel(
         _state.update { it.copy(autoRefresh = true, soundEnabled = true, mealError = false) }
         autoJob?.cancel()
         autoJob = viewModelScope.launch {
+            // search -> wait for it to finish -> wait out whatever is left of the
+            // interval (none if the search itself took longer) -> search again.
             while (isActive) {
+                val startedAt = SystemClock.elapsedRealtime()
+                _state.update { it.copy(refreshTick = it.refreshTick + 1) } // restarts the ring
                 performSearch(manual = false)
-                _state.update { it.copy(refreshTick = it.refreshTick + 1) }
-                delay(AUTO_REFRESH_INTERVAL_MS)
+                val remaining = _state.value.autoIntervalMs - (SystemClock.elapsedRealtime() - startedAt)
+                if (remaining > 0) delay(remaining)
             }
+        }
+    }
+
+    fun setAutoInterval(ms: Long) {
+        _state.update {
+            it.copy(autoIntervalMs = ms.coerceIn(MIN_AUTO_INTERVAL_MS, MAX_AUTO_INTERVAL_MS))
         }
     }
 

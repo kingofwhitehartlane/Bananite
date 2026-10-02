@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -40,6 +41,11 @@ import androidx.compose.ui.unit.dp
 import ir.mums.stufood.util.JalaliCalendar
 import ir.mums.stufood.util.JalaliDate
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
+
+/** Year wheel range, always relative to today's Jalali year (never hardcoded). */
+private const val YEARS_BACK = 2
+private const val YEARS_AHEAD = 5
 
 /**
  * Read-only field that shows a Jalali date ("1405/07/09") and opens the 3-wheel
@@ -108,8 +114,8 @@ fun JalaliDatePickerDialog(
     var resetKey by remember { mutableIntStateOf(0) } // bumped by "Today" to re-seed the wheels
 
     val years = remember {
-        val lo = minOf(initial.year, today.year - 1)
-        val hi = maxOf(initial.year, today.year + 2)
+        val lo = minOf(initial.year, today.year - YEARS_BACK)
+        val hi = maxOf(initial.year, today.year + YEARS_AHEAD)
         (lo..hi).toList()
     }
     val daysInMonth = JalaliCalendar.daysInMonth(year, month)
@@ -117,7 +123,7 @@ fun JalaliDatePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { MultiScriptText("انتخاب تاریخ") },
+        title = { Text("Select date") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
@@ -159,17 +165,17 @@ fun JalaliDatePickerDialog(
                         resetKey++
                     },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
-                ) { MultiScriptText("امروز") }
+                ) { Text("Today") }
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 haptic(HapticType.SUCCESS)
                 onConfirm(JalaliDate(year, month, safeDay))
-            }) { MultiScriptText("تایید") }
+            }) { Text("Confirm") }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { MultiScriptText("انصراف") }
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
@@ -196,6 +202,7 @@ fun WheelPicker(
     )
     val flingBehavior = rememberSnapFlingBehavior(listState)
     val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+    val scope = rememberCoroutineScope()
 
     // With `pad` spacers on top, list index (i) == real item (i - pad) sitting in the middle.
     val centered by remember {
@@ -230,7 +237,13 @@ fun WheelPicker(
             items(pad) { Spacer(Modifier.height(itemHeight)) }
             itemsIndexed(items) { index, text ->
                 Box(
-                    modifier = Modifier.height(itemHeight).fillMaxWidth(),
+                    modifier = Modifier
+                        .height(itemHeight)
+                        .fillMaxWidth()
+                        .clickable {
+                            // Tap any visible option to roll it into the middle.
+                            scope.launch { listState.animateScrollToItem(index) }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     MultiScriptText(
