@@ -1,5 +1,6 @@
 package ir.mums.stufood.data
 
+import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
@@ -66,6 +67,17 @@ import kotlinx.coroutines.flow.StateFlow
  * the exchange flow on the real site (the same way the login fields were captured)
  * and send it over — the field names above are already correct, only the
  * request/response shape around them might need adjusting.
+ *
+ * BUY FOOD ("دریافت غذا" on BuyFood.aspx) — read this before touching the buy functions:
+ *
+ * Receiving a food is a plain ASP.NET postback whose __EVENTTARGET is the template
+ * LinkButton inside the grdFoods DevExpress grid, e.g.
+ *     ctl00$body$grdFoods$cell0_4$TC$lbtnBuy      (row 0, column 4)
+ *     ctl00$body$grdFoods$cell1_4$TC$lbtnBuy      (row 1, column 4)   ...and so on.
+ * (Verified from a captured HAR of a real purchase.) The whole form snapshot is
+ * posted urlencoded; there is NO "<name>=value" or "<name>.x" for this control — only
+ * __EVENTTARGET. The site reports the result through an inline `alert('...')`, which
+ * we surface as [BuyFoodPage.message].
  */
 class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
@@ -457,7 +469,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             current,
             eventTarget = "",
             overrides = overrides,
-            extraFields = mapOf(Fields.EXCHANGE_CONFIRM_BTN to "تایید و ثبت درخواست") 
+            extraFields = mapOf(Fields.EXCHANGE_CONFIRM_BTN to "تایید و ثبت درخواست")
         )
     }
 
@@ -493,21 +505,18 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         )
 
     /**
-     * ASSUMPTION: the HAR's grdFoods was empty, so the real "دریافت غذا" button markup
-     * was never seen. We replay whatever control we find in that cell (image button,
-     * submit button or __doPostBack link). Verify against a HAR of a real receive click.
+     * Receives ("دریافت غذا") one of the foods listed in grdFoods.
+     *
+     * Verified against a captured HAR: the browser posts the whole form with
+     * `__EVENTTARGET = ctl00$body$grdFoods$cell<row>_4$TC$lbtnBuy` (and an empty
+     * `__EVENTARGUMENT`). The target comes from [ReceiveAction], which is read off the
+     * row's own markup (or derived from the row index) — see [parseReceiveAction].
+     * The result of the purchase arrives as an inline alert('...'), exposed through
+     * [BuyFoodPage.message] on the returned page.
      */
-    suspend fun BuyFood(current: BuyFoodPage, row: ExchangeableFood): BuyFoodPage? {
+    suspend fun receiveFood(current: BuyFoodPage, row: ExchangeableFood): BuyFoodPage? {
         val a = row.receive ?: return null
-        return when (a.kind) {
-            ReceiveKind.IMAGE -> postBuyFood(
-                current, extra = mapOf("${a.name}.x" to "1", "${a.name}.y" to "1")
-            )
-            ReceiveKind.SUBMIT -> postBuyFood(current, extra = mapOf(a.name to a.argument))
-            ReceiveKind.POSTBACK -> postBuyFood(
-                current, eventTarget = a.name, eventArgument = a.argument
-            )
-        }
+        return postBuyFood(current, eventTarget = a.target, eventArgument = a.argument)
     }
 
     private suspend fun postBuyFood(
@@ -533,7 +542,12 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             .post(body.build())
             .build()
 
-        val html = client.newCall(request).execute().use { it.body?.string().orEmpty() }
+        val response = client.newCall(request).execute()
+        val html = response.use {
+            Log.d("StufoodRepo", "BuyFood POST target='$eventTarget' -> HTTP ${it.code}")
+            if (!it.isSuccessful) throw IllegalStateException("HTTP ${it.code}")
+            it.body?.string().orEmpty()
+        }
         parseBuyFoodPage(html)
     }
 
@@ -566,12 +580,14 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val available = doc.select("tr[id^=body_grdFoods_DXDataRow]").map { tr ->
             val c = tr.children()
+            // DevExpress numbers data rows by visible index: body_grdFoods_DXDataRow0, ...Row1, ...
+            val rowIndex = Regex("DXDataRow(\\d+)$").find(tr.id())?.groupValues?.get(1)?.toIntOrNull()
             ExchangeableFood(
                 meal = c.getOrNull(0)?.text()?.trim().orEmpty(),
                 menu = c.getOrNull(1)?.text()?.trim().orEmpty(),
                 food = c.getOrNull(2)?.text()?.trim()?.trimEnd('-', ' ').orEmpty(),
                 self = c.getOrNull(3)?.text()?.trim().orEmpty(),
-                receive = c.getOrNull(4)?.let { parseReceiveAction(it) }
+                receive = c.getOrNull(4)?.let { parseReceiveAction(it, rowIndex, 4) }
             )
         }
 
@@ -593,7 +609,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             mealOptions = mealOptions,
             selectedMeal = selectedMeal,
             availableFoods = available,
-            waitingFoods = waiting
+            waitingFoods = waiting,
+            message = extractAlertMessage(doc)
         )
     }
 
@@ -610,21 +627,57 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             "${q}groupLevelState$q:{},${q}selection$q:$q$q,${q}toolbar$q:null}"
     }
 
-    private fun parseReceiveAction(cell: Element): ReceiveAction? {
-        cell.selectFirst("input[type=image][name]")?.let {
-            return ReceiveAction(it.attr("name"), ReceiveKind.IMAGE)
-        }
-        cell.selectFirst("input[type=submit][name], input[type=button][name]")?.let {
-            return ReceiveAction(it.attr("name"), ReceiveKind.SUBMIT, it.attr("value"))
-        }
-        val postBack = Regex("__doPostBack\\('([^']*)'\\s*,\\s*'([^']*)'\\)")
+    // Matches both:
+    //   __doPostBack('target','arg')
+    //   WebForm_DoPostBackWithOptions(new WebForm_PostBackOptions("target","arg",true,...))
+    // with either quote style (Jsoup has already decoded &quot; / &#39; by the time we see it).
+    private val postBackCallRegex = Regex(
+        """(?:__doPostBack|WebForm_PostBackOptions)\s*\(\s*(['"])(.*?)\1\s*,\s*(['"])(.*?)\3"""
+    )
+
+    // Inline alert('...') / alert("...") with a string literal (the site's way of reporting results).
+    private val alertRegex = Regex("""\balert\(\s*(['"])((?:\\.|(?!\1).)*)\1\s*\)""")
+
+    /** Target name of the "receive" LinkButton for a given grid row/column (see class doc). */
+    private fun derivedBuyTarget(row: Int, col: Int) =
+        "${BuyFields.GRID_FOODS}\$cell${row}_${col}\$TC\$lbtnBuy"
+
+    /**
+     * Works out what the "دریافت غذا" cell of one grdFoods row posts when clicked.
+     * Whatever the control looks like, the browser's real request is a postback with
+     * `__EVENTTARGET=<control's unique name>`, so every branch below yields just that.
+     */
+    private fun parseReceiveAction(cell: Element, rowIndex: Int?, colIndex: Int): ReceiveAction? {
+        // 1) A real postback call in the markup (covers __doPostBack and
+        //    WebForm_DoPostBackWithOptions(new WebForm_PostBackOptions(...)), any quoting).
         for (el in cell.select("[href],[onclick]")) {
-            postBack.find(el.attr("href") + " " + el.attr("onclick"))?.let {
-                return ReceiveAction(it.groupValues[1], ReceiveKind.POSTBACK, it.groupValues[2])
+            postBackCallRegex.find(el.attr("href") + " " + el.attr("onclick"))?.let {
+                return ReceiveAction(it.groupValues[2], it.groupValues[4])
             }
+        }
+        // 2) A named control. The browser's working request used __EVENTTARGET=<name>
+        //    (no "<name>=value", no "<name>.x"), so use the name as the event target.
+        cell.selectFirst("input[name], button[name]")?.attr("name")?.takeIf { it.isNotBlank() }
+            ?.let { return ReceiveAction(it) }
+        // 3) Something clickable we can't read: derive from the grid's naming scheme
+        //    (grdFoods$cell<row>_<col>$TC$lbtnBuy — taken from the HAR).
+        if (rowIndex != null && cell.selectFirst("a, button, input, img") != null) {
+            return ReceiveAction(derivedBuyTarget(rowIndex, colIndex))
         }
         return null
     }
+
+    /** Text of the first inline alert('...') on the page — how the site reports results. */
+    private fun extractAlertMessage(doc: Document): String? =
+        doc.select("script:not([src])").asSequence()
+            .mapNotNull { alertRegex.find(it.data())?.groupValues?.get(2) }
+            .firstOrNull()
+            ?.replace("\\'", "'")
+            ?.replace("\\\"", "\"")
+            ?.replace("\\n", "\n")
+            ?.replace("\\\\", "\\")
+            ?.trim()
+            ?.ifEmpty { null }
 
     // ----------------------------------------------------------------------
     // GENERIC FORM POST
@@ -756,7 +809,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val headerDiv = doc.getElementById("body_rptFoodDiet_dvHeader_$i")
         val statusBadge = headerDiv?.classNames()?.firstNotNullOfOrNull { statusBadgeLabels[it] }
-        
+
         val daySealText = doc.getElementById("body_rptFoodDiet_lblDaySeals_$i")
             ?.text()?.trim()?.ifEmpty { null }
 
@@ -849,7 +902,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val row = radio.parents().firstOrNull { it.tagName() == "tr" }
 
-        // FIX: Changed `~=` (which means exact word match) to `$=` (ends with) 
+        // FIX: Changed `~=` (which means exact word match) to `$=` (ends with)
         // because the name attribute is a single long string, not space-separated words.
 
         // The cancel button (an <input type="image"> whose name ends in btnCancel)
@@ -1047,10 +1100,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // PUBLIC DATA CLASSES
     // ----------------------------------------------------------------------
 
-    enum class ReceiveKind { IMAGE, SUBMIT, POSTBACK }
-
-    /** name = control name (IMAGE/SUBMIT) or __EVENTTARGET (POSTBACK); argument = value / __EVENTARGUMENT. */
-    data class ReceiveAction(val name: String, val kind: ReceiveKind, val argument: String = "")
+    /**
+     * The postback the site performs when a row's "دریافت غذا" link is clicked:
+     * `__EVENTTARGET = [target]`, `__EVENTARGUMENT = [argument]`.
+     */
+    data class ReceiveAction(val target: String, val argument: String = "")
 
     /** Row of grdFoods — foods you can receive. */
     data class ExchangeableFood(
@@ -1070,7 +1124,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val mealOptions: List<Pair<String, String>>,
         val selectedMeal: String,
         val availableFoods: List<ExchangeableFood>,
-        val waitingFoods: List<WaitingFood>
+        val waitingFoods: List<WaitingFood>,
+        /** Text of the site's inline alert('...') in this response (purchase result, errors). */
+        val message: String? = null
     )
 
     data class LoginPageData(val captchaImage: ByteArray?)

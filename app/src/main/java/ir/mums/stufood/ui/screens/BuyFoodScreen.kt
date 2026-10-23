@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
@@ -80,6 +81,7 @@ fun BuyFoodScreen(
 
     val state by vm.state.collectAsState()
     val error by vm.error.collectAsState()
+    val purchaseResult by vm.purchaseResult.collectAsState()
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState()
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
     val snackbar = remember { SnackbarHostState() }
@@ -91,6 +93,11 @@ fun BuyFoodScreen(
             haptic(HapticType.SUCCESS)
             playNotificationSound(context)
         }
+    }
+
+    // Success buzz when the site confirms a purchase.
+    LaunchedEffect(purchaseResult) {
+        if (purchaseResult?.success == true) haptic(HapticType.SUCCESS)
     }
 
     // Keep the screen awake while auto-refreshing so the loop and sound keep working.
@@ -162,6 +169,50 @@ fun BuyFoodScreen(
                 }) { Text("Receive") }
             },
             dismissButton = { TextButton(onClick = { pending = null }) { Text("Cancel") } }
+        )
+    }
+
+    // ---- Result popup: the site's own verdict on the purchase ----
+    purchaseResult?.let { r ->
+        AlertDialog(
+            onDismissRequest = vm::dismissPurchaseResult,
+            icon = {
+                Icon(
+                    imageVector = if (r.success) Icons.Default.CheckCircle else Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = if (r.success) MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.error
+                )
+            },
+            title = { Text(if (r.success) "Purchase successful" else "Purchase not confirmed") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    r.message?.let {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            MultiScriptText(it, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                    if (r.success) {
+                        Text(
+                            "Give it about 2 minutes, then collect your food.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (r.message == null) {
+                        Text(
+                            "The site didn't confirm the purchase. Search again to check whether it went through.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    haptic(HapticType.CLICK)
+                    vm.dismissPurchaseResult()
+                }) { Text("OK") }
+            }
         )
     }
 

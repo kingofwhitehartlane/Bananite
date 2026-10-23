@@ -10,6 +10,7 @@ import ir.mums.stufood.data.UserPrefs
 import ir.mums.stufood.util.JalaliCalendar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,18 @@ private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a 
 
 /** The site's "همه وعده ها" option (also detected by label, see [isAllMeals]). */
 private const val ALL_MEALS_VALUE = "-1"
+
+/** Identity of a food row. Positions shift between refreshes, so never compare by index. */
+private fun foodKey(f: StufoodRepository.ExchangeableFood) = "${f.meal}/${f.menu}/${f.food}/${f.self}"
+
+/**
+ * The site answers a purchase with an inline alert('...'). On success it reads
+ * "خرید غذا موفقیت آمیز بود، ..." ("purchase was successful ...").
+ */
+private fun isSuccessMessage(msg: String): Boolean {
+    val n = msg.replace(" ", "").replace("\u200c", "")
+    return n.contains("موفقیتآمیز") && !n.contains("ناموفق")
+}
 
 class BuyFoodViewModel(
     private val repo: StufoodRepository = BananiteApp.instance.repository,
@@ -60,11 +73,21 @@ class BuyFoodViewModel(
 
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
 
+    /**
+     * Outcome of a "Receive" attempt, shown as a popup.
+     * [message] is the site's own alert text (Persian); null means the site said nothing.
+     */
+    data class PurchaseResult(val success: Boolean, val message: String?)
+
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
 
     private val _error = MutableStateFlow<ErrorEvent?>(null)
     val error: StateFlow<ErrorEvent?> = _error
+
+    private val _purchaseResult = MutableStateFlow<PurchaseResult?>(null)
+    val purchaseResult: StateFlow<PurchaseResult?> = _purchaseResult
+    fun dismissPurchaseResult() { _purchaseResult.value = null }
 
     /** Fires when a search turns up food that can be received/bought (and sound is on). */
     private val _foodAvailable = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
@@ -196,9 +219,8 @@ class BuyFoodViewModel(
         updated: StufoodRepository.BuyFoodPage
     ) {
         if (!_state.value.soundEnabled) return
-        fun key(f: StufoodRepository.ExchangeableFood) = "${f.meal}/${f.menu}/${f.food}/${f.self}"
-        val before = previous.availableFoods.groupingBy(::key).eachCount()
-        val after = updated.availableFoods.groupingBy(::key).eachCount()
+        val before = previous.availableFoods.groupingBy(::foodKey).eachCount()
+        val after = updated.availableFoods.groupingBy(::foodKey).eachCount()
         val hasNewItem = after.any { (k, n) -> n > (before[k] ?: 0) }
         if (hasNewItem) _foodAvailable.tryEmit(Unit)
     }
@@ -268,18 +290,44 @@ class BuyFoodViewModel(
     // ------------------------------------------------------------------
 
     fun receive(row: StufoodRepository.ExchangeableFood) {
-        val s = _state.value
-        val page = s.page ?: return
-        if (s.busy || row.receive == null) return
-        _state.update { it.copy(busy = true) }
+        if (row.receive == null) return
+        val running = autoJob
+        stopAutoRefresh() // a background search must not race (or shift row indexes under) a purchase
         viewModelScope.launch {
+            running?.cancelAndJoin()
+            val s = _state.value
+            val page = s.page ?: return@launch
+            if (s.busy) return@launch
+
+            // The postback target is positional (cell<N>_4 = "row N right now"), so
+            // re-resolve the row against the newest page instead of trusting the tapped,
+            // possibly stale, one.
+            val fresh = page.availableFoods.firstOrNull { it.receive != null && foodKey(it) == foodKey(row) }
+            if (fresh == null) {
+                _purchaseResult.value = PurchaseResult(false, "This food is no longer available.")
+                return@launch
+            }
+
+            _state.update { it.copy(busy = true) }
             try {
-                val updated = repo.BuyFood(page, row)
+                val updated = repo.receiveFood(page, fresh)
                 _state.update { it.copy(page = updated ?: page, busy = false) }
+                val msg = updated?.message
+                Log.d(TAG, "receive -> site alert: $msg")
+                _purchaseResult.value = PurchaseResult(
+                    success = msg != null && isSuccessMessage(msg),
+                    message = msg
+                )
+            } catch (e: CancellationException) {
+                _state.update { it.copy(busy = false) }
+                throw e
             } catch (t: Throwable) {
                 Log.e(TAG, "receive failed", t)
-                _error.value = ErrorEvent(FRIENDLY_ERROR)
                 _state.update { it.copy(busy = false) }
+                _purchaseResult.value = PurchaseResult(
+                    success = false,
+                    message = "Request failed (${t.message ?: "network error"})."
+                )
             }
         }
     }
