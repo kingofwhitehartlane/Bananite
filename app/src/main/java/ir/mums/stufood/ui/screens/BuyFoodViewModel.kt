@@ -63,6 +63,11 @@ class BuyFoodViewModel(
         val mealError: Boolean = false,
         val autoRefresh: Boolean = false,
         val soundEnabled: Boolean = false,
+        /**
+         * When ON, the moment a search turns up a NEW food, the first buyable food in the
+         * list is bought immediately (no confirmation). Off by default, never saved.
+         */
+        val autoBuy: Boolean = false,
         /** Minimum time from the START of one auto search to the START of the next. */
         val autoIntervalMs: Long = BuyFoodViewModel.DEFAULT_AUTO_INTERVAL_MS,
         /** Incremented every time an auto cycle (re)starts — drives the countdown ring. */
@@ -74,7 +79,7 @@ class BuyFoodViewModel(
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
 
     /**
-     * Outcome of a "Receive" attempt, shown as a popup.
+     * Outcome of a "Buy" attempt, shown as a popup.
      * [message] is the site's own alert text (Persian); null means the site said nothing.
      */
     data class PurchaseResult(val success: Boolean, val message: String?)
@@ -89,7 +94,7 @@ class BuyFoodViewModel(
     val purchaseResult: StateFlow<PurchaseResult?> = _purchaseResult
     fun dismissPurchaseResult() { _purchaseResult.value = null }
 
-    /** Fires when a search turns up food that can be received/bought (and sound is on). */
+    /** Fires when a search turns up food that can be bought (and sound is on). */
     private val _foodAvailable = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val foodAvailable: SharedFlow<Unit> = _foodAvailable.asSharedFlow()
 
@@ -199,7 +204,7 @@ class BuyFoodViewModel(
         try {
             val updated = repo.searchBuyFood(page, date, s.meal)
             _state.update { it.copy(page = updated, busy = false) }
-            maybeNotify(previous = page, updated = updated)
+            handleNewFood(previous = page, updated = updated)
         } catch (e: CancellationException) {
             _state.update { it.copy(busy = false) }
             throw e
@@ -210,19 +215,38 @@ class BuyFoodViewModel(
         }
     }
 
+    /** True when the "available to purchase" list gained at least one item vs. before this search. */
+    private fun hasNewFood(
+        previous: StufoodRepository.BuyFoodPage,
+        updated: StufoodRepository.BuyFoodPage
+    ): Boolean {
+        val before = previous.availableFoods.groupingBy(::foodKey).eachCount()
+        val after = updated.availableFoods.groupingBy(::foodKey).eachCount()
+        return after.any { (k, n) -> n > (before[k] ?: 0) }
+    }
+
     /**
-     * Rings only when the "available to receive" list gained at least one item compared
-     * with what was there before this search — never for food that was already listed.
+     * Runs after every search. Only reacts to food that is NEW compared with what was
+     * listed before this search — never to food that was already there.
+     *
+     *  1. Rings the notification sound (if sound is on).
+     *  2. Stops auto-search, so the Buy buttons aren't disabled by a running search.
+     *  3. If auto-buy is on, buys the first buyable food right away (no confirmation).
      */
-    private fun maybeNotify(
+    private fun handleNewFood(
         previous: StufoodRepository.BuyFoodPage,
         updated: StufoodRepository.BuyFoodPage
     ) {
-        if (!_state.value.soundEnabled) return
-        val before = previous.availableFoods.groupingBy(::foodKey).eachCount()
-        val after = updated.availableFoods.groupingBy(::foodKey).eachCount()
-        val hasNewItem = after.any { (k, n) -> n > (before[k] ?: 0) }
-        if (hasNewItem) _foodAvailable.tryEmit(Unit)
+        if (!hasNewFood(previous, updated)) return
+
+        if (_state.value.soundEnabled) _foodAvailable.tryEmit(Unit)
+
+        if (_state.value.autoRefresh) stopAutoRefresh()
+
+        if (_state.value.autoBuy) {
+            val first = updated.availableFoods.firstOrNull { it.receive != null }
+            if (first != null) receive(first)
+        }
     }
 
     // ------------------------------------------------------------------
@@ -272,21 +296,34 @@ class BuyFoodViewModel(
         _state.update { it.copy(soundEnabled = enabled) }
     }
 
+    /** Auto-buy: instantly buys the first food when a new one appears. Never saved. */
+    fun setAutoBuy(enabled: Boolean) {
+        _state.update { it.copy(autoBuy = enabled) }
+    }
+
     private fun stopAutoRefresh() {
         autoJob?.cancel()
         autoJob = null
         _state.update { it.copy(autoRefresh = false, soundEnabled = false) }
     }
 
-    /** Called on entering/leaving the screen: both toggles always start OFF. */
+    /** Called on entering/leaving the screen: all toggles always start OFF. */
     fun resetToggles() {
         autoJob?.cancel()
         autoJob = null
-        _state.update { it.copy(autoRefresh = false, soundEnabled = false, mealError = false, busy = false) }
+        _state.update {
+            it.copy(
+                autoRefresh = false,
+                soundEnabled = false,
+                autoBuy = false,
+                mealError = false,
+                busy = false
+            )
+        }
     }
 
     // ------------------------------------------------------------------
-    // Receive
+    // Buy (called by the Buy button and by auto-buy)
     // ------------------------------------------------------------------
 
     fun receive(row: StufoodRepository.ExchangeableFood) {
@@ -313,7 +350,7 @@ class BuyFoodViewModel(
                 val updated = repo.receiveFood(page, fresh)
                 _state.update { it.copy(page = updated ?: page, busy = false) }
                 val msg = updated?.message
-                Log.d(TAG, "receive -> site alert: $msg")
+                Log.d(TAG, "buy -> site alert: $msg")
                 _purchaseResult.value = PurchaseResult(
                     success = msg != null && isSuccessMessage(msg),
                     message = msg
@@ -322,7 +359,7 @@ class BuyFoodViewModel(
                 _state.update { it.copy(busy = false) }
                 throw e
             } catch (t: Throwable) {
-                Log.e(TAG, "receive failed", t)
+                Log.e(TAG, "buy failed", t)
                 _state.update { it.copy(busy = false) }
                 _purchaseResult.value = PurchaseResult(
                     success = false,

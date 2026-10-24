@@ -36,7 +36,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlin.math.roundToInt
-import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.JalaliDateField
 import ir.mums.stufood.ui.components.PickerFieldHeight
@@ -72,7 +71,7 @@ fun BuyFoodScreen(
     val context = LocalContext.current
     val view = LocalView.current
 
-    // Both toggles are OFF every time this menu is opened and again when it's left.
+    // All toggles are OFF every time this menu is opened and again when it's left.
     LaunchedEffect(Unit) {
         vm.resetToggles()
         vm.load()
@@ -123,11 +122,12 @@ fun BuyFoodScreen(
         }
     }
 
+    // ---- Long-press settings dialog: interval slider + auto-buy toggle ----
     var showIntervalDialog by remember { mutableStateOf(false) }
     if (showIntervalDialog) {
         AlertDialog(
             onDismissRequest = { showIntervalDialog = false },
-            title = { Text("Auto-refresh interval") },
+            title = { Text("Auto-refresh settings") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -149,26 +149,34 @@ fun BuyFoodScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Auto-buy", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "When a new food appears, instantly buy the first one in the " +
+                                    "list. No confirmation. Resets when you leave this screen.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.autoBuy,
+                            onCheckedChange = {
+                                haptic(HapticType.TICK)
+                                vm.setAutoBuy(it)
+                            }
+                        )
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showIntervalDialog = false }) { Text("Done") } }
-        )
-    }
-
-    var pending by remember { mutableStateOf<StufoodRepository.ExchangeableFood?>(null) }
-    pending?.let { row ->
-        AlertDialog(
-            onDismissRequest = { pending = null },
-            title = { Text("Receive this food?") },
-            text = { MultiScriptText("${row.food} — ${row.self}") },
-            confirmButton = {
-                TextButton(onClick = {
-                    haptic(HapticType.SUCCESS)
-                    vm.receive(row)
-                    pending = null
-                }) { Text("Receive") }
-            },
-            dismissButton = { TextButton(onClick = { pending = null }) { Text("Cancel") } }
         )
     }
 
@@ -341,7 +349,7 @@ fun BuyFoodScreen(
                         vm.setAutoRefresh(it)
                     },
                     icon = Icons.Default.Search,
-                    description = "Auto refresh (long-press to set interval)",
+                    description = "Auto refresh",
                     ringProgress = if (state.autoRefresh) ringProgress else null,
                     onLongClick = {
                         haptic(HapticType.HEAVY)
@@ -361,30 +369,39 @@ fun BuyFoodScreen(
             }
 
             // Food cards are right-to-left; section titles/hints stay as they were.
-            // ---- Foods you can receive (grdFoods) ----
-            SectionTitle("Available to receive")
+            // ---- Foods you can buy (grdFoods) ----
+            SectionTitle("Available to purchase")
             if (page.availableFoods.isEmpty()) EmptyHint()
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     page.availableFoods.forEach { row ->
                         Card(Modifier.fillMaxWidth()) {
-                            Column(
+                            // RTL: the first child sits on the right, the last on the LEFT.
+                            // So the texts come first and the Buy button ends up on the
+                            // left, in front of the texts instead of below them.
+                            Row(
                                 Modifier.fillMaxWidth().padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                MultiScriptText(row.food, style = MaterialTheme.typography.titleMedium)
-                                MultiScriptText(
-                                    listOf(row.meal, row.menu, row.self).filter { it.isNotBlank() }
-                                        .joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                                Column(
+                                    Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    MultiScriptText(row.food, style = MaterialTheme.typography.titleMedium)
+                                    MultiScriptText(
+                                        listOf(row.meal, row.menu, row.self).filter { it.isNotBlank() }
+                                            .joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                                 if (row.receive != null) {
                                     Button(
-                                        onClick = { haptic(HapticType.CLICK); pending = row },
-                                        enabled = !state.busy,
-                                        modifier = Modifier.padding(top = 8.dp)
-                                    ) { Text("Receive") }
+                                        // No confirmation: the request is sent immediately.
+                                        onClick = { haptic(HapticType.CLICK); vm.receive(row) },
+                                        enabled = !state.busy
+                                    ) { Text("Buy") }
                                 }
                             }
                         }
@@ -393,7 +410,7 @@ fun BuyFoodScreen(
             }
 
             // ---- Waiting list (grdAll) ----
-            SectionTitle("Waiting for exchange")
+            SectionTitle("Waiting to be sold")
             if (page.waitingFoods.isEmpty()) EmptyHint()
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

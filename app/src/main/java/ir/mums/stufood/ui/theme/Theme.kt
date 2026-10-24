@@ -91,12 +91,6 @@ fun BananiteTheme(
         }
     }
 
-    MaterialTheme(
-        colorScheme = finalColorScheme,
-        typography = Typography,
-        content = content
-    )
-
     CompositionLocalProvider(
         LocalPersianFontFamily provides persianFontFor(persianFontId),
         LocalPersianFontScale provides persianFontScaleFor(persianFontId)
