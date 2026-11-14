@@ -49,8 +49,7 @@ class SettingsViewModel(
     private val updater get() = BananiteApp.instance.updateManager
     val updateState = BananiteApp.instance.updateManager.state
     fun checkForUpdates() = updater.check(auto = false)
-    fun downloadUpdate(r: ir.mums.stufood.data.UpdateManager.ReleaseInfo) = updater.startDownload(r, auto = false)
-    fun installUpdate(file: java.io.File) = updater.install(file)
+    fun openUpdateInBrowser(r: ir.mums.stufood.data.UpdateManager.ReleaseInfo) = updater.openDownload(r)
 
     // RESET
     fun resetToDefaults() {

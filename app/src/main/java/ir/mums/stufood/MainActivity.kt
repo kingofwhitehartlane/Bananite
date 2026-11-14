@@ -1,7 +1,6 @@
 package ir.mums.stufood
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -109,43 +108,30 @@ private fun App() {
 private fun UpdatePrompt() {
     val mgr = BananiteApp.instance.updateManager
     val state by mgr.state.collectAsState()
-    var dismissed by remember { mutableStateOf<String?>(null) }
+    var dismissedVersion by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) { mgr.autoCheckOnLaunch() }
 
-    when (val s = state) {
-        is UpdateManager.State.Available -> if (s.auto && dismissed != "a${s.release.versionName}") {
-            AlertDialog(
-                onDismissRequest = { dismissed = "a${s.release.versionName}" },
-                title = { Text("Update available") },
-                text = { Text("Bananite ${s.release.versionName} is available. You're on mobile data, so it wasn't downloaded automatically.") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        dismissed = "a${s.release.versionName}"
-                        mgr.startDownload(s.release, auto = true)
-                    }) { Text("Download") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { dismissed = "a${s.release.versionName}" }) { Text("Later") }
-                }
-            )
-        }
-        is UpdateManager.State.Downloaded -> if (s.auto && dismissed != "d${s.release.versionName}") {
-            AlertDialog(
-                onDismissRequest = { dismissed = "d${s.release.versionName}" },
-                title = { Text("Update ready") },
-                text = { Text("Bananite ${s.release.versionName} has been downloaded.") },
-                confirmButton = {
-                    TextButton(onClick = {
-                        dismissed = "d${s.release.versionName}"
-                        mgr.install(s.file)
-                    }) { Text("Install") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { dismissed = "d${s.release.versionName}" }) { Text("Later") }
-                }
-            )
-        }
-        else -> Unit
+    val s = state
+    if (s is UpdateManager.State.Available && s.auto && dismissedVersion != s.release.versionName) {
+        AlertDialog(
+            onDismissRequest = { dismissedVersion = s.release.versionName },
+            title = { Text("Update available") },
+            text = {
+                Text(
+                    "Bananite ${s.release.versionName} is available. " +
+                    "The download will open on GitHub in your browser."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    dismissedVersion = s.release.versionName
+                    mgr.openDownload(s.release)
+                }) { Text("Download") }
+            },
+            dismissButton = {
+                TextButton(onClick = { dismissedVersion = s.release.versionName }) { Text("Later") }
+            }
+        )
     }
 }

@@ -293,8 +293,6 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                 is UpdateManager.State.Checking -> "Checking GitHub…"
                 is UpdateManager.State.UpToDate -> "You're on the latest version (${BuildConfig.VERSION_NAME})."
                 is UpdateManager.State.Available -> "Version ${s.release.versionName} is available."
-                is UpdateManager.State.Downloading -> "Downloading ${s.release.versionName}… ${(s.progress * 100).toInt()}%"
-                is UpdateManager.State.Downloaded -> "Version ${s.release.versionName} is ready to install."
                 is UpdateManager.State.Error -> s.message
             }
             Text(
@@ -303,6 +301,7 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                 color = if (s is UpdateManager.State.Error) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
+
             if (s is UpdateManager.State.Available && s.release.notes.isNotBlank()) {
                 Text(
                     s.release.notes, maxLines = 6,
@@ -310,27 +309,22 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (s is UpdateManager.State.Downloading) {
-                LinearProgressIndicator(progress = { s.progress }, modifier = Modifier.fillMaxWidth())
-            }
 
             Button(
                 onClick = {
                     haptic(HapticType.CLICK)
                     when (s) {
-                        is UpdateManager.State.Available -> vm.downloadUpdate(s.release)
-                        is UpdateManager.State.Downloaded -> vm.installUpdate(s.file)
+                        is UpdateManager.State.Available -> vm.openUpdateInBrowser(s.release)
                         else -> vm.checkForUpdates()
                     }
                 },
-                enabled = s !is UpdateManager.State.Checking && s !is UpdateManager.State.Downloading,
+                enabled = s !is UpdateManager.State.Checking,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
                     when (s) {
-                        is UpdateManager.State.Available -> "Download ${s.release.versionName}"
-                        is UpdateManager.State.Downloaded -> "Install ${s.release.versionName}"
-                        is UpdateManager.State.Downloading -> "Downloading…"
+                        is UpdateManager.State.Available -> "Download ${s.release.versionName} in browser"
+                        is UpdateManager.State.Checking -> "Checking…"
                         else -> "Check for updates"
                     }
                 )
@@ -342,9 +336,9 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text("Auto-update", style = MaterialTheme.typography.bodyLarge)
+                    Text("Auto-update checks", style = MaterialTheme.typography.bodyLarge)
                     Text(
-                        "Check on launch and download on Wi‑Fi. You'll still confirm the install.",
+                        "Check for new versions on launch. Downloads open in your browser — the app never installs anything itself.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
