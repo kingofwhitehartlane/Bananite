@@ -15,3 +15,5 @@ captcha.py
 /AndroidKeys
 source_icon.png
 TODO
+digest.txt
+run_ingest.bat
