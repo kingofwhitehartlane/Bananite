@@ -39,7 +39,19 @@ private fun foodKey(f: StufoodRepository.ExchangeableFood) = "${f.meal}/${f.menu
  */
 private fun isSuccessMessage(msg: String): Boolean {
     val n = msg.replace(" ", "").replace("\u200c", "")
-    return n.contains("موفقیتآمیز") && !n.contains("ناموفق")
+    return n.contains("موفقیت آمیز") && !n.contains("ناموفق")
+}
+
+/** Pulls a price like "160000 ریال" / "16,000 تومان" out of the site's alert and shows it in Toman. */
+private fun extractPriceToman(msg: String): String? {
+    val m = Regex("([0-9\u06F0-\u06F9,\u066C]+)\\s*(ریال|تومان)").find(msg) ?: return null
+    val digits = m.groupValues[1]
+        .map { if (it in '\u06F0'..'\u06F9') '0' + (it - '\u06F0') else it }
+        .filter { it.isDigit() }
+        .joinToString("")
+    val amount = digits.toLongOrNull() ?: return null
+    val toman = if (m.groupValues[2] == "ریال") amount / 10 else amount
+    return String.format(java.util.Locale.US, "%,d", toman) + "T"
 }
 
 class BuyFoodViewModel(
@@ -82,7 +94,12 @@ class BuyFoodViewModel(
      * Outcome of a "Buy" attempt, shown as a popup.
      * [message] is the site's own alert text (Persian); null means the site said nothing.
      */
-    data class PurchaseResult(val success: Boolean, val message: String?)
+    data class PurchaseResult(
+        val success: Boolean,
+        val message: String?,
+        val foodName: String? = null,
+        val price: String? = null
+    )
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state
@@ -351,9 +368,12 @@ class BuyFoodViewModel(
                 _state.update { it.copy(page = updated ?: page, busy = false) }
                 val msg = updated?.message
                 Log.d(TAG, "buy -> site alert: $msg")
+                val ok = msg != null && isSuccessMessage(msg)
                 _purchaseResult.value = PurchaseResult(
-                    success = msg != null && isSuccessMessage(msg),
-                    message = msg
+                    success = ok,
+                    message = msg,
+                    foodName = if (ok) fresh.food else null,
+                    price = if (ok) msg?.let(::extractPriceToman) else null
                 )
             } catch (e: CancellationException) {
                 _state.update { it.copy(busy = false) }

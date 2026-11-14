@@ -34,6 +34,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlin.math.roundToInt
 import ir.mums.stufood.ui.components.HapticType
@@ -194,24 +195,40 @@ fun BuyFoodScreen(
             },
             title = { Text(if (r.success) "Purchase successful" else "Purchase not confirmed") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    r.message?.let {
-                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-                            MultiScriptText(it, style = MaterialTheme.typography.bodyLarge)
-                        }
-                    }
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     if (r.success) {
-                        Text(
-                            "Give it about 2 minutes, then collect your food.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (r.message == null) {
-                        Text(
-                            "The site didn't confirm the purchase. Search again to check whether it went through.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            r.foodName?.let {
+                                MultiScriptText(
+                                    it,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center)
+                                )
+                            }
+                            r.price?.let {
+                                MultiScriptText(
+                                    it,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.Center)
+                                )
+                            }
+                        }
+                    } else {
+                        r.message?.let {
+                            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                                MultiScriptText(it, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                        if (r.message == null) {
+                            Text(
+                                "The site didn't confirm the purchase. Search again to check whether it went through.",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                     }
                 }
             },
