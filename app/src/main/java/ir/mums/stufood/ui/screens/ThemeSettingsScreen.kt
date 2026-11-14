@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import ir.mums.stufood.ui.theme.DarkColors
 import ir.mums.stufood.ui.theme.LightColors
+import ir.mums.stufood.ui.theme.LaneDarkColors
+import ir.mums.stufood.ui.theme.LaneLightColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -153,7 +155,8 @@ fun ThemeSettingsScreen(
                 var expanded by remember { mutableStateOf(false) }
                 val colorOptions = listOf(
                     "Material You (Dynamic)" to "dynamic",
-                    "Banana Yellow (App Default)" to "custom"
+                    "Bananite (App Default)" to "custom",
+                    "The Lane" to "lane"
                 )
                 val currentLabel = colorOptions.firstOrNull { it.second == colorScheme }?.first ?: colorOptions[0].first
                 
@@ -193,7 +196,7 @@ fun ThemeSettingsScreen(
                     }
                 }
                 Text(
-                    text = "Material You uses dynamic wallpaper colors (Android 12+). Banana Yellow is the app's default vibrant theme.",
+                    text = "Material You uses dynamic wallpaper colors (Android 12+). Bananite is the app's default vibrant theme. The Lane is a navy, white and grey palette.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -261,9 +264,13 @@ fun ThemeSettingsScreen(
 @Composable
 private fun palettePreviewColors(paletteType: String, dark: Boolean): List<Color> {
     val context = LocalContext.current
-    val scheme = if (paletteType == "dynamic" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-    } else if (dark) DarkColors else LightColors
+    val scheme = when {
+        paletteType == "dynamic" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+            if (dark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        paletteType == "lane" -> if (dark) LaneDarkColors else LaneLightColors
+        dark -> DarkColors
+        else -> LightColors
+    }
     return listOf(scheme.primary, scheme.secondaryContainer)
 }
 

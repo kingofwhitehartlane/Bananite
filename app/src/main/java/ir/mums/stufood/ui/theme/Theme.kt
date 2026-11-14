@@ -42,6 +42,26 @@ internal val DarkColors = darkColorScheme(
     inverseSurface = md_dark_inverseSurface, inverseOnSurface = md_dark_inverseOnSurface, inversePrimary = md_dark_inversePrimary,
 )
 
+internal val LaneLightColors = lightColorScheme(
+    primary = lane_light_primary, onPrimary = lane_light_onPrimary, primaryContainer = lane_light_primaryContainer, onPrimaryContainer = lane_light_onPrimaryContainer,
+    secondary = lane_light_secondary, onSecondary = lane_light_onSecondary, secondaryContainer = lane_light_secondaryContainer, onSecondaryContainer = lane_light_onSecondaryContainer,
+    tertiary = lane_light_tertiary, onTertiary = lane_light_onTertiary, tertiaryContainer = lane_light_tertiaryContainer, onTertiaryContainer = lane_light_onTertiaryContainer,
+    error = md_light_error, onError = md_light_onError, errorContainer = md_light_errorContainer, onErrorContainer = md_light_onErrorContainer,
+    background = lane_light_background, onBackground = lane_light_onBackground, surface = lane_light_surface, onSurface = lane_light_onSurface,
+    surfaceVariant = lane_light_surfaceVariant, onSurfaceVariant = lane_light_onSurfaceVariant, outline = lane_light_outline,
+    inverseSurface = lane_light_inverseSurface, inverseOnSurface = lane_light_inverseOnSurface, inversePrimary = lane_light_inversePrimary,
+)
+
+internal val LaneDarkColors = darkColorScheme(
+    primary = lane_dark_primary, onPrimary = lane_dark_onPrimary, primaryContainer = lane_dark_primaryContainer, onPrimaryContainer = lane_dark_onPrimaryContainer,
+    secondary = lane_dark_secondary, onSecondary = lane_dark_onSecondary, secondaryContainer = lane_dark_secondaryContainer, onSecondaryContainer = lane_dark_onSecondaryContainer,
+    tertiary = lane_dark_tertiary, onTertiary = lane_dark_onTertiary, tertiaryContainer = lane_dark_tertiaryContainer, onTertiaryContainer = lane_dark_onTertiaryContainer,
+    error = md_dark_error, onError = md_dark_onError, errorContainer = md_dark_errorContainer, onErrorContainer = md_dark_onErrorContainer,
+    background = lane_dark_background, onBackground = lane_dark_onBackground, surface = lane_dark_surface, onSurface = lane_dark_onSurface,
+    surfaceVariant = lane_dark_surfaceVariant, onSurfaceVariant = lane_dark_onSurfaceVariant, outline = lane_dark_outline,
+    inverseSurface = lane_dark_inverseSurface, inverseOnSurface = lane_dark_inverseOnSurface, inversePrimary = lane_dark_inversePrimary,
+)
+
 @Composable
 fun BananiteTheme(
     themeMode: String = "system",       // "system", "light", "dark"
@@ -62,6 +82,7 @@ fun BananiteTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
+        colorSchemeType == "lane" -> if (darkTheme) LaneDarkColors else LaneLightColors
         darkTheme -> DarkColors
         else -> LightColors
     }
