@@ -56,6 +56,7 @@ class UserPrefs(private val context: Context) {
         private val HAPTIC_ENABLED = booleanPreferencesKey("haptic_enabled")
         private val AUTO_SEARCH_INTERVAL = longPreferencesKey("auto_search_interval_ms")
         private val WHEEL_3D = booleanPreferencesKey("wheel_3d_enabled")
+        private val AUTO_UPDATE = booleanPreferencesKey("auto_update_enabled")
     }
 
     // -----------------------------------------------------------------------
@@ -87,7 +88,7 @@ class UserPrefs(private val context: Context) {
     val disableAllAnimations: Flow<Boolean> = context.uiDataStore.data.map { it[DISABLE_ALL_ANIMATIONS] ?: false }
     val hapticFeedbackEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[HAPTIC_ENABLED] ?: true }
     val wheel3dEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[WHEEL_3D] ?: true }
-
+    val autoUpdateEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[AUTO_UPDATE] ?: true }
     /** Buy Food auto-search interval (ms). Only the interval is saved — never the toggles. */
     val autoSearchIntervalMs: Flow<Long> =
         context.uiDataStore.data.map { it[AUTO_SEARCH_INTERVAL] ?: DEFAULT_AUTO_SEARCH_INTERVAL_MS }
@@ -126,6 +127,7 @@ class UserPrefs(private val context: Context) {
     suspend fun savePersianFont(id: String) { context.uiDataStore.edit { it[PERSIAN_FONT] = id } }
     suspend fun saveAutoSearchInterval(ms: Long) { context.uiDataStore.edit { it[AUTO_SEARCH_INTERVAL] = ms } }
     suspend fun saveWheel3dEnabled(enabled: Boolean) { context.uiDataStore.edit { it[WHEEL_3D] = enabled } }
+    suspend fun saveAutoUpdateEnabled(enabled: Boolean) { context.uiDataStore.edit { it[AUTO_UPDATE] = enabled } }
 
     // -----------------------------------------------------------------------
     // RESET TO DEFAULTS (Preserves credentials, clears UI prefs)
@@ -143,6 +145,7 @@ class UserPrefs(private val context: Context) {
             prefs.remove(PERSIAN_FONT)
             prefs.remove(AUTO_SEARCH_INTERVAL)
             prefs.remove(WHEEL_3D)
+            prefs.remove(AUTO_UPDATE)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }

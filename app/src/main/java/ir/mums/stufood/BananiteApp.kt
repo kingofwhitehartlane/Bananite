@@ -14,6 +14,7 @@ class BananiteApp : Application() {
     val cookieJar by lazy { InMemoryCookieJar() }
     val repository by lazy { StufoodRepository(cookieJar) }
     val userPrefs by lazy { UserPrefs(this) }
+    val updateManager by lazy { ir.mums.stufood.data.UpdateManager(this, userPrefs) }
 
     override fun onCreate() {
         super.onCreate()

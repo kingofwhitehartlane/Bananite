@@ -43,6 +43,15 @@ class SettingsViewModel(
         viewModelScope.launch { prefs.saveHapticFeedbackEnabled(enabled) } 
     }
 
+    val autoUpdateEnabled = prefs.autoUpdateEnabled
+    fun setAutoUpdateEnabled(enabled: Boolean) { viewModelScope.launch { prefs.saveAutoUpdateEnabled(enabled) } }
+
+    private val updater get() = BananiteApp.instance.updateManager
+    val updateState = BananiteApp.instance.updateManager.state
+    fun checkForUpdates() = updater.check(auto = false)
+    fun downloadUpdate(r: ir.mums.stufood.data.UpdateManager.ReleaseInfo) = updater.startDownload(r, auto = false)
+    fun installUpdate(file: java.io.File) = updater.install(file)
+
     // RESET
     fun resetToDefaults() {
         viewModelScope.launch { prefs.resetToDefaults() }
