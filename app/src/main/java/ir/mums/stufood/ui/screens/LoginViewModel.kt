@@ -147,11 +147,10 @@ class LoginViewModel(
         _uiState.value = LoginUiState.Submitting
         viewModelScope.launch {
             try {
-                // Save / clear saved credentials based on the checkbox.
-                prefs.saveCredentials(user, pass, _rememberMe.value)
 
                 when (val result = repo.login(user, pass, cap)) {
                     is StufoodRepository.LoginResult.Success -> {
+                        prefs.saveCredentials(user, pass, _rememberMe.value) // only after a good login
                         _errorMessage.value = null
                         _captcha.value = ""
                         

@@ -95,23 +95,22 @@ class UserPrefs(private val context: Context) {
     // -----------------------------------------------------------------------
     // SAVE METHODS
     // -----------------------------------------------------------------------
+    /**
+    * Saves credentials only when [remember] is true. When it's false we deliberately
+    * do NOT touch what's already stored — logging in once without the checkbox must
+    * not erase a previously remembered login.
+    */
     suspend fun saveCredentials(username: String, password: String, remember: Boolean) {
+        if (!remember) return
         securePrefs.edit().apply {
-            if (remember) {
-                putString(KEY_USERNAME, username)
-                putString(KEY_PASSWORD, password)
-                putBoolean(KEY_REMEMBER, true)
-            } else {
-                remove(KEY_USERNAME)
-                remove(KEY_PASSWORD)
-                putBoolean(KEY_REMEMBER, false)
-            }
+            putString(KEY_USERNAME, username)
+            putString(KEY_PASSWORD, password)
+            putBoolean(KEY_REMEMBER, true)
             apply()
         }
-        // Update flows immediately for reactive UI
-        _username.value = if (remember) username else ""
-        _password.value = if (remember) password else ""
-        _rememberMe.value = remember
+        _username.value = username
+        _password.value = password
+        _rememberMe.value = true
     }
 
     suspend fun saveAnimationType(type: String) { context.uiDataStore.edit { it[ANIMATION_TYPE] = type } }
