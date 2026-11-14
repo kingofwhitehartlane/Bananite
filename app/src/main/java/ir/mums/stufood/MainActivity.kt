@@ -49,11 +49,12 @@ private fun App() {
             if (BananiteApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
         )
     }
+    var settingsOrigin by remember { mutableStateOf<Screen>(Screen.Home) }
 
     BackHandler(enabled = currentScreen != Screen.Home && currentScreen != Screen.Login) {
         currentScreen = when (currentScreen) {
             Screen.Reservation      -> Screen.Home
-            Screen.Settings         -> Screen.Home
+            Screen.Settings         -> settingsOrigin  
             Screen.BuyFood -> Screen.Home
             Screen.ThemeSettings    -> Screen.Settings
             Screen.AnimationSettings -> Screen.Settings
@@ -73,10 +74,22 @@ private fun App() {
             label = "screenTransition"
         ) { screen ->
             when (screen) {
-                Screen.Login -> LoginScreen(onLoggedIn = { currentScreen = Screen.Home })
-                Screen.Home -> HomeScreen(onNavigate = { target -> currentScreen = target })
+                Screen.Login -> LoginScreen(
+                    onLoggedIn = { currentScreen = Screen.Home },
+                    onOpenSettings = {
+                        settingsOrigin = Screen.Login
+                        currentScreen = Screen.Settings
+                    }
+                )
+                Screen.Home -> HomeScreen(onNavigate = { target ->
+                    if (target == Screen.Settings) settingsOrigin = Screen.Home
+                    currentScreen = target
+                })
+                Screen.Settings -> SettingsScreen(onNavigate = { target ->
+                    // SettingsScreen's back arrow calls onNavigate(Screen.Home)
+                    currentScreen = if (target == Screen.Home) settingsOrigin else target
+                })
                 Screen.Reservation -> ReservationScreen(onBack = { currentScreen = Screen.Home })
-                Screen.Settings -> SettingsScreen(onNavigate = { target -> currentScreen = target })
                 Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.BuyFood -> BuyFoodScreen(onBack = { currentScreen = Screen.Home })

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -88,6 +89,7 @@ import kotlinx.coroutines.delay // Required for the loading heartbeat
 @Composable
 fun LoginScreen(
     onLoggedIn: () -> Unit,
+    onOpenSettings: () -> Unit,
     vm: LoginViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -126,6 +128,14 @@ fun LoginScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Bananite · Login") },
+                actions = {
+                    IconButton(onClick = {
+                        haptic(HapticType.CLICK)
+                        onOpenSettings()
+                    }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
