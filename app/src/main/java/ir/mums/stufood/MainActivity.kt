@@ -9,7 +9,16 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -19,10 +28,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.screens.* // Ensure all screens are imported
 import ir.mums.stufood.ui.theme.BananiteTheme
 import ir.mums.stufood.data.UpdateManager
+import ir.mums.stufood.ui.components.ObtainiumAccent
+import ir.mums.stufood.util.AppLinks
 
 /**
  * Single-activity host. Navigation is just a `when` on a Screen enum — small enough
@@ -63,6 +79,7 @@ private fun App() {
             Screen.BuyFood -> Screen.Home
             Screen.ThemeSettings    -> Screen.Settings
             Screen.AnimationSettings -> Screen.Settings
+            Screen.ReleasesSettings -> Screen.Settings
             else                    -> Screen.Home
         }
     }
@@ -98,6 +115,7 @@ private fun App() {
                 Screen.Reservation -> ReservationScreen(onBack = { currentScreen = Screen.Home })
                 Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
+                Screen.ReleasesSettings -> ReleasesSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.BuyFood -> BuyFoodScreen(onBack = { currentScreen = Screen.Home })
             }
         }
@@ -106,6 +124,7 @@ private fun App() {
 
 @Composable
 private fun UpdatePrompt() {
+    val context = LocalContext.current
     val mgr = BananiteApp.instance.updateManager
     val state by mgr.state.collectAsState()
     var dismissedVersion by remember { mutableStateOf<String?>(null) }
@@ -118,10 +137,32 @@ private fun UpdatePrompt() {
             onDismissRequest = { dismissedVersion = s.release.versionName },
             title = { Text("Update available") },
             text = {
-                Text(
-                    "Bananite ${s.release.versionName} is available. " +
-                    "The download will open on GitHub in your browser."
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text(
+                        "Bananite ${s.release.versionName} is available. " +
+                        "The download will open on GitHub in your browser."
+                    )
+                    Button(
+                        onClick = {
+                            dismissedVersion = s.release.versionName
+                            AppLinks.open(context, AppLinks.OBTAINIUM_GUIDE)
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ObtainiumAccent,
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_obtainium),
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Setup Obtainium")
+                    }
+                }
             },
             confirmButton = {
                 TextButton(onClick = {

@@ -34,7 +34,6 @@ import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.hapticClickable
 import ir.mums.stufood.ui.components.rememberHapticFeedback
-import ir.mums.stufood.data.UpdateManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -141,7 +140,8 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
                 SettingsGroup(
                     items = listOf(
                         { SubMenuItem("Theme & Color", Icons.Default.Palette, hapticEnabled) { onNavigate(Screen.ThemeSettings) } },
-                        { SubMenuItem("Animations", Icons.Default.Animation, hapticEnabled) { onNavigate(Screen.AnimationSettings) } }
+                        { SubMenuItem("Animations", Icons.Default.Animation, hapticEnabled) { onNavigate(Screen.AnimationSettings) } },
+                        { SubMenuItem("Releases & Issues", Icons.Default.NewReleases, hapticEnabled) { onNavigate(Screen.ReleasesSettings) } }
                     )
                 )
 
@@ -169,8 +169,6 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
                         }
                     )
                 }
-
-                UpdateCard(vm = vm, haptic = haptic)
 
                 // 4. Heads up card (moved from Home)
                 Card(
@@ -272,82 +270,5 @@ private fun SubMenuItem(
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
-    }
-}
-
-@Composable
-private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
-    val state by vm.updateState.collectAsState()
-    val auto by vm.autoUpdateEnabled.collectAsState(initial = true)
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Default.SystemUpdate, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                Text("Updates", style = MaterialTheme.typography.titleMedium)
-            }
-
-            val s = state
-            val status = when (s) {
-                is UpdateManager.State.Idle -> "Current version: ${BuildConfig.VERSION_NAME}"
-                is UpdateManager.State.Checking -> "Checking GitHub…"
-                is UpdateManager.State.UpToDate -> "You're on the latest version (${BuildConfig.VERSION_NAME})."
-                is UpdateManager.State.Available -> "Version ${s.release.versionName} is available."
-                is UpdateManager.State.Error -> s.message
-            }
-            Text(
-                status,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (s is UpdateManager.State.Error) MaterialTheme.colorScheme.error
-                else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            if (s is UpdateManager.State.Available && s.release.notes.isNotBlank()) {
-                Text(
-                    s.release.notes, maxLines = 6,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Button(
-                onClick = {
-                    haptic(HapticType.CLICK)
-                    when (s) {
-                        is UpdateManager.State.Available -> vm.openUpdateInBrowser(s.release)
-                        else -> vm.checkForUpdates()
-                    }
-                },
-                enabled = s !is UpdateManager.State.Checking,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    when (s) {
-                        is UpdateManager.State.Available -> "Download ${s.release.versionName} in browser"
-                        is UpdateManager.State.Checking -> "Checking…"
-                        else -> "Check for updates"
-                    }
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Auto-update checks", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Check for new versions on launch. Downloads open in your browser — the app never installs anything itself.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = auto,
-                    onCheckedChange = { haptic(HapticType.TICK); vm.setAutoUpdateEnabled(it) }
-                )
-            }
-        }
     }
 }

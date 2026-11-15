@@ -3,7 +3,10 @@ package ir.mums.stufood.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.BananiteApp
+import ir.mums.stufood.data.AppLogs
 import ir.mums.stufood.data.UserPrefs
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class SettingsViewModel(
@@ -50,6 +53,15 @@ class SettingsViewModel(
     val updateState = BananiteApp.instance.updateManager.state
     fun checkForUpdates() = updater.check(auto = false)
     fun openUpdateInBrowser(r: ir.mums.stufood.data.UpdateManager.ReleaseInfo) = updater.openDownload(r)
+
+    // APP LOGS (Releases & Issues screen)
+    private val _logs = MutableStateFlow("")
+    val logs: StateFlow<String> = _logs
+    private val _logLevel = MutableStateFlow(AppLogs.Level.DEBUG)
+    val logLevel: StateFlow<AppLogs.Level> = _logLevel
+
+    fun refreshLogs() { viewModelScope.launch { _logs.value = AppLogs.read(_logLevel.value) } }
+    fun setLogLevel(level: AppLogs.Level) { _logLevel.value = level; refreshLogs() }
 
     // RESET
     fun resetToDefaults() {

@@ -6,6 +6,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -29,4 +30,5 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     // New Sub-menus
     object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
     object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
+    object ReleasesSettings : Screen("releases_settings", "Releases & Issues", Icons.Default.NewReleases)
 }
