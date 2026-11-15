@@ -35,6 +35,9 @@ internal val LightColors = lightColorScheme(
     surfaceContainer = md_light_surfaceContainer,
     surfaceContainerHigh = md_light_surfaceContainerHigh,
     surfaceContainerHighest = md_light_surfaceContainerHighest,
+    outlineVariant = Color(0xFFD4C89E),
+    surfaceDim = Color(0xFFE6DCBF),
+    surfaceBright = Color(0xFFFFFBEF),
 )
 
 internal val DarkColors = darkColorScheme(
@@ -50,6 +53,10 @@ internal val DarkColors = darkColorScheme(
     surfaceContainer = md_dark_surfaceContainer,
     surfaceContainerHigh = md_dark_surfaceContainerHigh,
     surfaceContainerHighest = md_dark_surfaceContainerHighest,
+    outlineVariant = Color(0xFF4E4638),
+    surfaceDim = Color(0xFF100E07),
+    surfaceBright = Color(0xFF3A3529),
+
 )
 
 internal val LaneLightColors = lightColorScheme(
@@ -65,6 +72,9 @@ internal val LaneLightColors = lightColorScheme(
     surfaceContainer = lane_light_surfaceContainer,
     surfaceContainerHigh = lane_light_surfaceContainerHigh,
     surfaceContainerHighest = lane_light_surfaceContainerHighest,
+    outlineVariant = Color(0xFFC4C9D4),
+    surfaceDim = Color(0xFFD9DCE3),
+    surfaceBright = Color(0xFFFAFBFD),
 )
 
 internal val LaneDarkColors = darkColorScheme(
@@ -80,6 +90,9 @@ internal val LaneDarkColors = darkColorScheme(
     surfaceContainer = lane_dark_surfaceContainer,
     surfaceContainerHigh = lane_dark_surfaceContainerHigh,
     surfaceContainerHighest = lane_dark_surfaceContainerHighest,
+    outlineVariant = Color(0xFF3B4560),
+    surfaceDim = Color(0xFF080D1E),
+    surfaceBright = Color(0xFF2A3558),
 )
 
 @Composable
