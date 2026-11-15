@@ -5,6 +5,14 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.os.Build
 import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,13 +21,17 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -28,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.BuildConfig
 import ir.mums.stufood.data.AppLogs
+import ir.mums.stufood.data.ReleaseNotes
 import ir.mums.stufood.data.UpdateManager
 import ir.mums.stufood.ui.components.GitHubLinkCard
 import ir.mums.stufood.ui.components.HapticType
@@ -74,12 +87,6 @@ fun ReleasesSettingsScreen(
             // ---------- Section 1: Updates & Releases ----------
             SectionHeader("Updates & Releases")
 
-            GitHubLinkCard(
-                title = "GitHub Releases",
-                subtitle = "Get the latest APK and release notes",
-                hapticEnabled = hapticEnabled
-            ) { AppLinks.open(context, AppLinks.LATEST_RELEASE) }
-
             ObtainiumLinkCard(
                 title = "Obtainium",
                 subtitle = "Automatic updates · step-by-step setup guide",
@@ -87,6 +94,8 @@ fun ReleasesSettingsScreen(
             ) { AppLinks.open(context, AppLinks.OBTAINIUM_GUIDE) }
 
             UpdateCard(vm = vm, haptic = haptic)
+
+            ReleaseHistoryCard(vm = vm, hapticEnabled = hapticEnabled, haptic = haptic)
 
             Spacer(Modifier.height(8.dp))
 
@@ -185,6 +194,141 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                         else -> "Check for updates"
                     }
                 )
+            }
+        }
+    }
+}
+
+/**
+ * Collapsed by default. Holds the GitHub Releases card and the patch notes
+ * (bundled from release-notes/*.md).
+ */
+@Composable
+private fun ReleaseHistoryCard(
+    vm: SettingsViewModel,
+    hapticEnabled: Boolean,
+    haptic: (HapticType) -> Unit
+) {
+    val context = LocalContext.current
+    val noAnimations by vm.disableAllAnimations.collectAsState(initial = false)
+    var expanded by rememberSaveable { mutableStateOf(false) }
+    val arrow by animateFloatAsState(if (expanded) 180f else 0f, label = "releaseHistoryArrow")
+
+    val notes by produceState<List<ReleaseNotes.Entry>>(initialValue = emptyList()) {
+        value = ReleaseNotes.load(context)
+    }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = if (noAnimations) Modifier else Modifier.animateContentSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        haptic(HapticType.CLICK)
+                        expanded = !expanded
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.History, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Release history", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "GitHub Releases and patch notes",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.rotate(if (noAnimations) (if (expanded) 180f else 0f) else arrow)
+                )
+            }
+
+            val content: @Composable () -> Unit = {
+                Column(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    GitHubLinkCard(
+                        title = "GitHub Releases",
+                        subtitle = "Get the latest APK and release notes",
+                        hapticEnabled = hapticEnabled
+                    ) { AppLinks.open(context, AppLinks.LATEST_RELEASE) }
+
+                    Text(
+                        "Patch notes",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    if (notes.isEmpty()) {
+                        Text(
+                            "No patch notes bundled with this build.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        notes.forEachIndexed { index, entry ->
+                            PatchNotesEntry(entry, startExpanded = index == 0, haptic = haptic)
+                        }
+                    }
+                }
+            }
+
+            if (noAnimations) {
+                if (expanded) content()
+            } else {
+                AnimatedVisibility(
+                    visible = expanded,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) { content() }
+            }
+        }
+    }
+}
+
+/** One version's notes. Tap the header to fold it; the newest starts open. */
+@Composable
+private fun PatchNotesEntry(entry: ReleaseNotes.Entry, startExpanded: Boolean, haptic: (HapticType) -> Unit) {
+    var open by rememberSaveable(entry.version) { mutableStateOf(startExpanded) }
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.clickable { haptic(HapticType.TICK); open = !open }.padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Bananite ${entry.version}",
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    Icons.Default.ExpandMore,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp).rotate(if (open) 180f else 0f)
+                )
+            }
+            if (open) {
+                Spacer(Modifier.height(6.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    entry.lines.forEach { line ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                line,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }

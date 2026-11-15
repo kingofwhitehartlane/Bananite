@@ -81,6 +81,11 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // Bundle the repo's release-notes/*.md so the app can show patch notes offline.
+    sourceSets {
+        getByName("main").assets.srcDir(rootProject.file("release-notes"))
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
