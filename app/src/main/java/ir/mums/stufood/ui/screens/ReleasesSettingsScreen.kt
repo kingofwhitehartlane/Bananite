@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -212,14 +213,18 @@ private fun ReleaseHistoryCard(
     val context = LocalContext.current
     val noAnimations by vm.disableAllAnimations.collectAsState(initial = false)
     var expanded by rememberSaveable { mutableStateOf(false) }
-    val arrow by animateFloatAsState(if (expanded) 180f else 0f, label = "releaseHistoryArrow")
+    val arrow by animateFloatAsState(
+        if (expanded) 180f else 0f,
+        animationSpec = tween(180),
+        label = "releaseHistoryArrow"
+    )
 
     val notes by produceState<List<ReleaseNotes.Entry>>(initialValue = emptyList()) {
         value = ReleaseNotes.load(context)
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = if (noAnimations) Modifier else Modifier.animateContentSize()) {
+        Column {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -283,8 +288,8 @@ private fun ReleaseHistoryCard(
             } else {
                 AnimatedVisibility(
                     visible = expanded,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
+                    enter = expandVertically(tween(220)) + fadeIn(tween(220)),
+                    exit = shrinkVertically(tween(150)) + fadeOut(tween(100))
                 ) { content() }
             }
         }

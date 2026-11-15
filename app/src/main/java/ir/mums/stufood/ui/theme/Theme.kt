@@ -30,6 +30,11 @@ internal val LightColors = lightColorScheme(
     background = md_light_background, onBackground = md_light_onBackground, surface = md_light_surface, onSurface = md_light_onSurface,
     surfaceVariant = md_light_surfaceVariant, onSurfaceVariant = md_light_onSurfaceVariant, outline = md_light_outline,
     inverseSurface = md_light_inverseSurface, inverseOnSurface = md_light_inverseOnSurface, inversePrimary = md_light_inversePrimary,
+    surfaceContainerLowest = md_light_surfaceContainerLowest,
+    surfaceContainerLow = md_light_surfaceContainerLow,
+    surfaceContainer = md_light_surfaceContainer,
+    surfaceContainerHigh = md_light_surfaceContainerHigh,
+    surfaceContainerHighest = md_light_surfaceContainerHighest,
 )
 
 internal val DarkColors = darkColorScheme(
@@ -40,6 +45,11 @@ internal val DarkColors = darkColorScheme(
     background = md_dark_background, onBackground = md_dark_onBackground, surface = md_dark_surface, onSurface = md_dark_onSurface,
     surfaceVariant = md_dark_surfaceVariant, onSurfaceVariant = md_dark_onSurfaceVariant, outline = md_dark_outline,
     inverseSurface = md_dark_inverseSurface, inverseOnSurface = md_dark_inverseOnSurface, inversePrimary = md_dark_inversePrimary,
+    surfaceContainerLowest = md_dark_surfaceContainerLowest,
+    surfaceContainerLow = md_dark_surfaceContainerLow,
+    surfaceContainer = md_dark_surfaceContainer,
+    surfaceContainerHigh = md_dark_surfaceContainerHigh,
+    surfaceContainerHighest = md_dark_surfaceContainerHighest,
 )
 
 internal val LaneLightColors = lightColorScheme(
@@ -50,6 +60,11 @@ internal val LaneLightColors = lightColorScheme(
     background = lane_light_background, onBackground = lane_light_onBackground, surface = lane_light_surface, onSurface = lane_light_onSurface,
     surfaceVariant = lane_light_surfaceVariant, onSurfaceVariant = lane_light_onSurfaceVariant, outline = lane_light_outline,
     inverseSurface = lane_light_inverseSurface, inverseOnSurface = lane_light_inverseOnSurface, inversePrimary = lane_light_inversePrimary,
+    surfaceContainerLowest = lane_light_surfaceContainerLowest,
+    surfaceContainerLow = lane_light_surfaceContainerLow,
+    surfaceContainer = lane_light_surfaceContainer,
+    surfaceContainerHigh = lane_light_surfaceContainerHigh,
+    surfaceContainerHighest = lane_light_surfaceContainerHighest,
 )
 
 internal val LaneDarkColors = darkColorScheme(
@@ -60,6 +75,11 @@ internal val LaneDarkColors = darkColorScheme(
     background = lane_dark_background, onBackground = lane_dark_onBackground, surface = lane_dark_surface, onSurface = lane_dark_onSurface,
     surfaceVariant = lane_dark_surfaceVariant, onSurfaceVariant = lane_dark_onSurfaceVariant, outline = lane_dark_outline,
     inverseSurface = lane_dark_inverseSurface, inverseOnSurface = lane_dark_inverseOnSurface, inversePrimary = lane_dark_inversePrimary,
+    surfaceContainerLowest = lane_dark_surfaceContainerLowest,
+    surfaceContainerLow = lane_dark_surfaceContainerLow,
+    surfaceContainer = lane_dark_surfaceContainer,
+    surfaceContainerHigh = lane_dark_surfaceContainerHigh,
+    surfaceContainerHighest = lane_dark_surfaceContainerHighest,
 )
 
 @Composable

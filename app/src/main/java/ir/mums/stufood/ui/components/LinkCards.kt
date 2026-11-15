@@ -62,7 +62,7 @@ fun GitHubLinkCard(
             painter = painterResource(R.drawable.ic_github),
             contentDescription = "GitHub",
             tint = if (dark) Color.Black else Color.White,
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(38.dp)
         )
     }
 }
@@ -91,7 +91,7 @@ fun ObtainiumLinkCard(
             // Dark: the real purple-gradient logo on the light glow. Light: white logo on the purple glow.
             tint = if (dark) Color.Unspecified else Color.White,
             // The drawable is cropped to the artwork, so this is the logo's real on-screen size.
-            modifier = Modifier.size(46.dp)
+            modifier = Modifier.size(38.dp)
         )
     }
 }

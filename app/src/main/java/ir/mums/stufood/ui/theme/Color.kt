@@ -38,6 +38,12 @@ val md_light_inverseSurface = Color(0xFF353020)
 val md_light_inverseOnSurface = Color(0xFFFFF8E1)
 val md_light_inversePrimary = Color(0xFFFFE55C)
 
+val md_light_surfaceContainerLowest = Color(0xFFFFFFFF) // Bananite light containers (warm cream → soft gold)
+val md_light_surfaceContainerLow = Color(0xFFFFF8E4)
+val md_light_surfaceContainer = Color(0xFFFBF1D3)
+val md_light_surfaceContainerHigh = Color(0xFFF8EDC9)
+val md_light_surfaceContainerHighest = Color(0xFFF4E8C3)
+
 // Dark Expressive Yellow Palette
 val md_dark_primary = Color(0xFFFFEA00) // High-contrast Cyber Yellow
 val md_dark_onPrimary = Color(0xFF3A2F00)
@@ -70,6 +76,12 @@ val md_dark_inverseSurface = Color(0xFFECE1CE)
 val md_dark_inverseOnSurface = Color(0xFF343027)
 val md_dark_inversePrimary = Color(0xFF735C00)
 
+val md_dark_surfaceContainerLowest = Color(0xFF100E07) // Bananite dark containers (warm charcoal)
+val md_dark_surfaceContainerLow = Color(0xFF1E1A11)
+val md_dark_surfaceContainer = Color(0xFF231F15)
+val md_dark_surfaceContainerHigh = Color(0xFF2E291E)
+val md_dark_surfaceContainerHighest = Color(0xFF393427)
+
 // ==========================================
 // THE LANE (navy / white / grey)
 // ==========================================
@@ -101,6 +113,13 @@ val lane_light_inverseSurface = Color(0xFF2E3138)
 val lane_light_inverseOnSurface = Color(0xFFF1F0F4)
 val lane_light_inversePrimary = Color(0xFFB6C4FF)
 
+// Lane light containers (neutral cool greys)
+val lane_light_surfaceContainerLowest = Color(0xFFFFFFFF)
+val lane_light_surfaceContainerLow = Color(0xFFF2F4F8)
+val lane_light_surfaceContainer = Color(0xFFECEFF4)
+val lane_light_surfaceContainerHigh = Color(0xFFE6E9EF)
+val lane_light_surfaceContainerHighest = Color(0xFFE1E5EB)
+
 // Dark
 val lane_dark_primary = Color(0xFFB6C4FF)
 val lane_dark_onPrimary = Color(0xFF132257)
@@ -127,3 +146,10 @@ val lane_dark_outline = Color(0xFF8D909C)
 val lane_dark_inverseSurface = Color(0xFFE2E3EA)
 val lane_dark_inverseOnSurface = Color(0xFF2E3038)
 val lane_dark_inversePrimary = Color(0xFF3D4F8F)
+
+// Lane dark containers (navy)
+val lane_dark_surfaceContainerLowest = Color(0xFF080D1E)
+val lane_dark_surfaceContainerLow = Color(0xFF121A33)
+val lane_dark_surfaceContainer = Color(0xFF161F3B)
+val lane_dark_surfaceContainerHigh = Color(0xFF1D2746)
+val lane_dark_surfaceContainerHighest = Color(0xFF253052)
