@@ -15,12 +15,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialogDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -33,12 +39,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import ir.mums.stufood.ui.navigation.Screen
 import ir.mums.stufood.ui.screens.* // Ensure all screens are imported
 import ir.mums.stufood.ui.theme.BananiteTheme
 import ir.mums.stufood.data.UpdateManager
 import ir.mums.stufood.ui.components.ObtainiumAccent
 import ir.mums.stufood.util.AppLinks
+import ir.mums.stufood.util.Obtainium
 
 /**
  * Single-activity host. Navigation is just a `when` on a Screen enum — small enough
@@ -128,51 +137,68 @@ private fun UpdatePrompt() {
     val mgr = BananiteApp.instance.updateManager
     val state by mgr.state.collectAsState()
     var dismissedVersion by remember { mutableStateOf<String?>(null) }
+    val obtainiumInstalled = remember { Obtainium.isInstalled(context) }
 
     LaunchedEffect(Unit) { mgr.autoCheckOnLaunch() }
 
     val s = state
     if (s is UpdateManager.State.Available && s.auto && dismissedVersion != s.release.versionName) {
-        AlertDialog(
-            onDismissRequest = { dismissedVersion = s.release.versionName },
-            title = { Text("Update available") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        val dismiss = { dismissedVersion = s.release.versionName }
+
+        Dialog(
+            onDismissRequest = dismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = AlertDialogDefaults.shape,
+                color = AlertDialogDefaults.containerColor,
+                tonalElevation = AlertDialogDefaults.TonalElevation,
+                modifier = Modifier.padding(horizontal = 32.dp).widthIn(min = 280.dp, max = 560.dp)
+            ) {
+                Column(modifier = Modifier.padding(start = 24.dp, end = 16.dp, top = 24.dp, bottom = 12.dp)) {
+                    Text("Update available", style = MaterialTheme.typography.headlineSmall)
+                    Spacer(Modifier.height(12.dp))
                     Text(
-                        "Bananite ${s.release.versionName} is available. " +
-                        "The download will open on GitHub in your browser."
+                        "Bananite ${s.release.versionName} is available.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Button(
-                        onClick = {
-                            dismissedVersion = s.release.versionName
-                            AppLinks.open(context, AppLinks.OBTAINIUM_GUIDE)
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ObtainiumAccent,
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_obtainium),
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Setup Obtainium")
+                    Spacer(Modifier.height(16.dp))
+
+                    if (!obtainiumInstalled) {
+                        Button(
+                            onClick = {
+                                dismiss()
+                                AppLinks.open(context, AppLinks.OBTAINIUM_GUIDE)
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ObtainiumAccent,
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier.fillMaxWidth().padding(end = 8.dp)
+                        ) {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_obtainium),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Setup Obtainium")
+                        }
+                    }
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        TextButton(onClick = dismiss) { Text("Later") }
+                        TextButton(onClick = {
+                            dismiss()
+                            if (!(obtainiumInstalled && Obtainium.launch(context))) {
+                                mgr.openDownload(s.release)
+                            }
+                        }) { Text(if (obtainiumInstalled) "Open Obtainium" else "Download") }
                     }
                 }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    dismissedVersion = s.release.versionName
-                    mgr.openDownload(s.release)
-                }) { Text("Download") }
-            },
-            dismissButton = {
-                TextButton(onClick = { dismissedVersion = s.release.versionName }) { Text("Later") }
             }
-        )
+        }
     }
 }

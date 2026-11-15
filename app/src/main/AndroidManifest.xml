@@ -5,6 +5,10 @@
     <!-- Talks to stufood.mums.ac.ir and api.github.com (update check only). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <queries>
+        <package android:name="dev.imranr.obtainium" />
+        <package android:name="dev.imranr.obtainium.fdroid" />
+    </queries>
 
     <!-- Allows the app to use cleartext if the university ever falls back to HTTP
          (it currently uses HTTPS, but keeping this as a safety net). -->
