@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.toggleable
@@ -53,9 +54,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -111,6 +116,21 @@ fun LoginScreen(
     val hapticEnabled by ir.mums.stufood.BananiteApp.instance.userPrefs.hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
 
+    // Keyboard action chain: Student ID -> Password -> Captcha -> Log in.
+    // Explicit requesters are used (instead of the default "next" focus search) because
+    // the show-password icon and the captcha reload button sit between those fields
+    // and would otherwise swallow the focus.
+    val focusManager = LocalFocusManager.current
+    val passwordFocus = remember { FocusRequester() }
+    val captchaFocus = remember { FocusRequester() }
+    val submitFromKeyboard = {
+        if (state !is LoginUiState.Submitting && state !is LoginUiState.Loading) {
+            focusManager.clearFocus()
+            haptic(HapticType.CLICK)
+            vm.submit(onLoggedIn)
+        }
+    }
+
     LaunchedEffect(state) {
         if (state is LoginUiState.Submitting) {
             haptic(HapticType.TICK)
@@ -127,13 +147,24 @@ fun LoginScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Bananite · Login") },
+                title = { Text("Login") },
                 actions = {
-                    IconButton(onClick = {
-                        haptic(HapticType.CLICK)
-                        onOpenSettings()
-                    }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(
+                        onClick = {
+                            haptic(HapticType.CLICK)
+                            onOpenSettings()
+                        },
+                        // Bigger tap target (default is 48dp) with a bit of breathing
+                        // room from the screen edge so it's easier to hit one-handed.
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .size(60.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            modifier = Modifier.size(34.dp)
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -193,7 +224,13 @@ fun LoginScreen(
                         onValueChange = vm::updateUsername,
                         label = { Text("Student ID") },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { passwordFocus.requestFocus() }
+                        ),
                         modifier = Modifier.fillMaxWidth()
                     )
 
@@ -203,6 +240,10 @@ fun LoginScreen(
                         onValueChange = vm::updatePassword,
                         label = { Text("Password") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(
+                            onNext = { captchaFocus.requestFocus() }
+                        ),
                         visualTransformation = if (showPass) VisualTransformation.None
                                                else PasswordVisualTransformation(),
                         trailingIcon = {
@@ -217,7 +258,9 @@ fun LoginScreen(
                                 )
                             }
                         },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(passwordFocus)
                     )
 
                     // ---- Captcha row: image | reload | code field that fills the
@@ -310,10 +353,18 @@ fun LoginScreen(
                             onValueChange = { if (it.length <= 4) vm.updateCaptcha(it) },
                             label = { Text("Captcha") },
                             singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Text,
+                                imeAction = ImeAction.Done
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = { submitFromKeyboard() }
+                            ),
                             // Fills whatever's left in the row — matches the full
                             // width of the fields above instead of looking cramped.
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(captchaFocus)
                         )
                     }
 
