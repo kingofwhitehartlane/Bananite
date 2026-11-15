@@ -201,7 +201,7 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
 
 /**
  * Collapsed by default. Holds the GitHub Releases card and the patch notes
- * (bundled from release-notes/*.md).
+ * (bundled from the repo's release-notes folder).
  */
 @Composable
 private fun ReleaseHistoryCard(
