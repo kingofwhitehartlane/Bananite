@@ -2,6 +2,7 @@ package ir.mums.stufood.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -15,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
+import java.io.IOException
+import java.security.GeneralSecurityException
 
 // 1. Standard DataStore for NON-SENSITIVE UI/Animation settings
 private val Context.uiDataStore: DataStore<Preferences> by preferencesDataStore(name = "ui_prefs")
@@ -23,19 +26,47 @@ class UserPrefs(private val context: Context) {
     
     // 2. Encrypted SharedPreferences for SENSITIVE credentials
     // Backed by Android Keystore (AES256-GCM). Keys are hardware-bound and NOT backed up.
-    private val masterKey = MasterKey.Builder(context)
-        .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-        .build()
+    private val securePrefs: SharedPreferences = createSecurePrefs()
 
-    private val securePrefs: SharedPreferences = EncryptedSharedPreferences.create(
-        context,
-        "secure_user_prefs", // File name
-        masterKey,
-        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-    )
+    /**
+     * Opens the encrypted store exactly as before (same file, same key scheme), so
+     * existing users' saved logins keep working after an update.
+     *
+     * Failure handling, most careful first:
+     *  1. Any failure -> try once more (the Keystore can be briefly unavailable).
+     *  2. Still failing with a crypto/IO error -> the file is unreadable for good
+     *     (typically restored from a backup without its Keystore key). Only then is
+     *     it deleted and recreated empty; the user just types their password again.
+     *  3. Anything else is rethrown untouched, so a valid file is never wiped for
+     *     an unexpected reason.
+     */
+    private fun createSecurePrefs(): SharedPreferences {
+        fun open(): SharedPreferences = EncryptedSharedPreferences.create(
+            context,
+            SECURE_PREFS_FILE,
+            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        return try {
+            open()
+        } catch (first: Exception) {
+            Log.w(TAG, "Encrypted prefs failed to open, retrying once", first)
+            try {
+                open()
+            } catch (second: Exception) {
+                if (second !is GeneralSecurityException && second !is IOException) throw second
+                Log.e(TAG, "Encrypted prefs unreadable; resetting saved credentials", second)
+                context.deleteSharedPreferences(SECURE_PREFS_FILE)
+                open()
+            }
+        }
+    }
 
     companion object {
+        private const val TAG = "UserPrefs"
+        private const val SECURE_PREFS_FILE = "secure_user_prefs"
+
         // Secure Keys (Stored in EncryptedSharedPreferences)
         private const val KEY_USERNAME = "username"
         private const val KEY_PASSWORD = "password"

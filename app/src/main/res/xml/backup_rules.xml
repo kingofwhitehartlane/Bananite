@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup rules for Android 8-11. Android 12+ ignores this file and uses
+     data_extraction_rules.xml, which already has the same exclusion. -->
+<full-backup-content>
+    <!-- Encrypted credentials: the Keystore key never leaves the device, so a restored
+         copy can't be decrypted. (The file also holds its own encryption keysets.) -->
+    <exclude domain="sharedpref" path="secure_user_prefs.xml"/>
+</full-backup-content>
