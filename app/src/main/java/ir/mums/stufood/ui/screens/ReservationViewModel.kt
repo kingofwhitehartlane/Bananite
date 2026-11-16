@@ -47,7 +47,7 @@ class ReservationViewModel(
     val bounciness: StateFlow<String> = BananiteApp.instance.userPrefs.bounciness.stateIn(viewModelScope, SharingStarted.Lazily, "medium")
     val creditTransitionType: StateFlow<String> = BananiteApp.instance.userPrefs.creditTransitionType.stateIn(viewModelScope, SharingStarted.Lazily, "fade")
     
-    // NEW: Global Disable Override
+    // Global "disable all animations" override.
     val disableAllAnimations: StateFlow<Boolean> = BananiteApp.instance.userPrefs.disableAllAnimations.stateIn(viewModelScope, SharingStarted.Lazily, false)
 
     val effectiveBounciness: StateFlow<String> = combine(bounciness, disableAllAnimations) { b, d -> if (d) "none" else b }
@@ -62,13 +62,9 @@ class ReservationViewModel(
     private val _statusText = MutableStateFlow<String?>(null)
     val statusText: StateFlow<String?> = _statusText
 
-    // FIX: errorMessage used to be a plain MutableStateFlow<String?> that was never
-    // reset to null. StateFlow conflates equal values, so the *second* (and every
-    // subsequent) identical error string was silently swallowed — the snackbar's
-    // LaunchedEffect(error) never re-fired because, as far as the StateFlow was
-    // concerned, nothing had changed. Wrapping each error in a small event object
-    // with its own nonce/id guarantees every call to postError() is a distinct value,
-    // so the snackbar shows every time, even for back-to-back identical failures.
+    // Errors are wrapped in an event with its own id: StateFlow conflates equal values,
+    // so a bare String would swallow the second of two identical back-to-back errors
+    // and the snackbar's LaunchedEffect(error) would never re-fire.
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
 
     private val _errorMessage = MutableStateFlow<ErrorEvent?>(null)
@@ -462,12 +458,8 @@ class ReservationViewModel(
 
     /** Taps the "انصراف از تبادل غذا" icon — shows the confirm dialog. */
     fun requestCancelExchange(day: StufoodRepository.DayInfo, option: StufoodRepository.DietOption) {
-        // FIX: this used to `return` with zero feedback when cancelExchangeFieldName
-        // was null — a pure no-op tap. The icon that triggers this is only shown
-        // when exchangePending (== cancelExchangeFieldName != null) is true, so this
-        // branch should be rare, but if it's ever hit (stale option reference, a
-        // parsing gap, etc.) the user deserves to see *something* instead of the
-        // tap silently doing nothing.
+        // The icon that triggers this only shows while exchangePending is true, so this
+        // should be rare (stale option, parsing gap) — but never leave a tap silent.
         if (option.cancelExchangeFieldName == null) {
             postError(FRIENDLY_ERROR)
             return

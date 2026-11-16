@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import ir.mums.stufood.ui.navigation.Screen
-import ir.mums.stufood.ui.screens.* // Ensure all screens are imported
+import ir.mums.stufood.ui.screens.*
 import ir.mums.stufood.ui.theme.BananiteTheme
 import ir.mums.stufood.data.UpdateManager
 import ir.mums.stufood.ui.components.ObtainiumAccent
@@ -101,8 +101,8 @@ private fun App() {
     BackHandler(enabled = currentScreen != Screen.Home && currentScreen != Screen.Login) {
         currentScreen = when (currentScreen) {
             Screen.Reservation      -> Screen.Home
-            Screen.Settings         -> settingsOrigin  
-            Screen.BuyFood -> Screen.Home
+            Screen.Settings         -> settingsOrigin
+            Screen.BuyFood          -> Screen.Home
             Screen.ThemeSettings    -> Screen.Settings
             Screen.AnimationSettings -> Screen.Settings
             Screen.ReleasesSettings -> Screen.Settings

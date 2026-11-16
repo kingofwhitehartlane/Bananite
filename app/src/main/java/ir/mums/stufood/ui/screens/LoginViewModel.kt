@@ -28,15 +28,11 @@ private const val FRIENDLY_NETWORK_ERROR = "Couldn't reach the server. Check you
  *
  * We also pre-fill username/password from DataStore if "remember me" was ticked last time.
  *
- * NOTE: [loadLoginPage] is intentionally *not* called from [init] anymore. This
- * ViewModel is shared by both the initial Login screen and the screen you land on
- * after logging out (see [ir.mums.stufood.ui.navigation.Screen.Login] and
- * [ir.mums.stufood.ui.navigation.Screen.Logout] in `MainActivity`) — `init` only
- * ever runs once for the lifetime of this ViewModel, so relying on it meant the
- * captcha silently never refreshed after a logout. `LoginScreen` now calls
- * [loadLoginPage] itself via a `LaunchedEffect(Unit)` every time it enters
- * composition, which covers both cold start and "logged out, back at Login" the
- * same way.
+ * NOTE: [loadLoginPage] is deliberately not called from `init`. The same ViewModel
+ * serves the cold-start login and the login you land on after logging out
+ * ([ir.mums.stufood.ui.navigation.Screen.Login]); `init` runs only once, so the
+ * captcha would never refresh after a logout. `LoginScreen` calls [loadLoginPage]
+ * from a `LaunchedEffect(Unit)` every time it enters composition instead.
  */
 class LoginViewModel(
     private val repo: StufoodRepository = BananiteApp.instance.repository,
@@ -63,9 +59,6 @@ class LoginViewModel(
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    private var currentPageData: StufoodRepository.LoginPageData? = null
-    private var prefsLoaded = false
-
     init {
         // Pre-fill from saved prefs (once). The actual login-page/captcha fetch is
         // triggered by the screen itself — see the class doc comment above.
@@ -76,7 +69,6 @@ class LoginViewModel(
             _username.value = savedUser
             _password.value = savedPass
             _rememberMe.value = savedRemember
-            prefsLoaded = true
         }
     }
 
@@ -91,22 +83,14 @@ class LoginViewModel(
         viewModelScope.launch {
             val startedAt = System.currentTimeMillis()
             try {
-                // FIX: landing on the Login screen (including the ↻ retry button)
-                // used to GET Default.aspx with whatever cookies were already sitting
-                // in the (Application-scoped, process-lifetime) cookie jar — e.g. a
-                // half-expired session left over from before the app was backgrounded.
-                // The server can respond to that with a different page shape (no
-                // #body_imgCaptcha at all), so captchaSrc came back empty and every
-                // subsequent ↻ tap kept re-requesting with those same stale cookies —
-                // it never recovered without a full force-close (which happened to
-                // wipe the in-memory jar). Reaching this screen at all means we're
-                // treating the session as not-usable, so always start the request as
-                // a clean, cookie-less client.
+                // Always start from a clean, cookie-less client. The cookie jar lives for
+                // the whole process, and a stale/half-expired session makes the server
+                // answer with a page that has no captcha — every retry would then reuse
+                // the same stale cookies and never recover without a force-close.
                 repo.clearSession()
 
                 val data = repo.fetchLoginPage()
-                currentPageData = data
-                val bitmap = data.captchaImage?.let { bytes ->
+                        val bitmap = data.captchaImage?.let { bytes ->
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                 }
                 awaitMinimumSpinnerTime(startedAt)

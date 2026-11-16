@@ -5,7 +5,6 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 val versionProps = Properties().apply {
@@ -44,7 +43,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false // Kept as false per your original config
+            // R8 is off: the app is small and unminified builds are easier to debug from
+            // user-submitted logs. Before enabling it, add keep rules to proguard-rules.pro
+            // and test every screen on a release build.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -103,15 +105,11 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.androidx.navigation.compose)
 
     implementation(libs.okhttp)
     implementation(libs.jsoup)
     implementation(libs.androidx.datastore.preferences)
-    implementation(libs.coil.compose)
-    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.security.crypto)
 
     debugImplementation(libs.androidx.ui.tooling)
-
-    implementation("androidx.security:security-crypto:1.1.0-alpha06") // Or latest stable
 }

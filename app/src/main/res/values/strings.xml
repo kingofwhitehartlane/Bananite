@@ -1,6 +1,3 @@
 <resources>
     <string name="app_name">Bananite</string>
-    <string name="login_title">Login</string>
-    <string name="home_title">Bananite</string>
-    <string name="reservation_title">Reserve Food</string>
 </resources>

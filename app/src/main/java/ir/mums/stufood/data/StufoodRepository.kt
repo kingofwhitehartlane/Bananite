@@ -163,11 +163,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val EXCHANGE_STUDENT_SEARCH_BTN = "ctl00\$body\$btnSearchStuFood"
         const val EXCHANGE_CONFIRM_BTN = "ctl00\$body\$btnExchangeFood"
 
-        // ---- NEW: Hidden fields that the site's JS populates before a postback ----
+        // ---- Hidden fields that the site's JS populates before a postback ----
         const val SELECTED_FOOD_ID = "ctl00\$body\$hdnSelectFood"
         const val SELECTED_SELF_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedSelfForExchange"
         const val SELECTED_FOOD_FOR_EXCHANGE = "ctl00\$body\$hdnSelectedFoodForExchange"
-        // NEW: mirrors rbList — the site's JS sets this for types 3/4 before submitting
+        // Mirrors rbList — the site's JS sets this for types 3/4 before submitting
         const val HF_SELECTED_VALUE = "ctl00\$body\$hfSelectedValue"
     }
 
@@ -186,7 +186,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     )
 
     // ----------------------------------------------------------------------
-    // LOGIN  (unchanged)
+    // LOGIN
     // ----------------------------------------------------------------------
 
     suspend fun fetchLoginPage(): LoginPageData = withClient {
@@ -352,24 +352,12 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // FOOD EXCHANGE ("تبادل غذا") — see the class-level doc comment for the model
     // ----------------------------------------------------------------------
 
-    /**
-     * Opens the exchange dialog for a locked-but-exchangeable [option].
-     *
-     * IMPORTANT: On the real site, clicking btnSellFood does NOT cause a postback.
-     * The JS handler `sellFood(this)` sets a hidden field (`hdnSelectFood`) and shows
-     * the modal client-side via Bootstrap. The modal HTML is already present in every
-     * page response (just hidden), so [ReservationPage.exchangeDialog] is always
-     * populated after parsing. We just return the current page unchanged — the
-     * ViewModel reads the already-parsed dialog data and shows it.
-     *
-     * The food ID from the button's `attre` attribute (stored in
-     * [DietOption.exchangeFoodId]) is needed later for AJAX calls and the confirm
-     * postback, but is NOT sent in a postback here.
-     */
-    suspend fun openExchangeDialog(current: ReservationPage, option: DietOption): ReservationPage {
-        // No postback — the modal is already in the page HTML.
-        return current
-    }
+    // Opening the exchange dialog needs no request: on the real site `sellFood(this)`
+    // only sets the hidden `hdnSelectFood` field and shows a Bootstrap modal that is
+    // already present (hidden) in every page response, so [ReservationPage.exchangeDialog]
+    // is populated whenever the page is parsed. The food id needed by the later AJAX
+    // calls and the confirm postback comes from the button's `attre` attribute
+    // ([DietOption.exchangeFoodId]). See ReservationViewModel.openExchangeDialog.
 
     /**
      * Fetches the list of cafeterias available for food exchange, via the site's
@@ -455,7 +443,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
                 Fields.SELECTED_FOOD_ID to request.foodId,
                 Fields.EXCHANGE_TYPE to request.exchangeType,
                 Fields.EXCHANGE_STUDENT_NUM to request.studentNumber,
-                Fields.HF_SELECTED_VALUE to request.exchangeType   // NEW — matches HAR
+                Fields.HF_SELECTED_VALUE to request.exchangeType   // matches the captured HAR
             ),
             extraFields = mapOf(Fields.EXCHANGE_STUDENT_SEARCH_BTN to "جستجو")
         )
@@ -470,7 +458,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val overrides = mutableMapOf(
             Fields.SELECTED_FOOD_ID to request.foodId,
             Fields.EXCHANGE_TYPE to request.exchangeType,
-            Fields.HF_SELECTED_VALUE to request.exchangeType   // NEW
+            Fields.HF_SELECTED_VALUE to request.exchangeType
         )
         if (request.exchangeType == "2") {
             // The JS sets these hidden fields from the dropdown values before submitting.
@@ -920,8 +908,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         val row = radio.parents().firstOrNull { it.tagName() == "tr" }
 
-        // FIX: Changed `~=` (which means exact word match) to `$=` (ends with)
-        // because the name attribute is a single long string, not space-separated words.
+        // Buttons are matched with `name$=…` (ends with) rather than `~=` because the
+        // name attribute is one long ASP.NET id, not space-separated words.
 
         // The cancel button (an <input type="image"> whose name ends in btnCancel)
         // lives in the same row as the checked radio, when cancellation is allowed.
@@ -950,7 +938,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             cancelFieldName = cancelFieldName,
             exchangeFieldName = exchangeFieldName,
             cancelExchangeFieldName = cancelExchangeFieldName,
-            exchangeFoodId = exchangeFoodId  // NEW
+            exchangeFoodId = exchangeFoodId
         )
     }
 
@@ -961,8 +949,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
      * as is the optional trailing "ریال" unit and the presence/absence of a "-" separator.
      */
     private fun parseDietLabelText(rawText: String): Pair<String, Long?> {
-        val priceRegex = Regex("(\u0642\u06cc\u0645\u062a|\u0642\u064a\u0645\u062a)\\s*[:\uff1a]?\\s*([0-9\u06f0-\u06f9,\u066c]+)") // قیمت
-        val priceMatch = priceRegex.find(rawText)
+        val priceMatch = dietPriceRegex.find(rawText)
         val price = priceMatch?.groupValues?.get(2)
             ?.replace(",", "")
             ?.replace("\u066c", "")
@@ -975,6 +962,10 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         return name to price
     }
+
+    /** Matches the price in a diet label; "قیمت" is spelled with either the Persian (ی) or Arabic (ي) yeh. */
+    private val dietPriceRegex =
+        Regex("(\u0642\u06cc\u0645\u062a|\u0642\u064a\u0645\u062a)\\s*[:\uff1a]?\\s*([0-9\u06f0-\u06f9,\u066c]+)")
 
     private fun normalizePersianDigits(s: String): String {
         val sb = StringBuilder(s.length)
@@ -1208,7 +1199,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val exchangeFieldName: String? = null,
         /** Non-null only when an exchange request is already pending for this checked option. */
         val cancelExchangeFieldName: String? = null,
-        val exchangeFoodId: String? = null  // NEW: the "attre" attribute, e.g. "23621;3"
+        /** The button's "attre" attribute, e.g. "23621;3". */
+        val exchangeFoodId: String? = null
     ) {
         /** True once an exchange offer has been placed for this option. */
         val exchangePending: Boolean get() = cancelExchangeFieldName != null

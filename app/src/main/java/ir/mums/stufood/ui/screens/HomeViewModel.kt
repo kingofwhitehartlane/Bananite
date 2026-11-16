@@ -7,7 +7,7 @@ import ir.mums.stufood.data.StufoodRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn // ADDED
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
@@ -19,7 +19,7 @@ class HomeViewModel(
     // Observe the repository's student name state directly
     val studentName: StateFlow<String?> = repo.studentName
     
-    // FIXED: Convert Flow to StateFlow with a default value
+    // Prefs are Flows; expose them as StateFlows with sensible defaults for the UI.
     val animationType: StateFlow<String> = BananiteApp.instance.userPrefs.animationType.stateIn(
         viewModelScope,
         SharingStarted.Lazily,

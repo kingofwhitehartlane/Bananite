@@ -88,6 +88,7 @@ class UserPrefs(private val context: Context) {
         private val AUTO_SEARCH_INTERVAL = longPreferencesKey("auto_search_interval_ms")
         private val WHEEL_3D = booleanPreferencesKey("wheel_3d_enabled")
         private val AUTO_UPDATE = booleanPreferencesKey("auto_update_enabled")
+        private val PERSIAN_FONT = stringPreferencesKey("persian_font")
     }
 
     // -----------------------------------------------------------------------
@@ -102,7 +103,6 @@ class UserPrefs(private val context: Context) {
     private val _rememberMe = MutableStateFlow(securePrefs.getBoolean(KEY_REMEMBER, true))
     val rememberMe: Flow<Boolean> = _rememberMe.asStateFlow()
 
-    private val PERSIAN_FONT = stringPreferencesKey("persian_font")
     val persianFont: Flow<String> = context.uiDataStore.data.map { it[PERSIAN_FONT] ?: "ganjnameh" }
 
     // -----------------------------------------------------------------------

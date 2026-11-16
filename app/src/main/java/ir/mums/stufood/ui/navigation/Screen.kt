@@ -27,7 +27,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object BuyFood : Screen("buy_food", "Buy Food", Icons.Default.Handshake)
     object Settings : Screen("settings", "Settings", Icons.Default.Settings)
     
-    // New Sub-menus
+    // Settings sub-menus
     object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
     object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
     object ReleasesSettings : Screen("releases_settings", "Releases & Issues", Icons.Default.NewReleases)
