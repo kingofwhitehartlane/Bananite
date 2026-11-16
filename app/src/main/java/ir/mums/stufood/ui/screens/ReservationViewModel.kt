@@ -134,6 +134,10 @@ class ReservationViewModel(
     // ---------------------------------------------------------------------
 
     private inline fun withPage(crossinline block: suspend (StufoodRepository.ReservationPage) -> StufoodRepository.ReservationPage?) {
+        // Every postback carries the page's ViewState, so two in flight at once would
+        // both start from the same stale snapshot and the later response would
+        // silently overwrite the earlier one. Ignore taps while a day is mid-request.
+        if (_busyDayIndex.value != null) return
         val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
         _uiState.value = ReservationUiState.Working(page)
         viewModelScope.launch {
@@ -177,6 +181,10 @@ class ReservationViewModel(
     // ---------------------------------------------------------------------
 
     private inline fun withDay(dayIndex: Int, crossinline block: suspend (StufoodRepository.ReservationPage) -> StufoodRepository.ReservationPage?) {
+        // One postback at a time (see withPage): a second per-day action started before
+        // the first returns would reuse the same stale ViewState. The busy flag is always
+        // cleared in the `finally` below, so this can't leave the screen locked.
+        if (_busyDayIndex.value != null) return
         val page = (_uiState.value as? ReservationUiState.Ready)?.page ?: return
         _busyDayIndex.value = dayIndex
         viewModelScope.launch {
