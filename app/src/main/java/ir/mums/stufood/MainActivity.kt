@@ -33,6 +33,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -65,6 +67,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** Persists a [Screen] across activity recreation by saving its route string. */
+private val ScreenSaver = Saver<Screen, String>(
+    save = { it.route },
+    restore = { Screen.fromRoute(it) ?: Screen.Login }
+)
+
+/** Screens that are useless without a logged-in session. */
+private val sessionScreens = setOf<Screen>(Screen.Home, Screen.Reservation, Screen.BuyFood)
+
 @Composable
 private fun App() {
     // Collect theme preferences
@@ -74,12 +85,18 @@ private fun App() {
     val colorSchemeType by prefs.colorScheme.collectAsState(initial = "dynamic")
     val persianFont by prefs.persianFont.collectAsState(initial = "ganjnameh")
     
-    var currentScreen by remember {
-        mutableStateOf<Screen>(
-            if (BananiteApp.instance.repository.isLoggedIn()) Screen.Home else Screen.Login
-        )
+    val loggedIn = BananiteApp.instance.repository.isLoggedIn()
+    // rememberSaveable: `remember` is wiped when the activity is recreated (rotation).
+    var currentScreen by rememberSaveable(stateSaver = ScreenSaver) {
+        mutableStateOf<Screen>(if (loggedIn) Screen.Home else Screen.Login)
     }
-    var settingsOrigin by remember { mutableStateOf<Screen>(Screen.Home) }
+    var settingsOrigin by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Home) }
+
+    // After process death the restored screen may need a session we no longer have
+    // (cookies live in memory only), so fall back to the login screen.
+    LaunchedEffect(Unit) {
+        if (!loggedIn && currentScreen in sessionScreens) currentScreen = Screen.Login
+    }
 
     BackHandler(enabled = currentScreen != Screen.Home && currentScreen != Screen.Login) {
         currentScreen = when (currentScreen) {
@@ -136,7 +153,7 @@ private fun UpdatePrompt() {
     val context = LocalContext.current
     val mgr = BananiteApp.instance.updateManager
     val state by mgr.state.collectAsState()
-    var dismissedVersion by remember { mutableStateOf<String?>(null) }
+    var dismissedVersion by rememberSaveable { mutableStateOf<String?>(null) }
     val obtainiumInstalled = remember { Obtainium.isInstalled(context) }
 
     LaunchedEffect(Unit) { mgr.autoCheckOnLaunch() }

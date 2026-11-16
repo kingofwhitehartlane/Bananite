@@ -31,4 +31,14 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
     object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
     object ReleasesSettings : Screen("releases_settings", "Releases & Issues", Icons.Default.NewReleases)
+
+    companion object {
+        /** Every screen. Lazy so the object singletons are not touched during class init. */
+        val all: List<Screen> by lazy {
+            listOf(Login, Home, Reservation, BuyFood, Settings, ThemeSettings, AnimationSettings, ReleasesSettings)
+        }
+
+        /** Inverse of [route]; used to restore the current screen after the activity is recreated. */
+        fun fromRoute(route: String?): Screen? = all.firstOrNull { it.route == route }
+    }
 }
