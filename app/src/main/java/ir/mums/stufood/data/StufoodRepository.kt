@@ -89,7 +89,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         .addInterceptor(UserAgentInterceptor)
         .build()
 
-    private val baseUrl = "https://stufood.mums.ac.ir"
+    private val host = "stufood.mums.ac.ir"
+    private val baseUrl = "https://$host"
     private val reservationUrl = "$baseUrl/WebForm/StudentReserveFood.aspx"
     private val mainStudentUrl = "$baseUrl/WebForm/Student/Form_MainStudent.aspx"
 
@@ -104,6 +105,16 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         const val DX_FILTER_MENU =
             "{&quot;selectedItemIndexPath&quot;:&quot;&quot;,&quot;checkedState&quot;:&quot;&quot;}"
     }
+
+    /**
+     * True only between a successful [login] and [clearSession].
+     *
+     * Cookies alone can't tell us: ASP.NET hands out an anonymous `ASP.NET_SessionId`
+     * as soon as the login page is fetched, so "has a session cookie" is also true
+     * for a user who has never logged in.
+     */
+    @Volatile
+    private var authenticated = false
 
     // In-memory cache for the student's full name
     private val _studentName = MutableStateFlow<String?>(null)
@@ -218,7 +229,9 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val response = client.newCall(request).execute()
         val responseText = response.use { it.body?.string().orEmpty() }
 
-        parseLoginResponse(responseText)
+        parseLoginResponse(responseText).also { result ->
+            if (result is LoginResult.Success) authenticated = true
+        }
     }
 
     /**
@@ -243,9 +256,10 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         return LoginResult.Failure(message)
     }
 
-    fun isLoggedIn(): Boolean = cookieJar.hasSessionFor("stufood.mums.ac.ir")
+    fun isLoggedIn(): Boolean = authenticated && cookieJar.hasSessionFor(host)
 
     fun clearSession() {
+        authenticated = false
         cookieJar.clear()
         _studentName.value = null // Clear the cached name on logout
     }
