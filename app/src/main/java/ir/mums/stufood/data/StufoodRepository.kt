@@ -190,16 +190,20 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     suspend fun fetchLoginPage(): LoginPageData = withClient {
-        val response = get("$baseUrl/Default.aspx")
+        val loginUrl = "$baseUrl/Default.aspx"
+        val response = get(loginUrl)
         val html = response.use { it.body?.string().orEmpty() }
-        val doc = Jsoup.parse(html, baseUrl)
+        val doc = Jsoup.parse(html, loginUrl)
 
-        val captchaSrcRaw = doc.selectFirst("#body_imgCaptcha")?.attr("src").orEmpty()
-        val captchaSrc = if (captchaSrcRaw.startsWith("http")) captchaSrcRaw else "$baseUrl/$captchaSrcRaw"
+        // absUrl() resolves relative paths ("Captcha.ashx", "/x/y.png", "../z") against the
+        // page URL and returns "" when the element or its src is missing. In that case we
+        // must not request anything: the old code built "$baseUrl/" + "" and downloaded the
+        // site's home page, then tried to decode that HTML as an image.
+        val captchaSrc = doc.selectFirst("#body_imgCaptcha")?.absUrl("src").orEmpty()
 
         val captchaBytes: ByteArray? = if (captchaSrc.isNotEmpty()) {
             try {
-                get(captchaSrc).use { it.body?.bytes() }
+                get(captchaSrc).use { if (it.isSuccessful) it.body?.bytes() else null }
             } catch (_: Exception) { null }
         } else null
 
