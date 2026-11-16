@@ -29,11 +29,11 @@ You do **not** need to install Android Studio or build the app from code! Pre-co
 ---
 
 ## 🔄 Auto-Updates with Obtainium (Recommended)
-To get automatic updates directly from this GitHub repository without relying on Github releases directly, you can use **[Obtainium](https://github.com/ImranR98/Obtainium)**. Obtainium checks this repository for new releases and installs the latest APK automatically.
+To get updates without checking GitHub by hand, you can use **[Obtainium](https://github.com/ImranR98/Obtainium)**. Obtainium watches this repository's releases and installs the latest APK for you. (A step-by-step guide is in [Obtainium.md](Obtainium.md).)
 
 > [!WARNING]
 > **⚠️ I HIGHLY RECOMMEND ENABLING A 1-DAY MINIMUM AGE FOR UPDATES!**
-> Setting a 1-day delay ensures you only receive fully tested, stable builds. This prevents your app from breaking if I accidentally push a buggy beta version for testing. 
+> Every push to `main` publishes a release automatically. A 1-day delay means a buggy build is usually fixed or replaced before it reaches your phone.
 
 ### How to add Bananite to Obtainium:
 1. Download and install **Obtainium** from its [official GitHub releases](https://github.com/ImranR98/Obtainium/releases) or F-Droid.
@@ -53,7 +53,7 @@ To get automatic updates directly from this GitHub repository without relying on
 - 🍲 **Weekly Meal Reservation:** Select meals (Lunch/Dinner), pick your cafeteria, and reserve food for upcoming weeks.
 - 🔄 **Food Exchange (تبادل غذا):** Integrated workflow for offering, exchanging, or transferring reservations with fellow students.
 - 🎨 **Material 3 Customization:** Support for System Light/Dark themes, **OLED Pure Black** mode, dynamic Material You colors, and animation controls.
-- 🔒 **Direct & Secure Sessions:** Handles server sessions cleanly without transmitting credentials to third-party services.
+- 🔒 **Direct & Secure Sessions:** Talks only to the university server over HTTPS (and GitHub, to check for updates). Your session lives in memory only, and a remembered login is stored encrypted on your device.
 
 ---
 
@@ -63,7 +63,7 @@ Let’s be transparent: Bananite is "vibe coded." A significant portion of the a
 **Why it's perfectly fine:**
 * **100% Auditable:** It's fully open-source. Every line of code is visible—no hidden telemetry, backdoors, or AI bloat.
 * **Human-Directed:** AI handles the syntax heavy-lifting, freeing up development time to focus on UX and the actual student experience.
-* **Zero Security Risk:** AI was only used to generate local, client-side code. It has absolutely zero access to MUMS servers, the app's runtime, or your login credentials.
+* **No AI in the loop at runtime:** AI was used to help write the code, not to run it. The app contains no AI service and no analytics or tracking; the only servers it contacts are the university's and GitHub's (for update checks) — and since it's open source, you can check that yourself.
 
 ---
 
@@ -73,6 +73,7 @@ Let’s be transparent: Bananite is "vibe coded." A significant portion of the a
 - This software is shipped **"AS IS"**, without warranties or guarantees of any kind.
 - **Bugs, performance quirks, and missing features are expected.**
 - Because Bananite relies on parsing server-rendered web responses from `stufood.mums.ac.ir`, layout or structure changes made by the university server may temporarily break app functionality.
+
 ---
 
 ## 🐛 Reporting Bugs & Issues
@@ -85,6 +86,18 @@ When creating a new issue, please include:
 1. Your Android version and device model.
 2. A description of what went wrong and steps to reproduce it.
 3. Relevant screenshots or error popups (if applicable).
+
+---
+
+## 🛠 Building from Source
+
+Want to build or contribute? See the **[Build & Development Guide](BUILD_README.md)**.
+
+---
+
+## 📄 License
+
+Bananite is free software under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
 ---
 

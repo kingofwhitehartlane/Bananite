@@ -1,311 +1,236 @@
-# Bananite — Comprehensive Build & Development Guide
+# Bananite — Build & Development Guide
 
-A step-by-step technical guide for cloning, compiling, configuring, and building **Bananite** — a native Android application engineered with Kotlin, Jetpack Compose, Material 3, OkHttp, and Jsoup.
+How to clone, build, sign and release **Bananite**, a native Android app written in Kotlin with Jetpack Compose, Material 3, OkHttp and Jsoup.
 
-This document is aimed at developers, contributors, and self-hosters who wish to build the application from source, set up local development environments, or automate release builds via CI/CD.
-
----
-
-## 📋 Table of Contents
-
-1. [Prerequisites & System Requirements](#-prerequisites--system-requirements)
-2. [Project Structure Overview](#-project-structure-overview)
-3. [Local Development Setup](#-local-development-setup)
-   - [Environment Variables](#environment-variables)
-   - [Configuring `local.properties`](#configuring-localproperties)
-4. [Building from the Command Line (CLI)](#-building-from-the-command-line-cli)
-   - [Debug Builds](#debug-build)
-   - [Release Builds](#release-build)
-   - [Gradle Clean & Sync](#clean-and-lint)
-5. [Building with Android Studio](#-building-with-android-studio)
-6. [Signing & Release Configuration](#-signing--release-configuration)
-7. [CI/CD & GitHub Actions Workflow](#-cicd--github-actions-workflow)
-8. [Troubleshooting & Common Issues](#-troubleshooting--common-issues)
-9. [Architecture & Key Dependencies](#-architecture--key-dependencies)
+This guide is for contributors and anyone who wants to build the app from source. If you only want to *use* the app, grab an APK from the [Releases page](https://github.com/kingofwhitehartlane/Bananite/releases) (see the main [README](README.md)).
 
 ---
 
-## 🛠 Prerequisites & System Requirements
+## Table of Contents
 
-Before building the project, ensure your host machine meets the following environment requirements:
-
-| Tool / Requirement | Minimum Version | Recommended / Tested | Notes |
-| :--- | :--- | :--- | :--- |
-| **Operating System** | Windows 10, macOS 11, Linux (64-bit) | Modern 64-bit OS | - |
-| **JDK (Java Development Kit)** | JDK 17 | OpenJDK 17 / Eclipse Temurin 17 | Gradle target is configured for Java 17 |
-| **Android SDK** | API Level 35 (`compileSdk`) | Android SDK 35, Build Tools 35.0.0 | Minimum runtime target is API 26 (Android 8.0) |
-| **Gradle** | 8.x (via Gradle Wrapper) | Gradle 8.x (bundled via wrapper) | Pre-configured in `gradle/wrapper/` |
-| **Android Studio** | Ladybug / Koala (2024.1+) | Latest Stable Android Studio | Optional for CLI builds; recommended for UI dev |
-
-> **Note on Java Version:**  
-> Bananite uses Kotlin targeting JVM 17. Ensure your `JAVA_HOME` points to a JDK 17 installation or that Android Studio's embedded JDK (Java 17) is selected in the build tools settings.
+1. [Prerequisites](#prerequisites)
+2. [Project structure](#project-structure)
+3. [Local setup](#local-setup)
+4. [Building from the command line](#building-from-the-command-line)
+5. [Building with Android Studio](#building-with-android-studio)
+6. [Signing](#signing)
+7. [Versioning & releases](#versioning--releases)
+8. [CI/CD workflows](#cicd-workflows)
+9. [How the app works](#how-the-app-works)
+10. [Troubleshooting](#troubleshooting)
+11. [License](#license)
 
 ---
 
-## 📂 Project Structure Overview
+## Prerequisites
+
+| Tool | Version | Notes |
+| :--- | :--- | :--- |
+| **JDK** | 17 | Eclipse Temurin 17 / OpenJDK 17. Gradle and Kotlin both target Java 17. |
+| **Android SDK** | API 35 (`compileSdk` / `targetSdk`) | Build Tools 35.x. The app runs on Android 8.0+ (`minSdk` 26). |
+| **Gradle** | 8.10.2 | Provided by the Gradle Wrapper (`./gradlew`); no separate install needed. |
+| **Android Studio** | Ladybug (2024.2) or newer | Optional. Command-line builds work without it. |
+
+Versions of everything else (AGP, Kotlin, Compose BOM, OkHttp, …) live in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
+
+---
+
+## Project structure
 
 ```
 Bananite/
-├── .github/
-│   └── workflows/
-│       └── build.yml               # Automated GitHub Actions CI workflow
+├── .github/workflows/
+│   └── build.yml                 # Builds, signs and publishes a release on every push to main
 ├── app/
-│   ├── build.gradle.kts            # App module build script (dependencies, SDK versions)
-│   ├── proguard-rules.pro          # ProGuard / R8 code obfuscation & optimization rules
-│   └── src/
-│       └── main/
-│           ├── AndroidManifest.xml # Permissions, Application class, Activity declarations
-│           ├── java/ir/mums/stufood/
-│           │   ├── MainActivity.kt # Main host Activity with Jetpack Compose entry point
-│           │   ├── BananiteApp.kt   # Application singleton & dependency container
-│           │   ├── data/           # Repository, CookieJar session state, DataStore prefs
-│           │   └── ui/             # Composables, screens, ViewModels, Material 3 theme
-│           └── res/                # XML drawables, vector assets, raw CA certs, typography
+│   ├── build.gradle.kts          # App module: SDK levels, signing, dependencies
+│   ├── proguard-rules.pro        # R8 rules (R8 is currently disabled)
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── java/ir/mums/stufood/
+│       │   ├── BananiteApp.kt    # Application: holds the shared repository, cookie jar, prefs
+│       │   ├── MainActivity.kt   # Single activity; screen switching + update dialog
+│       │   ├── data/             # StufoodRepository (HTTP + HTML parsing), cookie jar,
+│       │   │                     #   UserPrefs, UpdateManager, ReleaseNotes, AppLogs
+│       │   ├── ui/
+│       │   │   ├── components/   # Reusable composables (date picker, haptics, cards, …)
+│       │   │   ├── navigation/   # Screen.kt — the list of screens
+│       │   │   ├── screens/      # One *Screen + *ViewModel pair per feature
+│       │   │   └── theme/        # Colors, typography (fonts), Material 3 theme
+│       │   └── util/             # JalaliCalendar, AppLinks, Obtainium helpers
+│       └── res/
+│           ├── font/             # Latin + Persian fonts
+│           ├── raw/              # Bundled TLS certificates for stufood.mums.ac.ir
+│           └── xml/              # network_security_config, backup rules
+├── release-notes/                # <major>.<minor>.md — bundled into the APK AND used as GitHub release body
 ├── gradle/
-│   ├── libs.versions.toml          # Centralized Version Catalog for dependencies
-│   └── wrapper/                    # Gradle Wrapper binaries and property configuration
-├── build.gradle.kts                # Top-level build script (plugins definition)
-├── gradle.properties               # JVM tuning options & AndroidX configurations
-├── settings.gradle.kts             # Dependency resolution repositories & project inclusion
-├── gradlew                         # POSIX shell executable for Gradle Wrapper
-└── gradlew.bat                     # Windows batch executable for Gradle Wrapper
+│   ├── libs.versions.toml        # Version catalog
+│   └── wrapper/                  # Gradle Wrapper
+├── version.properties            # majorMinor=1.3 (the patch number is added by CI)
+├── Obtainium.md                  # End-user guide for auto-updates via Obtainium
+├── build.gradle.kts              # Root build script (plugin versions)
+└── settings.gradle.kts
 ```
 
 ---
 
-## ⚙️ Local Development Setup
-
-### 1. Clone the Repository
-
-Clone the repository to your local workspace:
+## Local setup
 
 ```bash
 git clone https://github.com/kingofwhitehartlane/Bananite.git
 cd Bananite
 ```
 
-> **Important Path Tip:** Avoid cloning into paths containing spaces or non-ASCII characters (e.g., `C:\Users\John Doe\...` or special characters) as build tools like `aapt2` can experience path resolution issues on Windows.
+> **Tip:** avoid paths with spaces or non-ASCII characters (especially on Windows); `aapt2` can fail to resolve them.
 
-### 2. Environment Variables
-
-Set your `JAVA_HOME` and `ANDROID_HOME` environment variables if building from the command line:
-
-- **Linux / macOS (`~/.bashrc` or `~/.zshrc`):**
-  ```bash
-  export JAVA_HOME=/path/to/jdk-17
-  export ANDROID_HOME=$HOME/Android/Sdk
-  export PATH=$PATH:$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin
-  ```
-
-- **Windows (Command Prompt / PowerShell):**
-  ```cmd
-  setx JAVA_HOME "C:\Program Files\Java\jdk-17"
-  setx ANDROID_HOME "C:\Users\%USERNAME%\AppData\Local\Android\Sdk"
-  ```
-
-### 3. Configuring `local.properties`
-
-If Android Studio does not generate `local.properties` automatically, create a file named `local.properties` in the root directory of the project and specify your Android SDK location:
-
-- **Windows:**
-  ```properties
-  sdk.dir=C\:\Users\YourUsername\AppData\Local\Android\Sdk
-  ```
-
-- **macOS:**
-  ```properties
-  sdk.dir=/Users/YourUsername/Library/Android/sdk
-  ```
-
-- **Linux:**
-  ```properties
-  sdk.dir=/home/yourusername/Android/Sdk
-  ```
-
----
-
-## 💻 Building from the Command Line (CLI)
-
-You can build the project without opening an IDE using the provided Gradle Wrapper script (`gradlew` on Unix-like systems or `gradlew.bat` on Windows).
-
-Make sure the wrapper script is executable (macOS/Linux):
-```bash
-chmod +x gradlew
-```
-
-### Debug Build
-
-To compile and produce an unsigned Debug APK:
-
-- **Linux / macOS:**
-  ```bash
-  ./gradlew assembleDebug
-  ```
-
-- **Windows:**
-  ```cmd
-  gradlew.bat assembleDebug
-  ```
-
-Upon completion, the output APK will be located at:
-```
-app/build/outputs/apk/debug/app-debug.apk
-```
-
-To install the debug build directly onto a connected device or running emulator:
-```bash
-./gradlew installDebug
-```
-
-### Release Build
-
-To generate a Release APK:
-
-- **Linux / macOS:**
-  ```bash
-  ./gradlew assembleRelease
-  ```
-
-- **Windows:**
-  ```cmd
-  gradlew.bat assembleRelease
-  ```
-
-The unaligned/unsigned (or signed, if configured) output will be available at:
-```
-app/build/outputs/apk/release/app-release-unsigned.apk
-```
-
-### Clean and Lint
-
-To clean previous build outputs and run code checks:
-
-```bash
-# Clean build artifacts
-./gradlew clean
-
-# Run Android Lint analysis
-./gradlew lint
-
-# Run unit tests (if configured)
-./gradlew test
-```
-
----
-
-## 🎨 Building with Android Studio
-
-1. **Launch Android Studio** (Koala / Ladybug or newer recommended).
-2. Click **Open** and select the root directory of the project (`Bananite`).
-3. Allow Android Studio to initiate and complete the **Gradle Sync**.
-4. Ensure the JDK is set to Java 17:
-   - Go to **Settings / Preferences** → **Build, Execution, Deployment** → **Build Tools** → **Gradle**.
-   - Verify **Gradle JDK** is set to **Embedded JDK (Java 17)** or a installed JDK 17.
-5. Connect a physical Android device via USB (with **USB Debugging** enabled) or launch an **Android Virtual Device (AVD)** (API 26+).
-6. Click the green **Run (▶)** button in the top toolbar or press `Shift + F10`.
-
----
-
-## 🔑 Signing & Release Configuration
-
-To sign your release APK for distribution, you can configure keystore credentials directly in `app/build.gradle.kts` or via environment variables / `gradle.properties`.
-
-### 1. Generate a Keystore File
-
-If you don't already have a signing key, generate one using `keytool`:
-
-```bash
-keytool -genkeypair -v   -keystore release.keystore   -alias bananite-key   -keyalg RSA   -keysize 2048   -validity 10000
-```
-
-Place `release.keystore` in a secure location (or inside the project root, keeping it excluded from version control via `.gitignore`).
-
-### 2. Configure Gradle Signing Credentials
-
-Add the following properties to your global or local `gradle.properties` file:
+Point Gradle at your Android SDK — either set `ANDROID_HOME`, or create a `local.properties` file in the project root (Android Studio normally does this for you; the file is git-ignored):
 
 ```properties
-KEYSTORE_FILE=../release.keystore
-KEYSTORE_PASSWORD=your_keystore_password
-KEY_ALIAS=bananite-key
-KEY_PASSWORD=your_key_password
+# Linux
+sdk.dir=/home/<you>/Android/Sdk
+# macOS
+sdk.dir=/Users/<you>/Library/Android/sdk
+# Windows
+sdk.dir=C\:\\Users\\<you>\\AppData\\Local\\Android\\Sdk
 ```
 
-Update `app/build.gradle.kts` to apply signing configurations:
+Make sure `JAVA_HOME` points at a JDK 17 (`java -version` should say 17).
 
-```kotlin
-android {
-    ...
-    signingConfigs {
-        create("release") {
-            storeFile = file(project.properties["KEYSTORE_FILE"] as String)
-            storePassword = project.properties["KEYSTORE_PASSWORD"] as String
-            keyAlias = project.properties["KEY_ALIAS"] as String
-            keyPassword = project.properties["KEY_PASSWORD"] as String
-        }
-    }
+---
 
-    buildTypes {
-        release {
-            // Currently disabled. Enable and configure proguard-rules.pro when ready for R8.
-            isMinifyEnabled = false 
-            signingConfig = signingConfigs.getByName("release")
-        }
-    }
-}
+## Building from the command line
+
+On macOS/Linux make the wrapper executable once: `chmod +x gradlew`. On Windows use `gradlew.bat` instead of `./gradlew`.
+
+| Goal | Command | Output |
+| :--- | :--- | :--- |
+| Debug APK | `./gradlew assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` (signed with the debug key) |
+| Install on a device/emulator | `./gradlew installDebug` | — |
+| Release APK | `./gradlew assembleRelease` | `app/build/outputs/apk/release/app-release.apk` |
+| Clean | `./gradlew clean` | — |
+| Lint | `./gradlew lint` | `app/build/reports/lint-results-*.html` |
+
+A local release build **without** a keystore is signed with the debug key so you can still test it. Such a build cannot be installed over an official release (different signing key).
+
+Local builds are versioned `<majorMinor>.0-dev` with version code `1`. To override: `./gradlew assembleRelease -PappVersionName=1.3.99 -PappVersionCode=99`.
+
+---
+
+## Building with Android Studio
+
+1. Open the project root and let Gradle sync finish.
+2. Check **Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK** is a JDK 17 (the embedded JDK is fine).
+3. Pick a device (USB debugging on, or an emulator running API 26+) and press **Run ▶**.
+
+---
+
+## Signing
+
+Release signing is configured in `app/build.gradle.kts` and reads **environment variables** — nothing is stored in the repository:
+
+| Variable | Meaning |
+| :--- | :--- |
+| `KEYSTORE_FILE` | Path to the keystore file |
+| `KEYSTORE_PASSWORD` | Keystore password |
+| `KEY_ALIAS` | Key alias inside the keystore |
+| `KEY_PASSWORD` | Password of that key |
+
+Behaviour of `assembleRelease`:
+
+* **Keystore found** → signed with it.
+* **No keystore, local machine** → falls back to the debug key.
+* **No keystore, and `CI=true`** → the build **fails on purpose**, so CI can never publish a debug-signed release.
+
+Create a keystore (keep it, and its passwords, safe — losing it means users can't update in place):
+
+```bash
+keytool -genkeypair -v -keystore release.keystore -alias bananite-key \
+        -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Now running `./gradlew assembleRelease` will generate a fully signed, aligned release APK ready for production distribution.
+Use it locally:
+
+```bash
+export KEYSTORE_FILE="$PWD/release.keystore"
+export KEYSTORE_PASSWORD='...'
+export KEY_ALIAS=bananite-key
+export KEY_PASSWORD='...'
+./gradlew assembleRelease
+```
+
+Keep `*.keystore` / `*.jks` out of git (add them to `.gitignore`). **Never commit a keystore.**
 
 ---
 
-## 🤖 CI/CD & GitHub Actions Workflow
+## Versioning & releases
 
-The repository includes a GitHub Actions workflow defined in `.github/workflows/build.yml` to automatically build and verify code on every pull request or push to the main branch.
+* `version.properties` holds only `majorMinor` (e.g. `1.3`). Bump it by hand for a new feature line.
+* CI picks the **patch** number automatically: the highest existing tag `v<majorMinor>.N` plus one (starting at `0`). The result is the `versionName`, e.g. `1.3.17`.
+* The Android `versionCode` is the GitHub Actions **run number**. It only ever increases, but it would reset if the workflow were deleted and recreated — Android refuses to install a lower `versionCode` over a higher one, so don't do that.
+* Release notes: put them in `release-notes/<majorMinor>.md` (one bullet per line, `- …`). That file is
+  1. bundled into the APK (shown in the app's *Releases & Issues* screen), and
+  2. used as the body of the GitHub release.
 
-### Workflow Summary (`build.yml`):
-- **OS Runner:** `ubuntu-latest`
-- **JDK Setup:** `actions/setup-java@v4` with Java 17 (Temurin)
-- **Gradle Caching:** Enabled automatically to speed up dependency downloading.
-- **Commands Executed:**
-  ```yaml
-  - name: Build Debug APK
-    run: ./gradlew assembleDebug --no-daemon
-  ```
+  Keep `release-notes/<major>.<minor>.md` as the exact file name — the app only recognises that pattern.
 
----
-
-## 🚨 Troubleshooting & Common Issues
-
-### Issue 1: `JAVA_HOME is not set` or Invalid Java Version
-- **Cause:** Gradle cannot locate Java or is running on an unsupported Java version (e.g., Java 8, 11, or 21+ incompatibility).
-- **Solution:** Verify your Java version using `java -version`. Ensure `JAVA_HOME` points to JDK 17. In Android Studio, check **File → Settings → Build Tools → Gradle → Gradle JDK**.
-
-### Issue 2: `SDK location not found`
-- **Cause:** Missing `local.properties` or unset `ANDROID_HOME` environment variable.
-- **Solution:** Create `local.properties` in the project root with `sdk.dir=/path/to/android/sdk` as shown in the [Setup Section](#configuring-localproperties).
-
-### Issue 3: `Network Security Exception` / Campus SSL Connection Failures
-- **Cause:** The targeted portal (`stufood.mums.ac.ir`) utilizes university-specific SSL certificates or requires specific CA certificates.
-- **Solution:** Custom CA certificates (`stufood_ca1.pem`, `stufood_ca2.pem`, `stufood_ca3.pem`) are declared under `app/src/main/res/raw/` and referenced in `network_security_config.xml`. Ensure cleartext/HTTPS settings match target campus server endpoints.
+To cut a release: merge to `main`. The workflow does the rest.
 
 ---
 
-## 🏗 Architecture & Key Dependencies
+## CI/CD workflows
 
-Bananite is built using modern Android development practices and library stacks:
+### `build.yml` — release (push to `main`, or manual run)
 
-- **Language:** 100% Kotlin with Coroutines and Flow for reactive state management.
-- **UI Framework:** Jetpack Compose with Material 3 components and dynamic dark/light theme support.
-- **Networking & Scraping:**
-  - **OkHttp 4.x:** Interceptor-based HTTP client, custom cookie handling via `InMemoryCookieJar` for sticky ASP.NET sessions.
-  - **Jsoup:** High-performance HTML parsing for extracting WebForms inputs, dynamicViewState values, and tables.
-- **Storage:** AndroidX DataStore (Preferences) for persistent user credentials and theme configuration.
-- **Dependency Versioning:** Managed through Gradle Version Catalog (`gradle/libs.versions.toml`).
+1. Checks out the repo with full history and tags.
+2. Sets up JDK 17 and a Gradle cache.
+3. Reads `majorMinor`, computes the next patch number, composes `versionName` / `versionCode` / tag.
+4. Decodes the signing keystore from the `KEYSTORE_BASE64` secret into `release.keystore`.
+5. Runs `./gradlew assembleRelease` with the version properties.
+6. Renames the APK to `Bananite-v<version>.apk` (the name Obtainium looks for).
+7. Creates the git tag and GitHub release with the notes and the APK.
+
+Every push to `main` publishes a release, including docs-only pushes. Avoid pushing two commits in quick succession: the patch number is computed from existing tags, so two overlapping runs could pick the same number.
+
+**Repository secrets required:** `KEYSTORE_BASE64` (`base64 -w0 release.keystore`), `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`.
 
 ---
 
-## 📄 License & Maintainers
+## How the app works
 
-Maintained by **kingofwhitehartlane**.  
-*This project is an independent client and is not officially affiliated with or endorsed by MUMS.*
+* **Networking** — `StufoodRepository` talks to `https://stufood.mums.ac.ir` with OkHttp. The site is an ASP.NET WebForms app, so the repository downloads each page, parses it with Jsoup, and replays the *whole* form (ViewState, EventValidation, every field) on each action, the way a browser would. Read the long comment at the top of `StufoodRepository.kt` before changing anything there.
+* **Session** — `InMemoryCookieJar` keeps the session cookies in memory only; killing the app logs you out. `StufoodRepository.isLoggedIn()` is true only after a successful login.
+* **Credentials** — saved (if "remember me" is ticked) in `EncryptedSharedPreferences`, backed by the Android Keystore. UI settings live in a Preferences DataStore. Neither is included in backups (`backup_rules.xml`, `data_extraction_rules.xml`).
+* **Updates** — `UpdateManager` asks the GitHub API for the latest release and offers to open it in the browser or Obtainium. The app never downloads or installs APKs itself.
+* **Navigation** — a plain `Screen` list switched in `MainActivity`; the current screen survives rotation (`rememberSaveable`).
+* **Dates** — the site uses the Jalali (Solar Hijri) calendar; `JalaliCalendar` converts with pure arithmetic and no extra dependency.
+
+### Adding a screen
+
+1. Add an `object` to `ui/navigation/Screen.kt` **and** list it in `Screen.all`.
+2. Create `FooScreen.kt` (+ `FooViewModel.kt` if it has state).
+3. Add a branch for it in the `when` in `MainActivity.App()` and, if needed, in the back-button handler.
+
+---
+
+## Troubleshooting
+
+**`JAVA_HOME is not set` / wrong Java version** — run `java -version`; it must be 17. In Android Studio check the *Gradle JDK* setting.
+
+**`SDK location not found`** — create `local.properties` with `sdk.dir=…` or set `ANDROID_HOME`.
+
+**`Could not find or load main class org.gradle.wrapper.GradleWrapperMain`** — `gradle/wrapper/gradle-wrapper.jar` is missing. Regenerate it with a local Gradle install: `gradle wrapper --gradle-version 8.10.2`, then commit the jar.
+
+**TLS / certificate errors when talking to the university server** — the bundled certificates in `app/src/main/res/raw/` (`stufood_ca1..3.pem`) are trusted in addition to the system store, via `network_security_config.xml`. `stufood_ca1` is the server's own leaf certificate and expires on **2027-02-24**; `ca2`/`ca3` are the Certum intermediate and root.
+
+**`CI RELEASE BUILD ABORTED: Valid keystore not found`** — one of the signing secrets is missing or `KEYSTORE_BASE64` didn't decode to a valid keystore.
+
+**Update says "conflicts with an existing package"** — the installed copy was signed with a different key (for example a local debug build). Uninstall it first.
+
+**The site changed and the app shows empty/odd pages** — the app parses server-rendered HTML, so layout changes can break it. Capture a HAR of the working flow in a browser, compare field names against `StufoodRepository.kt`, and open an issue. (Don't attach the HAR publicly — it contains your session cookies.)
+
+---
+
+## License
+
+Bananite is released under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
+
+Maintained by **kingofwhitehartlane**. This is an independent project, not affiliated with or endorsed by Mashhad University of Medical Sciences.
