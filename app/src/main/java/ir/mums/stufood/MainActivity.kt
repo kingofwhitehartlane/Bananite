@@ -205,14 +205,32 @@ private fun UpdatePrompt() {
                         }
                     }
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = dismiss) { Text("Later") }
-                        TextButton(onClick = {
-                            dismiss()
-                            if (!(obtainiumInstalled && Obtainium.launch(context))) {
-                                mgr.openDownload(s.release)
+                    val prefs = BananiteApp.instance.userPrefs
+                    val scope = rememberCoroutineScope()
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    prefs.saveAutoUpdateEnabled(false)
+                                    dismiss()
+                                }
                             }
-                        }) { Text(if (obtainiumInstalled) "Open Obtainium" else "Download") }
+                        ) { Text("Don't check") }
+
+                        TextButton(onClick = dismiss) { Text("Later") }
+
+                        TextButton(
+                            onClick = {
+                                dismiss()
+                                if (!(obtainiumInstalled && Obtainium.launch(context))) {
+                                    mgr.openDownload(s.release)
+                                }
+                            }
+                        ) { Text(if (obtainiumInstalled) "Open Obtainium" else "Download") }
                     }
                 }
             }

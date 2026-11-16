@@ -130,6 +130,20 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
     val state by vm.updateState.collectAsState()
     val auto by vm.autoUpdateEnabled.collectAsState(initial = true)
 
+    @Composable
+    private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
+        val state by vm.updateState.collectAsState()
+        val auto by vm.autoUpdateEnabled.collectAsState(initial = true)
+
+        // Place here: load bundled .md lines to compare against release notes
+        val context = LocalContext.current
+        val bundledNotes by produceState<List<ReleaseNotes.Entry>>(initialValue = emptyList()) {
+            value = ReleaseNotes.load(context)
+        }
+        val knownLines = remember(bundledNotes) {
+            bundledNotes.flatMap { it.lines }.toSet()
+        }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
@@ -170,11 +184,23 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
             )
 
             if (s is UpdateManager.State.Available && s.release.notes.isNotBlank()) {
-                Text(
-                    s.release.notes, maxLines = 6,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                val highlights = remember(s.release.notes, knownLines) {
+                    UpdateManager.extractUpdateHighlights(s.release.notes, knownLines)
+                }
+                highlights.forEach { bullet ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            "•",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            bullet,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
 
             Button(

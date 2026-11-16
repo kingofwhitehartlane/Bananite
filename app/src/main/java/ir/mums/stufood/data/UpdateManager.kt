@@ -162,4 +162,24 @@ class UpdateManager(private val context: Context, private val prefs: UserPrefs) 
         }
         return false
     }
+
+    companion object {
+        private val bulletPrefixRegex = Regex("""^([-*•+]|\d+[.)])\s+""")
+
+        fun extractUpdateHighlights(releaseNotes: String, knownLines: Set<String> = emptySet()): List<String> {
+            val cleanedLines = releaseNotes
+                .replace("\r\n", "\n")
+                .lines()
+                .map { it.trim() }
+                .filter { it.isNotEmpty() && !it.startsWith("#") }
+                .map { it.replace(bulletPrefixRegex, "").trim() }
+                .filter { it.isNotEmpty() }
+
+            if (cleanedLines.isEmpty()) return emptyList()
+
+            val normalizedKnown = knownLines.map { it.trim() }.toSet()
+            val diffLines = cleanedLines.filter { it !in normalizedKnown }
+            return if (diffLines.isNotEmpty()) diffLines else listOf(cleanedLines.last())
+        }
+    }
 }
