@@ -130,19 +130,14 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
     val state by vm.updateState.collectAsState()
     val auto by vm.autoUpdateEnabled.collectAsState(initial = true)
 
-    @Composable
-    private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
-        val state by vm.updateState.collectAsState()
-        val auto by vm.autoUpdateEnabled.collectAsState(initial = true)
-
-        // Place here: load bundled .md lines to compare against release notes
-        val context = LocalContext.current
-        val bundledNotes by produceState<List<ReleaseNotes.Entry>>(initialValue = emptyList()) {
-            value = ReleaseNotes.load(context)
-        }
-        val knownLines = remember(bundledNotes) {
-            bundledNotes.flatMap { it.lines }.toSet()
-        }
+    // Bundled patch-note lines, so the "update available" bullets only show what's new.
+    val context = LocalContext.current
+    val bundledNotes by produceState<List<ReleaseNotes.Entry>>(initialValue = emptyList()) {
+        value = ReleaseNotes.load(context)
+    }
+    val knownLines = remember(bundledNotes) {
+        bundledNotes.flatMap { it.lines }.toSet()
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(

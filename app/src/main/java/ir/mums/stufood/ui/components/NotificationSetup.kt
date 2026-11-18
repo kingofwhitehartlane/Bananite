@@ -132,7 +132,8 @@ fun rememberNotificationSetup(): NotificationSetup {
         if (live && liveUpdatesSupported() && !liveUpdatesAllowed(context)) {
             queue.addLast {
                 launchSettings(
-                    Intent(Settings.ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg),
+                    // = Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS (API 36), written as a string so it can never fail to resolve
+                    Intent("android.settings.APP_NOTIFICATION_PROMOTION_SETTINGS").putExtra(Settings.EXTRA_APP_PACKAGE, pkg),
                     Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
                 )
             }
