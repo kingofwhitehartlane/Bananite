@@ -10,6 +10,7 @@ import ir.mums.stufood.data.UserPrefs
 import ir.mums.stufood.service.AutoSearchBridge
 import ir.mums.stufood.service.AutoSearchService
 import ir.mums.stufood.service.InProcessNotifier
+import ir.mums.stufood.service.LiveSupport
 import ir.mums.stufood.util.JalaliCalendar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -77,7 +78,6 @@ class BuyFoodViewModel(
         /** Shows the red "وعده را انتخاب نمایید" hint under the meal dropdown. */
         val mealError: Boolean = false,
         val autoRefresh: Boolean = false,
-        val soundEnabled: Boolean = false,
         /**
          * When ON, the moment a search turns up a NEW food, the first buyable food in the
          * list is bought immediately (no confirmation). Off by default, never saved.
@@ -127,6 +127,9 @@ class BuyFoodViewModel(
         prefs.runInBackground.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val liveNotifications: StateFlow<Boolean> =
         prefs.liveNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** Settings > Notifications > "Food found sound". Default ON (same as before). Mutes only that sound. */
+    val foodFoundSound: StateFlow<Boolean> =
+        prefs.foodFoundSound.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     /** true until DataStore says otherwise, so the first-time popup can't flash by mistake. */
     val setupPromptDone: StateFlow<Boolean> =
         prefs.setupPromptDone.stateIn(viewModelScope, SharingStarted.Eagerly, true)
@@ -285,7 +288,7 @@ class BuyFoodViewModel(
         val fresh = newFoods(previous, updated)
         if (fresh.isEmpty()) return
 
-        if (_state.value.soundEnabled) _foodAvailable.tryEmit(Unit)
+        if (_state.value.autoRefresh && foodFoundSound.value) _foodAvailable.tryEmit(Unit)
 
         // Keep the live notification session: it ends with a result (found / bought / failed).
         if (_state.value.autoRefresh) stopAutoRefresh(endSession = false)
@@ -320,18 +323,19 @@ class BuyFoodViewModel(
             _state.update { it.copy(mealError = true) }
             return
         }
-        _state.update { it.copy(autoRefresh = true, soundEnabled = true, mealError = false) }
+        _state.update { it.copy(autoRefresh = true, mealError = false) }
 
-        // Both settings off = the old behaviour: no service, no notification (the screen stays on).
+        // The normal "food found / purchase result" notification is ALWAYS sent. On top of that:
+        //   Run in the background  -> foreground service + wake lock (+ a small ongoing notification)
+        //   Live notifications     -> progress/Now Bar style ongoing notification (only where supported)
         // The loop itself always runs below, in this ViewModel.
-        if (background || live) {
-            val mealLabel = page.mealOptions.firstOrNull { it.second == s.meal }?.first.orEmpty()
-            AutoSearchBridge.begin(s.date, mealLabel, s.autoIntervalMs, fancy = live)
-            runCatching {
-                if (background) AutoSearchService.start(BananiteApp.instance)
-                else InProcessNotifier.start(BananiteApp.instance)
-            }.onFailure { Log.e(TAG, "couldn't start notifications / background service", it) }
-        }
+        val liveOn = live && LiveSupport.status().supported
+        val mealLabel = page.mealOptions.firstOrNull { it.second == s.meal }?.first.orEmpty()
+        AutoSearchBridge.begin(s.date, mealLabel, s.autoIntervalMs, fancy = liveOn)
+        runCatching {
+            if (background) AutoSearchService.start(BananiteApp.instance)
+            else InProcessNotifier.start(BananiteApp.instance, showOngoing = liveOn)
+        }.onFailure { Log.e(TAG, "couldn't start notifications / background service", it) }
 
         autoJob?.cancel()
         autoJob = viewModelScope.launch {
@@ -362,8 +366,9 @@ class BuyFoodViewModel(
         viewModelScope.launch { prefs.saveAutoSearchInterval(ms) }
     }
 
+    /** The bell toggle: same switch as Settings > Notifications > Food found sound. */
     fun setSoundEnabled(enabled: Boolean) {
-        _state.update { it.copy(soundEnabled = enabled) }
+        viewModelScope.launch { prefs.saveFoodFoundSound(enabled) }
     }
 
     /** Auto-buy: instantly buys the first food when a new one appears. Never saved. */
@@ -375,7 +380,7 @@ class BuyFoodViewModel(
     private fun stopAutoRefresh(endSession: Boolean = true) {
         autoJob?.cancel()
         autoJob = null
-        _state.update { it.copy(autoRefresh = false, soundEnabled = false) }
+        _state.update { it.copy(autoRefresh = false) }
         if (endSession) AutoSearchBridge.end()
     }
 
@@ -394,7 +399,6 @@ class BuyFoodViewModel(
         _state.update {
             it.copy(
                 autoRefresh = false,
-                soundEnabled = false,
                 autoBuy = false,
                 mealError = false,
                 busy = false

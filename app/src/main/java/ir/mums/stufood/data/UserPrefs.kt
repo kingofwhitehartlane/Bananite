@@ -94,6 +94,7 @@ class UserPrefs(private val context: Context) {
         private val RUN_IN_BACKGROUND = booleanPreferencesKey("run_in_background")
         private val LIVE_NOTIFICATIONS = booleanPreferencesKey("live_notifications")
         private val SETUP_PROMPT_DONE = booleanPreferencesKey("autosearch_setup_prompt_done")
+        private val FOOD_FOUND_SOUND = booleanPreferencesKey("food_found_sound")
     }
 
     // -----------------------------------------------------------------------
@@ -130,6 +131,8 @@ class UserPrefs(private val context: Context) {
     val runInBackground: Flow<Boolean> = context.uiDataStore.data.map { it[RUN_IN_BACKGROUND] ?: false }
     /** Live status notification (Android 16 Live Updates: lock screen, status chip, Now Bar, Super Island). */
     val liveNotifications: Flow<Boolean> = context.uiDataStore.data.map { it[LIVE_NOTIFICATIONS] ?: false }
+    /** Play the phone's notification sound when a new food shows up (default ON, like before). */
+    val foodFoundSound: Flow<Boolean> = context.uiDataStore.data.map { it[FOOD_FOUND_SOUND] ?: true }
     /** The first-time "set up background auto-search" popup was answered (or dismissed for good). */
     val setupPromptDone: Flow<Boolean> = context.uiDataStore.data.map { it[SETUP_PROMPT_DONE] ?: false }
     /** Buy Food auto-search interval (ms). Only the interval is saved — never the toggles. */
@@ -173,6 +176,7 @@ class UserPrefs(private val context: Context) {
     suspend fun saveAutoUpdateEnabled(enabled: Boolean) { context.uiDataStore.edit { it[AUTO_UPDATE] = enabled } }
     suspend fun saveRunInBackground(enabled: Boolean) { context.uiDataStore.edit { it[RUN_IN_BACKGROUND] = enabled } }
     suspend fun saveLiveNotifications(enabled: Boolean) { context.uiDataStore.edit { it[LIVE_NOTIFICATIONS] = enabled } }
+    suspend fun saveFoodFoundSound(enabled: Boolean) { context.uiDataStore.edit { it[FOOD_FOUND_SOUND] = enabled } }
     suspend fun saveSetupPromptDone(done: Boolean) { context.uiDataStore.edit { it[SETUP_PROMPT_DONE] = done } }
 
     // -----------------------------------------------------------------------
@@ -195,6 +199,7 @@ class UserPrefs(private val context: Context) {
             prefs.remove(RUN_IN_BACKGROUND)
             prefs.remove(LIVE_NOTIFICATIONS)
             prefs.remove(SETUP_PROMPT_DONE)
+            prefs.remove(FOOD_FOUND_SOUND)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }

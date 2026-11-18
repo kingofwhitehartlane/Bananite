@@ -57,6 +57,21 @@ To get updates without checking GitHub by hand, you can use **[Obtainium](https:
 
 ---
 
+## 🔔 Background Running & Live Notifications
+
+Under **Settings → Notifications → Buy food** you can let auto-search keep running with the screen off, get a live status (timer, progress, Stop button) on your lock screen and in the Now Bar, and mute the "food found" sound without opening the app. Everything is off by default, and a normal notification is always sent when a food is found.
+
+- **Live notifications need Android 16+** and a phone maker that allows third-party apps (not Xiaomi/Huawei/Honor/Transsion; the switch is greyed out there).
+- **Samsung users:** you may need to switch on **Live notifications for all apps** in Developer options. Step-by-step guide: [LIVE_NOTIFICATIONS.md](LIVE_NOTIFICATIONS.md).
+
+---
+
+## 🏪 Why Isn't Bananite on the Google Play Store?
+
+Short answer: I can't give Google's reviewers and testers a proper way to try the app. Publishing on Google Play expects a developer website/domain and a working way for testers to sign in and navigate the app. I don't own a domain, and Bananite only works with a real MUMS student login on the university's own system, so there is no honest way for a tester to use it. That's why releases are published on GitHub, and why I recommend [Obtainium](Obtainium.md) for automatic updates.
+
+---
+
 🤖 **Vibe Coded: AI-Assisted Development**
 Let’s be transparent: Bananite is "vibe coded." A significant portion of the architecture, Jetpack Compose UI, and boilerplate was written and debugged with AI assistance. 
 
@@ -112,3 +127,4 @@ Special thanks to the creators and open-source projects providing assets used in
 ---
 
 <p align="center"><i>Made for MUMS Students</i></p>
+

@@ -49,6 +49,8 @@ class SettingsViewModel(
     // NOTIFICATIONS -> BUY FOOD
     val runInBackground = prefs.runInBackground
     fun setRunInBackground(enabled: Boolean) { viewModelScope.launch { prefs.saveRunInBackground(enabled) } }
+    val foodFoundSound = prefs.foodFoundSound
+    fun setFoodFoundSound(enabled: Boolean) { viewModelScope.launch { prefs.saveFoodFoundSound(enabled) } }
     val liveNotifications = prefs.liveNotifications
     fun setLiveNotifications(enabled: Boolean) { viewModelScope.launch { prefs.saveLiveNotifications(enabled) } }
 

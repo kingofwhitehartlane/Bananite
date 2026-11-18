@@ -51,18 +51,6 @@ fun liveUpdatesSupported(): Boolean = Build.VERSION.SDK_INT >= 36
 fun liveUpdatesAllowed(c: Context): Boolean =
     !liveUpdatesSupported() || c.getSystemService(NotificationManager::class.java).canPostPromotedNotifications()
 
-/** Short extra hint for phone brands that kill background apps aggressively; null elsewhere. */
-fun oemBackgroundTip(): String? {
-    val m = Build.MANUFACTURER.lowercase()
-    return when {
-        "xiaomi" in m || "redmi" in m || "poco" in m ->
-            "Xiaomi / Redmi / POCO: also turn on Autostart for Bananite and set Battery saver to \"No restrictions\"."
-        "samsung" in m ->
-            "Samsung: also add Bananite to Settings > Battery > Background usage limits > Never sleeping apps."
-        else -> null
-    }
-}
-
 // ---------------------------------------------------------------------------------------------
 // Permission flow
 // ---------------------------------------------------------------------------------------------
@@ -118,7 +106,8 @@ fun rememberNotificationSetup(): NotificationSetup {
     val runner: (Boolean, Boolean, () -> Unit) -> Unit = { background, live, onDone ->
         queue.clear()
         holder.onDone = onDone
-        if ((background || live) && !hasNotificationPermission(context)) {
+        // Every feature (even the plain "food found" notification) needs this one.
+        if (!hasNotificationPermission(context)) {
             queue.addLast { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }
         }
         if (background && !isBatteryUnrestricted(context)) {
@@ -166,17 +155,16 @@ fun AutoSearchSetupDialog(
 ) {
     AlertDialog(
         onDismissRequest = onLater,
-        title = { Text("Keep auto-search running?") },
+        title = { Text("Keep auto-search running in the background?") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Bananite can keep searching while the screen is off or you're in another app, and show a " +
-                        "live status with a timer and a Stop button on your lock screen (and in the Now Bar / " +
-                        "Super Island on supported phones).",
+                    "Bananite can keep searching while the screen is off or you're in another app. " +
+                        "A small notification with a timer and a Stop button shows while it runs.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    "Both are off by default. You can change them any time in Settings > Notifications.",
+                    "It's off by default. You can change it any time in Settings > Notifications.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

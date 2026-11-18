@@ -33,6 +33,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -40,14 +42,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.BuildConfig
+import ir.mums.stufood.R
 import ir.mums.stufood.data.AppLogs
 import ir.mums.stufood.data.ReleaseNotes
 import ir.mums.stufood.data.UpdateManager
 import ir.mums.stufood.ui.components.GitHubLinkCard
 import ir.mums.stufood.ui.components.HapticType
+import ir.mums.stufood.ui.components.ObtainiumAccent
 import ir.mums.stufood.ui.components.ObtainiumLinkCard
 import ir.mums.stufood.ui.components.rememberHapticFeedback
 import ir.mums.stufood.util.AppLinks
+import ir.mums.stufood.util.Obtainium
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -138,6 +143,7 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
     val knownLines = remember(bundledNotes) {
         bundledNotes.flatMap { it.lines }.toSet()
     }
+    val obtainiumInstalled = remember { Obtainium.isInstalled(context) }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -195,6 +201,30 @@ private fun UpdateCard(vm: SettingsViewModel, haptic: (HapticType) -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+            }
+
+            // Obtainium installed: offer it first (purple), the browser download stays below it.
+            if (s is UpdateManager.State.Available && obtainiumInstalled) {
+                Button(
+                    onClick = {
+                        haptic(HapticType.CLICK)
+                        Obtainium.launch(context)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ObtainiumAccent,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_obtainium),
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Open Obtainium to update")
                 }
             }
 
@@ -444,3 +474,5 @@ private fun copyLogs(context: Context, logs: String) {
     cm.setPrimaryClip(ClipData.newPlainText("Bananite logs", header + logs))
     Toast.makeText(context, "Logs copied", Toast.LENGTH_SHORT).show()
 }
+
+

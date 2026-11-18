@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,17 +30,21 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import ir.mums.stufood.service.LiveSupport
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.NotificationSetup
-import ir.mums.stufood.ui.components.oemBackgroundTip
 import ir.mums.stufood.ui.components.rememberHapticFeedback
 import ir.mums.stufood.ui.components.rememberNotificationSetup
+import ir.mums.stufood.util.AppLinks
 
 /**
  * Settings > Notifications. One section for now ("Buy food"); more sections can be added below it.
@@ -50,11 +55,17 @@ fun NotificationSettingsScreen(
     onBack: () -> Unit,
     vm: SettingsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val background by vm.runInBackground.collectAsState(initial = false)
-    val live by vm.liveNotifications.collectAsState(initial = false)
+    val liveSaved by vm.liveNotifications.collectAsState(initial = false)
+    val sound by vm.foodFoundSound.collectAsState(initial = true)
     val hapticEnabled by vm.hapticFeedbackEnabled.collectAsState(initial = true)
     val haptic = rememberHapticFeedback(enabled = hapticEnabled)
     val setup = rememberNotificationSetup()
+
+    // Live notifications need Android 16 and a phone maker that lets third-party apps in.
+    val liveSupport = remember { LiveSupport.status() }
+    val live = liveSaved && liveSupport.supported
 
     Scaffold(
         topBar = {
@@ -89,6 +100,7 @@ fun NotificationSettingsScreen(
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
             ) {
+                // 1) Run in the background
                 ToggleRow(
                     icon = Icons.Default.Autorenew,
                     title = "Run in the background",
@@ -102,39 +114,62 @@ fun NotificationSettingsScreen(
                 )
                 if (background) {
                     if (!setup.batteryUnrestricted) {
-                        StatusLine(
-                            "Battery is restricted, so the phone may pause searches.",
-                            "Fix"
-                        ) { setup.run(background = true, live = false) }
+                        StatusLine("Battery is restricted, so the phone may pause searches.", "Fix") {
+                            setup.run(background = true, live = false)
+                        }
                     }
                     if (!setup.notificationsGranted) {
-                        StatusLine(
-                            "Notification permission is off, so the \"running\" indicator is hidden.",
-                            "Allow"
-                        ) { setup.run(background = true, live = false) }
+                        StatusLine("Notification permission is off, so the \"running\" notification is hidden.", "Allow") {
+                            setup.run(background = true, live = false)
+                        }
                     }
-                    oemBackgroundTip()?.let { InfoLine(it) }
                 }
-                HorizontalDivider(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    color = MaterialTheme.colorScheme.outlineVariant
-                )
+                Divider()
+
+                // 2) Live notifications (greyed out where the phone can't do it)
                 ToggleRow(
                     icon = Icons.Default.NotificationsActive,
                     title = "Live notifications",
-                    subtitle = "Show a live status with a timer and a Stop button: lock screen, status bar, " +
-                        "and the Now Bar / Super Island where supported.",
+                    subtitle = "A live status with a timer and a Stop button on the lock screen, status bar " +
+                        "and Now Bar (Android 16+).",
                     checked = live,
+                    enabled = liveSupport.supported,
                     onCheckedChange = { on ->
                         haptic(HapticType.TICK)
                         vm.setLiveNotifications(on)
                         if (on) setup.run(background = false, live = true)
                     }
                 )
-                if (live) LiveStatus(setup)
+                if (!liveSupport.supported) {
+                    InfoLine(liveSupport.reason.orEmpty())
+                } else {
+                    if (live) LiveStatus(setup)
+                    if (LiveSupport.isSamsung()) {
+                        InfoLine("Samsung: if it doesn't appear in the Now Bar, turn on \"Live notifications for all apps\" in Developer options.")
+                        TextButton(
+                            onClick = { haptic(HapticType.CLICK); AppLinks.open(context, AppLinks.LIVE_NOTIFICATIONS_GUIDE) },
+                            modifier = Modifier.padding(start = 48.dp)
+                        ) { Text("Step-by-step guide") }
+                    }
+                }
+                Divider()
+
+                // 3) Food found sound
+                ToggleRow(
+                    icon = Icons.Default.Notifications,
+                    title = "Food found sound",
+                    subtitle = "Play your phone's notification sound when a new food shows up. " +
+                        "Turning it off mutes only this sound, nothing else in the app.",
+                    checked = sound,
+                    onCheckedChange = { on ->
+                        haptic(HapticType.TICK)
+                        vm.setFoodFoundSound(on)
+                    }
+                )
             }
             Text(
-                "Both are off by default. With both off, auto-search works as before: it needs the screen on.",
+                "Whatever you choose here, Bananite still sends a normal notification when a food is found " +
+                    "or a purchase finishes. With both switches off, auto-search needs the screen on.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 4.dp)
@@ -144,13 +179,19 @@ fun NotificationSettingsScreen(
 }
 
 @Composable
+private fun Divider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+}
+
+@Composable
 private fun LiveStatus(setup: NotificationSetup) {
     if (!setup.notificationsGranted) {
         StatusLine("Notification permission is off.", "Allow") { setup.run(background = false, live = true) }
     }
-    if (!setup.liveUpdatesSupported) {
-        InfoLine("Live Updates (status chip, Now Bar, Super Island) need Android 16. On this phone you get a normal ongoing notification.")
-    } else if (!setup.liveUpdatesAllowed) {
+    if (setup.liveUpdatesSupported && !setup.liveUpdatesAllowed) {
         StatusLine("Live updates are switched off for Bananite.", "Open") { setup.run(background = false, live = true) }
     }
 }
@@ -161,10 +202,14 @@ private fun ToggleRow(
     title: String,
     subtitle: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    enabled: Boolean = true
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .alpha(if (enabled) 1f else 0.45f), // greyed out
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -173,7 +218,7 @@ private fun ToggleRow(
             Text(title, style = MaterialTheme.typography.bodyLarge)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 

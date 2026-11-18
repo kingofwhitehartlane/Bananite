@@ -17,6 +17,9 @@ object AppLinks {
     /** The Obtainium.md setup guide at the root of the repo. */
     const val OBTAINIUM_GUIDE = "$REPO/blob/main/Obtainium.md"
 
+    /** LIVE_NOTIFICATIONS.md: live notification support, Samsung developer option, phone-brand limits. */
+    const val LIVE_NOTIFICATIONS_GUIDE = "$REPO/blob/main/LIVE_NOTIFICATIONS.md"
+
     fun open(context: Context, url: String) {
         try {
             context.startActivity(
@@ -27,3 +30,5 @@ object AppLinks {
         }
     }
 }
+
+

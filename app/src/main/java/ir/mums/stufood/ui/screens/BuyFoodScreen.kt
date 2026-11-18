@@ -125,6 +125,7 @@ fun BuyFoodScreen(
     val runInBackground by vm.runInBackground.collectAsState()
     val liveNotifications by vm.liveNotifications.collectAsState()
     val setupPromptDone by vm.setupPromptDone.collectAsState()
+    val foodFoundSound by vm.foodFoundSound.collectAsState()
     val setup = rememberNotificationSetup()
     var showSetupPrompt by remember { mutableStateOf(false) }
 
@@ -146,17 +147,22 @@ fun BuyFoodScreen(
         }
     }
 
-    // First time auto-search is switched on: offer the background / live-notification setup.
+    // A normal notification (food found / purchase result) is always sent, so make sure it can show.
+    val startAuto: () -> Unit = {
+        if (setup.notificationsGranted) vm.setAutoRefresh(true)
+        else setup.run(background = false, live = false) { vm.setAutoRefresh(true) }
+    }
+
+    // First time auto-search is switched on: offer to run it in the background (never turns on Live).
     if (showSetupPrompt) {
         AutoSearchSetupDialog(
             onEnableNow = {
                 showSetupPrompt = false
                 vm.completeSetupPrompt()
                 vm.setRunInBackground(true)
-                vm.setLiveNotifications(true)
-                // Ask for the permissions, then start (explicit flags: the saved values may lag a moment).
-                setup.run(background = true, live = true) {
-                    vm.setAutoRefresh(true, background = true, live = true)
+                // Ask for the permissions, then start (explicit flag: the saved value may lag a moment).
+                setup.run(background = true, live = false) {
+                    vm.setAutoRefresh(true, background = true, live = liveNotifications)
                 }
             },
             onOpenSettings = {
@@ -167,12 +173,12 @@ fun BuyFoodScreen(
             onLater = {
                 showSetupPrompt = false
                 setupPromptSnoozed = true
-                vm.setAutoRefresh(true)
+                startAuto()
             },
             onNeverAgain = {
                 showSetupPrompt = false
                 vm.completeSetupPrompt()
-                vm.setAutoRefresh(true)
+                startAuto()
             }
         )
     }
@@ -436,7 +442,11 @@ fun BuyFoodScreen(
                         haptic(HapticType.TICK)
                         val firstTime = on && !setupPromptDone && !setupPromptSnoozed &&
                             !runInBackground && !liveNotifications
-                        if (firstTime) showSetupPrompt = true else vm.setAutoRefresh(on)
+                        when {
+                            firstTime -> showSetupPrompt = true
+                            on -> startAuto()
+                            else -> vm.setAutoRefresh(false)
+                        }
                     },
                     icon = Icons.Default.Search,
                     description = "Auto refresh",
@@ -448,7 +458,7 @@ fun BuyFoodScreen(
                 )
 
                 CircleToggle(
-                    checked = state.soundEnabled,
+                    checked = foodFoundSound,
                     onCheckedChange = {
                         haptic(HapticType.TICK)
                         vm.setSoundEnabled(it)
