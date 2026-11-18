@@ -91,6 +91,8 @@ private fun App() {
         mutableStateOf<Screen>(if (loggedIn) Screen.Home else Screen.Login)
     }
     var settingsOrigin by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Home) }
+    // Notification settings can be opened from Settings or from the Buy Food popup; back returns there.
+    var notificationOrigin by rememberSaveable(stateSaver = ScreenSaver) { mutableStateOf<Screen>(Screen.Settings) }
 
     // After process death the restored screen may need a session we no longer have
     // (cookies live in memory only), so fall back to the login screen.
@@ -104,6 +106,7 @@ private fun App() {
             Screen.Settings         -> settingsOrigin
             Screen.BuyFood          -> Screen.Home
             Screen.ThemeSettings    -> Screen.Settings
+            Screen.NotificationSettings -> notificationOrigin
             Screen.AnimationSettings -> Screen.Settings
             Screen.ReleasesSettings -> Screen.Settings
             else                    -> Screen.Home
@@ -136,13 +139,21 @@ private fun App() {
                 })
                 Screen.Settings -> SettingsScreen(onNavigate = { target ->
                     // SettingsScreen's back arrow calls onNavigate(Screen.Home)
+                    if (target == Screen.NotificationSettings) notificationOrigin = Screen.Settings
                     currentScreen = if (target == Screen.Home) settingsOrigin else target
                 })
                 Screen.Reservation -> ReservationScreen(onBack = { currentScreen = Screen.Home })
                 Screen.ThemeSettings -> ThemeSettingsScreen(onBack = { currentScreen = Screen.Settings })
+                Screen.NotificationSettings -> NotificationSettingsScreen(onBack = { currentScreen = notificationOrigin })
                 Screen.AnimationSettings -> AnimationSettingsScreen(onBack = { currentScreen = Screen.Settings })
                 Screen.ReleasesSettings -> ReleasesSettingsScreen(onBack = { currentScreen = Screen.Settings })
-                Screen.BuyFood -> BuyFoodScreen(onBack = { currentScreen = Screen.Home })
+                Screen.BuyFood -> BuyFoodScreen(
+                    onBack = { currentScreen = Screen.Home },
+                    onOpenNotificationSettings = {
+                        notificationOrigin = Screen.BuyFood
+                        currentScreen = Screen.NotificationSettings
+                    }
+                )
             }
         }
     }
@@ -237,3 +248,4 @@ private fun UpdatePrompt() {
         }
     }
 }
+

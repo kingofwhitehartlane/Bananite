@@ -7,6 +7,9 @@ import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.data.UserPrefs
+import ir.mums.stufood.service.AutoSearchBridge
+import ir.mums.stufood.service.AutoSearchService
+import ir.mums.stufood.service.InProcessNotifier
 import ir.mums.stufood.util.JalaliCalendar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -118,6 +121,19 @@ class BuyFoodViewModel(
     val hapticFeedbackEnabled: StateFlow<Boolean> =
         BananiteApp.instance.userPrefs.hapticFeedbackEnabled
             .stateIn(viewModelScope, SharingStarted.Lazily, true)
+
+    // Notifications > Buy food settings (both OFF by default, so behaviour is unchanged after an update).
+    val runInBackground: StateFlow<Boolean> =
+        prefs.runInBackground.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val liveNotifications: StateFlow<Boolean> =
+        prefs.liveNotifications.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** true until DataStore says otherwise, so the first-time popup can't flash by mistake. */
+    val setupPromptDone: StateFlow<Boolean> =
+        prefs.setupPromptDone.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    fun completeSetupPrompt() { viewModelScope.launch { prefs.saveSetupPromptDone(true) } }
+    fun setRunInBackground(on: Boolean) { viewModelScope.launch { prefs.saveRunInBackground(on) } }
+    fun setLiveNotifications(on: Boolean) { viewModelScope.launch { prefs.saveLiveNotifications(on) } }
 
     private var started = false
 
@@ -242,6 +258,18 @@ class BuyFoodViewModel(
         return after.any { (k, n) -> n > (before[k] ?: 0) }
     }
 
+    /** Foods in [updated] that were not in [previous] (multiset difference). */
+    private fun newFoods(
+        previous: StufoodRepository.BuyFoodPage,
+        updated: StufoodRepository.BuyFoodPage
+    ): List<StufoodRepository.ExchangeableFood> {
+        val left = previous.availableFoods.groupingBy(::foodKey).eachCount().toMutableMap()
+        return updated.availableFoods.filter { f ->
+            val n = left[foodKey(f)] ?: 0
+            if (n > 0) { left[foodKey(f)] = n - 1; false } else true
+        }
+    }
+
     /**
      * Runs after every search. Only reacts to food that is NEW compared with what was
      * listed before this search — never to food that was already there.
@@ -254,15 +282,20 @@ class BuyFoodViewModel(
         previous: StufoodRepository.BuyFoodPage,
         updated: StufoodRepository.BuyFoodPage
     ) {
-        if (!hasNewFood(previous, updated)) return
+        val fresh = newFoods(previous, updated)
+        if (fresh.isEmpty()) return
 
         if (_state.value.soundEnabled) _foodAvailable.tryEmit(Unit)
 
-        if (_state.value.autoRefresh) stopAutoRefresh()
+        // Keep the live notification session: it ends with a result (found / bought / failed).
+        if (_state.value.autoRefresh) stopAutoRefresh(endSession = false)
 
-        if (_state.value.autoBuy) {
-            val first = updated.availableFoods.firstOrNull { it.receive != null }
-            if (first != null) receive(first)
+        val buyable = if (_state.value.autoBuy) updated.availableFoods.firstOrNull { it.receive != null } else null
+        if (buyable != null) {
+            AutoSearchBridge.onBuying(buyable.food)
+            receive(buyable)
+        } else {
+            AutoSearchBridge.onFound(fresh.first().food)
         }
     }
 
@@ -271,7 +304,12 @@ class BuyFoodViewModel(
     // ------------------------------------------------------------------
 
     /** Turning auto-refresh on/off also turns the sound on/off; sound stays freely toggleable afterwards. */
-    fun setAutoRefresh(enabled: Boolean) {
+    fun setAutoRefresh(
+        enabled: Boolean,
+        // Explicit values let "Enable now" start right after saving, before DataStore echoes the change.
+        background: Boolean = runInBackground.value,
+        live: Boolean = liveNotifications.value
+    ) {
         if (!enabled) {
             stopAutoRefresh()
             return
@@ -283,6 +321,18 @@ class BuyFoodViewModel(
             return
         }
         _state.update { it.copy(autoRefresh = true, soundEnabled = true, mealError = false) }
+
+        // Both settings off = the old behaviour: no service, no notification (the screen stays on).
+        // The loop itself always runs below, in this ViewModel.
+        if (background || live) {
+            val mealLabel = page.mealOptions.firstOrNull { it.second == s.meal }?.first.orEmpty()
+            AutoSearchBridge.begin(s.date, mealLabel, s.autoIntervalMs, fancy = live)
+            runCatching {
+                if (background) AutoSearchService.start(BananiteApp.instance)
+                else InProcessNotifier.start(BananiteApp.instance)
+            }.onFailure { Log.e(TAG, "couldn't start notifications / background service", it) }
+        }
+
         autoJob?.cancel()
         autoJob = viewModelScope.launch {
             // search -> wait for it to finish -> wait out whatever is left of the
@@ -290,7 +340,9 @@ class BuyFoodViewModel(
             while (isActive) {
                 val startedAt = SystemClock.elapsedRealtime()
                 _state.update { it.copy(refreshTick = it.refreshTick + 1, cycleStartedAt = startedAt) } // restarts the ring
+                AutoSearchBridge.onSearchStart(startedAt)
                 performSearch(manual = false)
+                AutoSearchBridge.onSearchEnd()
                 val remaining = _state.value.autoIntervalMs - (SystemClock.elapsedRealtime() - startedAt)
                 if (remaining > 0) delay(remaining)
             }
@@ -301,6 +353,7 @@ class BuyFoodViewModel(
         _state.update {
             it.copy(autoIntervalMs = ms.coerceIn(MIN_AUTO_INTERVAL_MS, MAX_AUTO_INTERVAL_MS))
         }
+        AutoSearchBridge.setInterval(_state.value.autoIntervalMs)
     }
 
     /** Persists the current interval (called when the slider is released). */
@@ -318,16 +371,26 @@ class BuyFoodViewModel(
         _state.update { it.copy(autoBuy = enabled) }
     }
 
-    private fun stopAutoRefresh() {
+    /** [endSession] = false keeps the live notification alive (a purchase is about to be shown). */
+    private fun stopAutoRefresh(endSession: Boolean = true) {
         autoJob?.cancel()
         autoJob = null
         _state.update { it.copy(autoRefresh = false, soundEnabled = false) }
+        if (endSession) AutoSearchBridge.end()
+    }
+
+    override fun onCleared() {
+        // Activity is gone for good: the loop dies with this ViewModel, so remove the notification too.
+        autoJob?.cancel()
+        AutoSearchBridge.end()
+        super.onCleared()
     }
 
     /** Called on entering/leaving the screen: all toggles always start OFF. */
     fun resetToggles() {
         autoJob?.cancel()
         autoJob = null
+        AutoSearchBridge.end()
         _state.update {
             it.copy(
                 autoRefresh = false,
@@ -346,12 +409,15 @@ class BuyFoodViewModel(
     fun receive(row: StufoodRepository.ExchangeableFood) {
         if (row.receive == null) return
         val running = autoJob
-        stopAutoRefresh() // a background search must not race (or shift row indexes under) a purchase
+        stopAutoRefresh(endSession = false) // a background search must not race (or shift row indexes under) a purchase
         viewModelScope.launch {
             running?.cancelAndJoin()
             val s = _state.value
             val page = s.page ?: return@launch
-            if (s.busy) return@launch
+            if (s.busy) {
+                AutoSearchBridge.onResult(false, row.food, null, "Another request was still running. Try again.")
+                return@launch
+            }
 
             // The postback target is positional (cell<N>_4 = "row N right now"), so
             // re-resolve the row against the newest page instead of trusting the tapped,
@@ -359,9 +425,11 @@ class BuyFoodViewModel(
             val fresh = page.availableFoods.firstOrNull { it.receive != null && foodKey(it) == foodKey(row) }
             if (fresh == null) {
                 _purchaseResult.value = PurchaseResult(false, "This food is no longer available.")
+                AutoSearchBridge.onResult(false, row.food, null, "This food is no longer available.")
                 return@launch
             }
 
+            AutoSearchBridge.onBuying(fresh.food)
             _state.update { it.copy(busy = true) }
             try {
                 val updated = repo.receiveFood(page, fresh)
@@ -375,6 +443,7 @@ class BuyFoodViewModel(
                     foodName = if (ok) fresh.food else null,
                     price = if (ok) msg?.let(::extractPriceToman) else null
                 )
+                AutoSearchBridge.onResult(ok, fresh.food, if (ok) msg?.let(::extractPriceToman) else null, msg)
             } catch (e: CancellationException) {
                 _state.update { it.copy(busy = false) }
                 throw e
@@ -385,6 +454,7 @@ class BuyFoodViewModel(
                     success = false,
                     message = "Request failed (${t.message ?: "network error"})."
                 )
+                AutoSearchBridge.onResult(false, fresh.food, null, "Request failed (${t.message ?: "network error"}).")
             }
         }
     }

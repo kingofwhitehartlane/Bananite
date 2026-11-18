@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Handshake
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.NewReleases
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
@@ -29,16 +30,19 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     
     // Settings sub-menus
     object ThemeSettings : Screen("theme_settings", "Theme & Color", Icons.Default.Palette)
+    object NotificationSettings : Screen("notification_settings", "Notifications", Icons.Default.Notifications)
     object AnimationSettings : Screen("animation_settings", "Animations", Icons.Default.Animation)
     object ReleasesSettings : Screen("releases_settings", "Releases & Issues", Icons.Default.NewReleases)
 
     companion object {
         /** Every screen. Lazy so the object singletons are not touched during class init. */
         val all: List<Screen> by lazy {
-            listOf(Login, Home, Reservation, BuyFood, Settings, ThemeSettings, AnimationSettings, ReleasesSettings)
+            listOf(Login, Home, Reservation, BuyFood, Settings, ThemeSettings, NotificationSettings, AnimationSettings, ReleasesSettings)
         }
 
         /** Inverse of [route]; used to restore the current screen after the activity is recreated. */
         fun fromRoute(route: String?): Screen? = all.firstOrNull { it.route == route }
     }
 }
+
+

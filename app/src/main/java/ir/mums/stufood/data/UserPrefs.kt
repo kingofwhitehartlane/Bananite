@@ -89,6 +89,11 @@ class UserPrefs(private val context: Context) {
         private val WHEEL_3D = booleanPreferencesKey("wheel_3d_enabled")
         private val AUTO_UPDATE = booleanPreferencesKey("auto_update_enabled")
         private val PERSIAN_FONT = stringPreferencesKey("persian_font")
+
+        // Notifications -> Buy food. All default to OFF so updating never changes behaviour.
+        private val RUN_IN_BACKGROUND = booleanPreferencesKey("run_in_background")
+        private val LIVE_NOTIFICATIONS = booleanPreferencesKey("live_notifications")
+        private val SETUP_PROMPT_DONE = booleanPreferencesKey("autosearch_setup_prompt_done")
     }
 
     // -----------------------------------------------------------------------
@@ -120,6 +125,13 @@ class UserPrefs(private val context: Context) {
     val hapticFeedbackEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[HAPTIC_ENABLED] ?: true }
     val wheel3dEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[WHEEL_3D] ?: true }
     val autoUpdateEnabled: Flow<Boolean> = context.uiDataStore.data.map { it[AUTO_UPDATE] ?: true }
+
+    /** Keep auto-search alive with the screen off / app in the background (foreground service). */
+    val runInBackground: Flow<Boolean> = context.uiDataStore.data.map { it[RUN_IN_BACKGROUND] ?: false }
+    /** Live status notification (Android 16 Live Updates: lock screen, status chip, Now Bar, Super Island). */
+    val liveNotifications: Flow<Boolean> = context.uiDataStore.data.map { it[LIVE_NOTIFICATIONS] ?: false }
+    /** The first-time "set up background auto-search" popup was answered (or dismissed for good). */
+    val setupPromptDone: Flow<Boolean> = context.uiDataStore.data.map { it[SETUP_PROMPT_DONE] ?: false }
     /** Buy Food auto-search interval (ms). Only the interval is saved — never the toggles. */
     val autoSearchIntervalMs: Flow<Long> =
         context.uiDataStore.data.map { it[AUTO_SEARCH_INTERVAL] ?: DEFAULT_AUTO_SEARCH_INTERVAL_MS }
@@ -159,6 +171,9 @@ class UserPrefs(private val context: Context) {
     suspend fun saveAutoSearchInterval(ms: Long) { context.uiDataStore.edit { it[AUTO_SEARCH_INTERVAL] = ms } }
     suspend fun saveWheel3dEnabled(enabled: Boolean) { context.uiDataStore.edit { it[WHEEL_3D] = enabled } }
     suspend fun saveAutoUpdateEnabled(enabled: Boolean) { context.uiDataStore.edit { it[AUTO_UPDATE] = enabled } }
+    suspend fun saveRunInBackground(enabled: Boolean) { context.uiDataStore.edit { it[RUN_IN_BACKGROUND] = enabled } }
+    suspend fun saveLiveNotifications(enabled: Boolean) { context.uiDataStore.edit { it[LIVE_NOTIFICATIONS] = enabled } }
+    suspend fun saveSetupPromptDone(done: Boolean) { context.uiDataStore.edit { it[SETUP_PROMPT_DONE] = done } }
 
     // -----------------------------------------------------------------------
     // RESET TO DEFAULTS (Preserves credentials, clears UI prefs)
@@ -177,7 +192,11 @@ class UserPrefs(private val context: Context) {
             prefs.remove(AUTO_SEARCH_INTERVAL)
             prefs.remove(WHEEL_3D)
             prefs.remove(AUTO_UPDATE)
+            prefs.remove(RUN_IN_BACKGROUND)
+            prefs.remove(LIVE_NOTIFICATIONS)
+            prefs.remove(SETUP_PROMPT_DONE)
             // Intentionally NOT removing HAPTIC_ENABLED so the master switch remains accessible
         }
     }
 }
+

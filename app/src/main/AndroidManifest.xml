@@ -5,6 +5,16 @@
     <!-- Talks to stufood.mums.ac.ir and api.github.com (update check only). -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Auto-search keeps running in the background (foreground service + live notification). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 16 Live Updates (status chip, lock screen, Samsung Now Bar, Xiaomi Super Island). -->
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
+    <!-- Lets the app ask the user to exempt it from battery optimization (sideloaded builds only). -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <queries>
         <package android:name="dev.imranr.obtainium" />
         <package android:name="dev.imranr.obtainium.fdroid" />
@@ -29,6 +39,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode|density|fontScale|layoutDirection|locale"
             android:label="@string/app_name"
             android:theme="@style/Theme.Bananite">
             <intent-filter>
@@ -36,5 +47,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".service.AutoSearchService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Repeatedly checks the university food-exchange page for newly listed meals while the user has auto-search turned on." />
+        </service>
     </application>
 </manifest>

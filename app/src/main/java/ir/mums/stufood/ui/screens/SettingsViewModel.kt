@@ -46,6 +46,12 @@ class SettingsViewModel(
         viewModelScope.launch { prefs.saveHapticFeedbackEnabled(enabled) } 
     }
 
+    // NOTIFICATIONS -> BUY FOOD
+    val runInBackground = prefs.runInBackground
+    fun setRunInBackground(enabled: Boolean) { viewModelScope.launch { prefs.saveRunInBackground(enabled) } }
+    val liveNotifications = prefs.liveNotifications
+    fun setLiveNotifications(enabled: Boolean) { viewModelScope.launch { prefs.saveLiveNotifications(enabled) } }
+
     val autoUpdateEnabled = prefs.autoUpdateEnabled
     fun setAutoUpdateEnabled(enabled: Boolean) { viewModelScope.launch { prefs.saveAutoUpdateEnabled(enabled) } }
 
@@ -68,3 +74,5 @@ class SettingsViewModel(
         viewModelScope.launch { prefs.resetToDefaults() }
     }
 }
+
+

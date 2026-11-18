@@ -57,7 +57,7 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
             onDismissRequest = { showResetConfirm = false },
             icon = { Icon(Icons.Default.RestartAlt, contentDescription = null) },
             title = { Text("Reset all settings?") },
-            text = { Text("This will restore theme, animation, and haptic preferences to their defaults. This can't be undone.") },
+            text = { Text("This will restore theme, animation, notification, and haptic preferences to their defaults. This can't be undone.") },
             confirmButton = {
                 TextButton(onClick = {
                     haptic(HapticType.HEAVY)
@@ -140,6 +140,7 @@ val haptic = rememberHapticFeedback(enabled = hapticEnabled)
                 SettingsGroup(
                     items = listOf(
                         { SubMenuItem("Theme & Color", Icons.Default.Palette, hapticEnabled) { onNavigate(Screen.ThemeSettings) } },
+                        { SubMenuItem("Notifications", Icons.Default.Notifications, hapticEnabled) { onNavigate(Screen.NotificationSettings) } },
                         { SubMenuItem("Animations", Icons.Default.Animation, hapticEnabled) { onNavigate(Screen.AnimationSettings) } },
                         { SubMenuItem("Releases & Issues", Icons.Default.NewReleases, hapticEnabled) { onNavigate(Screen.ReleasesSettings) } }
                     )
@@ -272,3 +273,5 @@ private fun SubMenuItem(
         )
     }
 }
+
+

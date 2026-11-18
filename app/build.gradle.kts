@@ -19,7 +19,7 @@ val ciVersionCode = (project.findProperty("appVersionCode") as String?)?.toIntOr
 
 android {
     namespace = "ir.mums.stufood"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ir.mums.stufood"

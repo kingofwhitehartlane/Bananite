@@ -1,6 +1,11 @@
 package ir.mums.stufood.ui.screens
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import ir.mums.stufood.service.AutoSearchBridge
+import ir.mums.stufood.ui.components.AutoSearchSetupDialog
+import ir.mums.stufood.ui.components.rememberNotificationSetup
 import android.media.AudioAttributes
 import android.media.Ringtone
 import android.os.SystemClock
@@ -63,10 +68,26 @@ private fun playNotificationSound(context: Context) {
     }
 }
 
+/** Stops a playing alert sound (used by the notification's "Stop & close"). */
+internal fun stopNotificationSound() {
+    runCatching { activeRingtone?.stop() }
+    activeRingtone = null
+}
+
+private fun Context.findActivity(): Activity? {
+    var c = this
+    while (c is ContextWrapper) { if (c is Activity) return c; c = c.baseContext }
+    return null
+}
+
+/** "Later" on the first-time popup: stay quiet until the app is restarted. */
+private var setupPromptSnoozed = false
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuyFoodScreen(
     onBack: () -> Unit,
+    onOpenNotificationSettings: () -> Unit = {},
     vm: BuyFoodViewModel = viewModel()
 ) {
     val context = LocalContext.current
@@ -100,10 +121,60 @@ fun BuyFoodScreen(
         if (purchaseResult?.success == true) haptic(HapticType.SUCCESS)
     }
 
-    // Keep the screen awake while auto-refreshing so the loop and sound keep working.
-    DisposableEffect(state.autoRefresh) {
-        view.keepScreenOn = state.autoRefresh
+    // Settings > Notifications > Buy food
+    val runInBackground by vm.runInBackground.collectAsState()
+    val liveNotifications by vm.liveNotifications.collectAsState()
+    val setupPromptDone by vm.setupPromptDone.collectAsState()
+    val setup = rememberNotificationSetup()
+    var showSetupPrompt by remember { mutableStateOf(false) }
+
+    // Legacy behaviour: without "Run in the background" the screen is kept on while auto-searching,
+    // exactly like before. With it on, AutoSearchService + wake lock keep the loop alive instead.
+    val keepScreenOn = state.autoRefresh && !runInBackground
+    DisposableEffect(keepScreenOn) {
+        view.keepScreenOn = keepScreenOn
         onDispose { view.keepScreenOn = false }
+    }
+
+    // "Stop & close" button in the notification: stop everything, silence it, close the app.
+    val activity = remember(context) { context.findActivity() }
+    LaunchedEffect(Unit) {
+        AutoSearchBridge.commands.collect {
+            vm.resetToggles()
+            stopNotificationSound()
+            activity?.finishAndRemoveTask()
+        }
+    }
+
+    // First time auto-search is switched on: offer the background / live-notification setup.
+    if (showSetupPrompt) {
+        AutoSearchSetupDialog(
+            onEnableNow = {
+                showSetupPrompt = false
+                vm.completeSetupPrompt()
+                vm.setRunInBackground(true)
+                vm.setLiveNotifications(true)
+                // Ask for the permissions, then start (explicit flags: the saved values may lag a moment).
+                setup.run(background = true, live = true) {
+                    vm.setAutoRefresh(true, background = true, live = true)
+                }
+            },
+            onOpenSettings = {
+                showSetupPrompt = false
+                vm.completeSetupPrompt()
+                onOpenNotificationSettings()
+            },
+            onLater = {
+                showSetupPrompt = false
+                setupPromptSnoozed = true
+                vm.setAutoRefresh(true)
+            },
+            onNeverAgain = {
+                showSetupPrompt = false
+                vm.completeSetupPrompt()
+                vm.setAutoRefresh(true)
+            }
+        )
     }
 
     // Countdown ring around the auto-refresh toggle. Driven by the real clock (not an
@@ -361,9 +432,11 @@ fun BuyFoodScreen(
 
                 CircleToggle(
                     checked = state.autoRefresh,
-                    onCheckedChange = {
+                    onCheckedChange = { on ->
                         haptic(HapticType.TICK)
-                        vm.setAutoRefresh(it)
+                        val firstTime = on && !setupPromptDone && !setupPromptSnoozed &&
+                            !runInBackground && !liveNotifications
+                        if (firstTime) showSetupPrompt = true else vm.setAutoRefresh(on)
                     },
                     icon = Icons.Default.Search,
                     description = "Auto refresh",
