@@ -223,9 +223,10 @@ object LiveNotifications {
                 )
             }
             else -> {
-                status = "PURCHASE NOT CONFIRMED"
-                title = "Purchase not confirmed"
-                headline = food ?: "The purchase failed"
+                val stopped = s.foodName.isNullOrBlank()
+                status = if (stopped) "AUTO-SEARCH STOPPED" else "PURCHASE NOT CONFIRMED"
+                title = if (stopped) "Auto-search stopped" else "Purchase not confirmed"
+                headline = food ?: if (stopped) "Search stopped" else "The purchase failed"
                 price = null
                 note = s.message?.takeIf { it.isNotBlank() }?.let(::bidi)
                     ?: "The site didn't confirm the purchase."

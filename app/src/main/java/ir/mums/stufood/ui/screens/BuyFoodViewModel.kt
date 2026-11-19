@@ -7,11 +7,13 @@ import androidx.lifecycle.viewModelScope
 import ir.mums.stufood.BananiteApp
 import ir.mums.stufood.data.StufoodRepository
 import ir.mums.stufood.data.UserPrefs
+import ir.mums.stufood.data.SessionExpiredException
 import ir.mums.stufood.service.AutoSearchBridge
 import ir.mums.stufood.service.AutoSearchService
 import ir.mums.stufood.service.InProcessNotifier
 import ir.mums.stufood.service.LiveSupport
 import ir.mums.stufood.util.JalaliCalendar
+import ir.mums.stufood.util.FoodMatcher
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -22,16 +24,18 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-import ir.mums.stufood.util.FoodMatcher
 
 private const val TAG = "BuyFoodViewModel"
 private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a moment."
+private const val SESSION_MSG = "Your session expired. Log in again."
+private const val MAX_SESSION_FAILURES = 3
 
 /** The site's "همه وعده ها" option (also detected by label, see [isAllMeals]). */
 private const val ALL_MEALS_VALUE = "-1"
@@ -172,6 +176,7 @@ class BuyFoodViewModel(
     fun setLiveNotifications(on: Boolean) { viewModelScope.launch { prefs.saveLiveNotifications(on) } }
 
     private var started = false
+    private var sessionFailures = 0
 
     init {
         // Interval is a saved setting; the toggles themselves are never saved.
@@ -182,6 +187,18 @@ class BuyFoodViewModel(
             }
         }
     }
+
+    init {
+        // Logout / new login: drop the old page so the next visit loads a fresh one.
+        viewModelScope.launch {
+            repo.sessionEpoch.drop(1).collect {
+                resetToggles()
+                started = false
+                _state.update { UiState(autoIntervalMs = it.autoIntervalMs) }
+            }
+        }
+    }
+
     private var autoJob: Job? = null
     private var pickerJob: Job? = null
 
@@ -274,16 +291,28 @@ class BuyFoodViewModel(
         _state.update { it.copy(busy = true, date = date, mealError = false) }
         try {
             val updated = repo.searchBuyFood(page, date, s.meal)
+            sessionFailures = 0
             _state.update { it.copy(page = updated, busy = false) }
             handleNewFood(previous = page, updated = updated)
         } catch (e: CancellationException) {
             _state.update { it.copy(busy = false) }
             throw e
+        } catch (e: SessionExpiredException) {
+            Log.w(TAG, "session expired", e)
+            _state.update { it.copy(busy = false) }
+            if (manual) _error.value = ErrorEvent(SESSION_MSG)
+            else if (++sessionFailures >= MAX_SESSION_FAILURES) onSessionLost()
         } catch (t: Throwable) {
             Log.e(TAG, "search failed", t)
             if (manual) _error.value = ErrorEvent(FRIENDLY_ERROR) // auto cycles fail quietly
             _state.update { it.copy(busy = false) }
         }
+    }
+
+    private fun onSessionLost() {
+        stopAutoRefresh(endSession = false)
+        _error.value = ErrorEvent(SESSION_MSG)
+        AutoSearchBridge.onResult(false, null, null, SESSION_MSG)
     }
 
     /** True when the "available to purchase" list gained at least one item vs. before this search. */
@@ -381,6 +410,7 @@ class BuyFoodViewModel(
             return
         }
         _state.update { it.copy(autoRefresh = true, mealError = false) }
+        sessionFailures = 0
 
         // The normal "food found / purchase result" notification is ALWAYS sent. On top of that:
         //   Run in the background  -> foreground service + wake lock (+ a small ongoing notification)

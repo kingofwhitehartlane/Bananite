@@ -188,17 +188,19 @@ fun BuyFoodScreen(
 
     // Countdown ring around the auto-refresh toggle. Driven by the real clock (not an
     // animation spec) so it always matches the actual cooldown exactly.
-    var ringProgress by remember { mutableFloatStateOf(0f) }
+    val ringProgress = remember { mutableFloatStateOf(0f) }
+    val ringProvider = remember<() -> Float> { { ringProgress.floatValue } }
     LaunchedEffect(state.refreshTick, state.autoRefresh, state.cycleStartedAt) {
         if (!state.autoRefresh) {
-            ringProgress = 0f
+            ringProgress.floatValue = 0f
             return@LaunchedEffect
         }
         val interval = state.autoIntervalMs
         while (true) {
             val elapsed = SystemClock.elapsedRealtime() - state.cycleStartedAt
-            ringProgress = if (interval <= 0L) 1f else (elapsed.toFloat() / interval).coerceIn(0f, 1f)
-            if (ringProgress >= 1f) break
+            ringProgress.floatValue =
+                if (interval <= 0L) 1f else (elapsed.toFloat() / interval).coerceIn(0f, 1f)
+            if (ringProgress.floatValue >= 1f) break
             withFrameNanos { }
         }
     }
@@ -480,7 +482,7 @@ fun BuyFoodScreen(
                     },
                     icon = Icons.Default.Search,
                     description = "Auto refresh",
-                    ringProgress = if (state.autoRefresh) ringProgress else null,
+                    ringProgress = if (state.autoRefresh) ringProvider else null,
                     onLongClick = {
                         haptic(HapticType.HEAVY)
                         showIntervalDialog = true
@@ -589,7 +591,7 @@ private fun CircleToggle(
     icon: ImageVector,
     description: String,
     modifier: Modifier = Modifier,
-    ringProgress: Float? = null,
+    ringProgress: (() -> Float)? = null,
     onLongClick: (() -> Unit)? = null
 ) {
     val container = if (checked) MaterialTheme.colorScheme.primary
@@ -612,7 +614,7 @@ private fun CircleToggle(
         Icon(icon, contentDescription = description, tint = content)
         if (ringProgress != null) {
             CircularProgressIndicator(
-                progress = { ringProgress },
+                progress = ringProgress,
                 modifier = Modifier.size(42.dp),
                 strokeWidth = 2.5.dp,
                 color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f),

@@ -160,6 +160,13 @@ class UserPrefs(private val context: Context) {
         _rememberMe.value = true
     }
 
+    fun clearCredentials() {
+        securePrefs.edit().remove(KEY_USERNAME).remove(KEY_PASSWORD).remove(KEY_REMEMBER).apply()
+        _username.value = ""
+        _password.value = ""
+        _rememberMe.value = true
+    }
+
     suspend fun saveAnimationType(type: String) { context.uiDataStore.edit { it[ANIMATION_TYPE] = type } }
     suspend fun saveBounciness(level: String) { context.uiDataStore.edit { it[BOUNCINESS] = level } }
     suspend fun saveCreditTransitionType(type: String) { context.uiDataStore.edit { it[CREDIT_TRANSITION] = type } }

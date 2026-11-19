@@ -110,7 +110,7 @@ fun LoginScreen(
 
     val snackbarHost = remember { SnackbarHostState() }
     LaunchedEffect(errorMessage) {
-        errorMessage?.let { snackbarHost.showSnackbar(it) }
+        errorMessage?.let { snackbarHost.showSnackbar(it.message) }
     }
 
     val hapticEnabled by ir.mums.stufood.BananiteApp.instance.userPrefs.hapticFeedbackEnabled.collectAsState(initial = true)

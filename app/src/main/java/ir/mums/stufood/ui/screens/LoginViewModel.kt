@@ -14,9 +14,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 
 private const val TAG = "LoginViewModel"
 private const val FRIENDLY_NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again."
+data class LoginError(val message: String, val id: Long = System.nanoTime())
 
 /**
  * Holds the state of the login screen.
@@ -56,8 +59,11 @@ class LoginViewModel(
     private val _rememberMe = MutableStateFlow(true)
     val rememberMe: StateFlow<Boolean> = _rememberMe
 
-    private val _errorMessage = MutableStateFlow<String?>(null)
-    val errorMessage: StateFlow<String?> = _errorMessage
+    private val _errorMessage = MutableStateFlow<LoginError?>(null)
+    val errorMessage: StateFlow<LoginError?> = _errorMessage
+    private fun fail(msg: String) { _errorMessage.value = LoginError(msg) }
+
+    private var loadJob: Job? = null
 
     init {
         // Pre-fill from saved prefs (once). The actual login-page/captcha fetch is
@@ -79,31 +85,29 @@ class LoginViewModel(
 
     /** Re-fetches the login page (which gives us a fresh captcha). Safe to call repeatedly. */
     fun loadLoginPage() {
+        if (loadJob?.isActive == true) return // ignore double taps
         _uiState.value = LoginUiState.Loading
-        viewModelScope.launch {
+        loadJob = viewModelScope.launch {
             val startedAt = System.currentTimeMillis()
             try {
-                // Always start from a clean, cookie-less client. The cookie jar lives for
-                // the whole process, and a stale/half-expired session makes the server
-                // answer with a page that has no captcha — every retry would then reuse
-                // the same stale cookies and never recover without a force-close.
                 repo.clearSession()
-
                 val data = repo.fetchLoginPage()
-                        val bitmap = data.captchaImage?.let { bytes ->
+                val bitmap = data.captchaImage?.let { bytes ->
                     BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
                 }
                 awaitMinimumSpinnerTime(startedAt)
                 if (bitmap != null) {
                     _uiState.value = LoginUiState.PageReady(captcha = bitmap)
                 } else {
-                    _errorMessage.value = "Couldn't load captcha image. Tap retry."
+                    fail("Couldn't load captcha image. Tap retry.")
                     _uiState.value = LoginUiState.PageReady(captcha = null)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to load login page", t)
                 awaitMinimumSpinnerTime(startedAt)
-                _errorMessage.value = FRIENDLY_NETWORK_ERROR
+                fail(FRIENDLY_NETWORK_ERROR)
                 _uiState.value = LoginUiState.PageReady(captcha = null)
             }
         }
@@ -119,26 +123,25 @@ class LoginViewModel(
 
     /** Submits the login form. On success, calls onLoggedIn(). */
     fun submit(onLoggedIn: () -> Unit) {
+        if (_uiState.value is LoginUiState.Submitting) return
         val user = _username.value.trim()
         val pass = _password.value
         val cap = _captcha.value.trim()
 
         if (user.isEmpty() || pass.isEmpty() || cap.isEmpty()) {
-            _errorMessage.value = "All fields are required."
+            fail("All fields are required.")
             return
         }
 
         _uiState.value = LoginUiState.Submitting
         viewModelScope.launch {
             try {
-
                 when (val result = repo.login(user, pass, cap)) {
                     is StufoodRepository.LoginResult.Success -> {
-                        prefs.saveCredentials(user, pass, _rememberMe.value) // only after a good login
+                        prefs.saveCredentials(user, pass, _rememberMe.value)
                         _errorMessage.value = null
                         _captcha.value = ""
-                        
-                        // Pre-fetch name into repository cache before updating UI state
+
                         runCatching { repo.fetchStudentFullName() }
                             .onFailure { t -> Log.e(TAG, "Failed to pre-fetch student name after login", t) }
 
@@ -146,18 +149,19 @@ class LoginViewModel(
                         onLoggedIn()
                     }
                     is StufoodRepository.LoginResult.Failure -> {
-                        _errorMessage.value = result.message
+                        fail(result.message)
+                        _captcha.value = ""
                         loadLoginPage()
                     }
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Login request failed", t)
-                _errorMessage.value = FRIENDLY_NETWORK_ERROR
+                fail(FRIENDLY_NETWORK_ERROR)
+                _captcha.value = ""
                 loadLoginPage()
             }
         }
     }
-}
 
 sealed class LoginUiState {
     /** Initial page load (fetching login form + captcha). */

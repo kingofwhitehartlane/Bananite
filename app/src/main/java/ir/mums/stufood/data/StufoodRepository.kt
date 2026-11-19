@@ -15,6 +15,7 @@ import org.jsoup.nodes.Element
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 
 import ir.mums.stufood.util.FoodMatcher
@@ -123,6 +124,8 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // In-memory cache for the student's full name
     private val _studentName = MutableStateFlow<String?>(null)
     val studentName: StateFlow<String?> = _studentName
+    private val _sessionEpoch = MutableStateFlow(0)
+    val sessionEpoch: StateFlow<Int> = _sessionEpoch
 
     /** Full name shown on the student's main page (#body_lblFullname). Null if not logged in / not found. */
     suspend fun fetchStudentFullName(): String? = withClient {
@@ -270,6 +273,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         authenticated = false
         cookieJar.clear()
         _studentName.value = null // Clear the cached name on logout
+        _sessionEpoch.update { it + 1 }
     }
 
     // ----------------------------------------------------------------------
@@ -329,7 +333,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     /**
      * The foods offered on [date] for the meal named [mealLabel], read from the reservation page.
      * Walks week by week to the date. The self matching [preferredSelf] is used; if there is
-     * none, the first real self. Only READS, never calls `selectDiet`. If the day already has a
+     * none, the first real self. Only READS (the reservation content and sont change it), never calls `selectDiet`. If the day already has a
      * reservation, nothing is changed and [DayFoodsResult.reservedFood] is returned instead.
      */
     suspend fun fetchDayFoods(date: JalaliDate, mealLabel: String, preferredSelf: String): DayFoodsResult {
@@ -643,7 +647,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val doc = Jsoup.parse(html, buyFoodUrl)
 
         val mealSelect = doc.selectFirst("select[name='${BuyFields.MEAL}']")
-            ?: throw IllegalStateException("BuyFood form not found (session expired?)")
+            ?: throw SessionExpiredException()
         val mealOptions = mealSelect.select("option")
             .map { it.text().trim() to it.attr("value").ifEmpty { it.text() } }
         val selectedMeal = mealSelect.select("option[selected]").firstOrNull()?.attr("value")
@@ -831,6 +835,7 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
 
         // ---- Meal dropdown ("انتخاب نمایید" placeholder included) ----
         val mealSelect = doc.selectFirst("select[name='${Fields.MEAL}']")
+            ?: throw SessionExpiredException()
         val mealOptions = mealSelect?.select("option")
             ?.map { it.text().trim() to (it.attr("value").ifEmpty { it.text() }) }
             ?: emptyList()
@@ -1354,3 +1359,5 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         val dietLocked: Boolean get() = status == DayStatus.RESERVED && reservedOption?.disabled == true
     }
 }
+class SessionExpiredException :
+    IllegalStateException("BuyFood form not found (session expired?)")

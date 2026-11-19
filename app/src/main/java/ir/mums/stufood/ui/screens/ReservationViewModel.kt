@@ -11,6 +11,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
 
 private const val TAG = "ReservationViewModel"
 
@@ -98,6 +99,15 @@ class ReservationViewModel(
     // restore it. The site itself resets the meal dropdown to the placeholder on a
     // fresh GET — this isn't something we can fix server-side, only paper over here.
     private var lastSelectedMeal: String? = null
+
+    init {
+        viewModelScope.launch {
+            repo.sessionEpoch.drop(1).collect {
+                lastSelectedMeal = null
+                _uiState.value = ReservationUiState.Idle
+            }
+        }
+    }
 
     fun load() {
         val existing = (_uiState.value as? ReservationUiState.Ready)?.page

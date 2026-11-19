@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -121,6 +123,7 @@ fun HomeScreen(
                 .padding(padding)
                 // Moved as high as possible (top padding is 0)
                 .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp), 
+                .verticalScroll(rememberScrollState())
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Welcome block: name + prompt grouped with ZERO gap between them
