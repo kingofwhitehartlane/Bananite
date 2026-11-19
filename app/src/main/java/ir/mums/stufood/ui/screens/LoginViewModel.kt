@@ -162,6 +162,7 @@ class LoginViewModel(
             }
         }
     }
+}
 
 sealed class LoginUiState {
     /** Initial page load (fetching login form + captcha). */
