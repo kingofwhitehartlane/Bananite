@@ -122,8 +122,8 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(padding)
                 // Moved as high as possible (top padding is 0)
-                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp), 
-                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Welcome block: name + prompt grouped with ZERO gap between them

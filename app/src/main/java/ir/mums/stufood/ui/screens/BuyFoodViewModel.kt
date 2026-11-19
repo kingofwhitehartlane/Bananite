@@ -221,6 +221,11 @@ class BuyFoodViewModel(
                         meal = page.selectedMeal
                     )
                 }
+            } catch (e: SessionExpiredException) {
+                Log.w(TAG, "load: no Buy Food form", e)
+                started = false
+                _error.value = ErrorEvent("Buy Food isn't available right now, or your session expired. Try logging in again.")
+                _state.update { it.copy(loading = false) }
             } catch (t: Throwable) {
                 Log.e(TAG, "load failed", t)
                 started = false

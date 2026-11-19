@@ -584,7 +584,11 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     // ----------------------------------------------------------------------
 
     suspend fun fetchBuyFoodPage(): BuyFoodPage = withClient {
-        val html = get(buyFoodUrl).use { it.body?.string().orEmpty() }
+        val html = get(buyFoodUrl, referer = mainStudentUrl).use { resp ->
+            Log.d("StufoodRepo", "BuyFood GET -> HTTP ${resp.code}, ended at ${resp.request.url.encodedPath}")
+            if (!resp.isSuccessful) throw IllegalStateException("BuyFood HTTP ${resp.code}")
+            resp.body?.string().orEmpty()
+        }
         parseBuyFoodPage(html)
     }
 
@@ -643,11 +647,17 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
         parseBuyFoodPage(html)
     }
 
-    private fun parseBuyFoodPage(html: String): BuyFoodPage {
-        val doc = Jsoup.parse(html, buyFoodUrl)
+    private fun parseBuyFoodPage(html: String, finalUrl: String = buyFoodUrl): BuyFoodPage {
+        val doc = Jsoup.parse(html, finalUrl)
 
-        val mealSelect = doc.selectFirst("select[name='${BuyFields.MEAL}']")
-            ?: throw SessionExpiredException()
+        val mealSelect = doc.selectFirst("select[name='${BuyFields.MEAL}']") ?: run {
+            Log.w(
+                "StufoodRepo",
+                "BuyFood form missing: title='${doc.title()}', length=${html.length}, " +
+                    "hasPasswordField=${doc.selectFirst("input[type=password]") != null}"
+            )
+            throw SessionExpiredException()
+        }
         val mealOptions = mealSelect.select("option")
             .map { it.text().trim() to it.attr("value").ifEmpty { it.text() } }
         val selectedMeal = mealSelect.select("option[selected]").firstOrNull()?.attr("value")
@@ -665,10 +675,14 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             buildDxGridState(html, gridId)?.let { snapshot[field] = it }
             snapshot["$field\$DXFilterRowMenu"] = BuyFields.DX_FILTER_MENU
         }
-        Regex("DXR\\.axd\\?r=([0-9_]+(?:,[0-9_]+)+)-s_itw").find(html)
-            ?.let { snapshot["DXScript"] = it.groupValues[1] }
-        Regex("DXR\\.axd\\?r=([0-9_]+(?:,[0-9_]+)+)-t_itw").find(html)
-            ?.let { snapshot["DXCss"] = it.groupValues[1] }
+
+        val dxrValueRegex = Regex("DXR\\.axd\\?r=([0-9_]+(?:,[0-9_]+)+)-")
+        doc.select("script[src*='DXR.axd?r=']")
+            .firstNotNullOfOrNull { dxrValueRegex.find(it.attr("src"))?.groupValues?.get(1) }
+            ?.let { snapshot["DXScript"] = it }
+        doc.select("link[rel=stylesheet][href*='DXR.axd?r=']")
+            .firstNotNullOfOrNull { dxrValueRegex.find(it.attr("href"))?.groupValues?.get(1) }
+            ?.let { snapshot["DXCss"] = it }
 
         val available = doc.select("tr[id^=body_grdFoods_DXDataRow]").map { tr ->
             val c = tr.children()
@@ -1190,7 +1204,15 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
     private suspend fun <T> withClient(block: () -> T): T =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { block() }
 
-    private fun get(url: String) = client.newCall(Request.Builder().url(url).get().build()).execute()
+    private fun get(url: String, referer: String? = null): Response {
+        val req = Request.Builder()
+            .url(url)
+            .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
+            .apply { if (referer != null) header("Referer", referer) }
+            .get()
+            .build()
+        return client.newCall(req).execute()
+    }
 
     // ----------------------------------------------------------------------
     // PUBLIC DATA CLASSES
