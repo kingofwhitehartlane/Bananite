@@ -25,6 +25,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -252,9 +255,37 @@ fun BuyFoodScreen(
                             }
                         )
                     }
+
+                    val picked = state.foodPicker.foods
+                    OutlinedButton(
+                        onClick = {
+                            haptic(HapticType.CLICK)
+                            vm.loadAutoBuyFoods()
+                            showFoodDialog = true
+                        },
+                        enabled = state.autoBuy,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            if (picked.isEmpty()) "Choose foods to auto-buy"
+                            else "Choose foods (${picked.count { it.enabled }}/${picked.size} on)"
+                        )
+                    }
                 }
             },
             confirmButton = { TextButton(onClick = { showIntervalDialog = false }) { Text("Done") } }
+        )
+    }
+
+    var showFoodDialog by remember { mutableStateOf(false) }
+    if (showFoodDialog) {
+        AutoBuyFoodsDialog(
+            picker = state.foodPicker,
+            date = state.date,
+            onToggle = { i, on -> haptic(HapticType.TICK); vm.setFoodEnabled(i, on) },
+            onMove = { i, d -> haptic(HapticType.TICK); vm.moveFood(i, d) },
+            onReload = { haptic(HapticType.CLICK); vm.loadAutoBuyFoods(force = true) },
+            onDismiss = { showFoodDialog = false }
         )
     }
 
@@ -602,3 +633,130 @@ private fun EmptyHint() = Text(
     style = MaterialTheme.typography.bodyMedium,
     color = MaterialTheme.colorScheme.onSurfaceVariant
 )
+
+/**
+ * The day's foods as radial toggles. Top = first choice. Only foods that
+ * are switched on are announced and auto-bought.
+ */
+@Composable
+private fun AutoBuyFoodsDialog(
+    picker: BuyFoodViewModel.FoodPickerState,
+    date: String,
+    onToggle: (Int, Boolean) -> Unit,
+    onMove: (Int, Int) -> Unit,
+    onReload: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Already reserved: the site doesn't allow a purchase, nothing was changed.
+    picker.reservedFood?.let { reserved ->
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            icon = { Icon(Icons.Default.Info, contentDescription = null) },
+            title = { Text("You already have a reservation") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                        MultiScriptText(
+                            reserved,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center)
+                        )
+                    }
+                    Text(
+                        "The site doesn't allow buying a meal you've reserved, so nothing was changed.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } }
+        )
+        return
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Foods for $date") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                when {
+                    picker.loading -> Box(
+                        Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) { LoadingDots() }
+
+                    picker.foods.isEmpty() -> Text(
+                        picker.message ?: "No foods found.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+
+                    else -> {
+                        picker.selfUsed?.let {
+                            MultiScriptText(
+                                it,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        Text(
+                            "Only foods that are switched on are announced and bought. " +
+                                "If several are available at once, the highest one in the list wins.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
+                            picker.foods.forEachIndexed { i, food ->
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(
+                                        selected = food.enabled,
+                                        onClick = { onToggle(i, !food.enabled) }
+                                    )
+                                    Column(Modifier.weight(1f)) {
+                                        MultiScriptText(
+                                            food.name,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            color = if (food.enabled) MaterialTheme.colorScheme.onSurface
+                                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                                        )
+                                        val sub = listOfNotNull(
+                                            if (food.half) "نیم پرس" else null,
+                                            food.priceToman
+                                        ).joinToString(" · ")
+                                        if (sub.isNotEmpty()) {
+                                            MultiScriptText(
+                                                sub,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = { onMove(i, -1) }, enabled = i > 0) {
+                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move up")
+                                    }
+                                    IconButton(
+                                        onClick = { onMove(i, 1) },
+                                        enabled = i < picker.foods.lastIndex
+                                    ) {
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move down")
+                                    }
+                                }
+                            }
+                        }
+                        if (picker.foods.none { it.enabled }) {
+                            Text(
+                                "Nothing is switched on, so auto-buy won't buy anything.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = onReload, enabled = !picker.loading) { Text("Reload") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Done") } }
+    )
+}

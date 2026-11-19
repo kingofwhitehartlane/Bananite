@@ -28,6 +28,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+import ir.mums.stufood.util.FoodMatcher
+
 private const val TAG = "BuyFoodViewModel"
 private const val FRIENDLY_ERROR = "Something went wrong. Please try again in a moment."
 
@@ -36,6 +38,9 @@ private const val ALL_MEALS_VALUE = "-1"
 
 /** Identity of a food row. Positions shift between refreshes, so never compare by index. */
 private fun foodKey(f: StufoodRepository.ExchangeableFood) = "${f.meal}/${f.menu}/${f.food}/${f.self}"
+
+private fun normalizeDate(s: String) = s.map { if (it in '\u06F0'..'\u06F9') '0' + (it - '\u06F0') else it }
+    .joinToString("").trim()
 
 /**
  * The site answers a purchase with an inline alert('...'). On success it reads
@@ -67,7 +72,31 @@ class BuyFoodViewModel(
         const val DEFAULT_AUTO_INTERVAL_MS = 3_000L
         const val MIN_AUTO_INTERVAL_MS = 0L
         const val MAX_AUTO_INTERVAL_MS = 30_000L
+        /** Preferred self when reading the day's menu (matched fuzzily; falls back to the first self). */
+        const val TARGET_SELF = "سلف پردیس"
     }
+
+    /** One food of the day. List order IS the buying priority (top = first choice). */
+    data class FoodChoice(
+        val name: String,
+        val priceRial: Long?,
+        val priceToman: String?,
+        val half: Boolean,
+        val enabled: Boolean = true
+    )
+
+    data class FoodPickerState(
+        val loading: Boolean = false,
+        val foods: List<FoodChoice> = emptyList(),
+        /** Shown when the lookup found nothing or failed. */
+        val message: String? = null,
+        /** Set when the day is already reserved: name of the reserved food. */
+        val reservedFood: String? = null,
+        /** The self the list was read from. */
+        val selfUsed: String? = null,
+        val forDate: String = "",
+        val forMeal: String = ""
+    )
 
     data class UiState(
         val page: StufoodRepository.BuyFoodPage? = null,
@@ -88,7 +117,9 @@ class BuyFoodViewModel(
         /** Incremented every time an auto cycle (re)starts — drives the countdown ring. */
         val refreshTick: Int = 0,
         /** SystemClock.elapsedRealtime() when the current auto cycle began — drives the ring. */
-        val cycleStartedAt: Long = 0L
+        val cycleStartedAt: Long = 0L,
+        /** Foods picked for auto-buy. Empty = not configured (auto-buy buys the first food, as before). */
+        val foodPicker: FoodPickerState = FoodPickerState()
     )
 
     data class ErrorEvent(val message: String, val id: Long = System.nanoTime())
@@ -150,6 +181,7 @@ class BuyFoodViewModel(
         }
     }
     private var autoJob: Job? = null
+    private var pickerJob: Job? = null
 
     // ------------------------------------------------------------------
     // Loading
@@ -189,17 +221,17 @@ class BuyFoodViewModel(
     // Filters
     // ------------------------------------------------------------------
 
-    fun setDate(v: String) = _state.update { it.copy(date = v) }
+    fun setDate(v: String) = _state.update {
+        it.copy(date = v, foodPicker = if (normalizeDate(v) == it.foodPicker.forDate) it.foodPicker else FoodPickerState())
+    }
 
     fun setMeal(v: String) {
-        _state.update { it.copy(meal = v, mealError = false) }
-        // Auto-refresh can't run on "all meals" — stop it if the user switches to that.
-        val page = _state.value.page
-        if (_state.value.autoRefresh && page != null && page.isAllMeals(v)) {
-            stopAutoRefresh()
-            _state.update { it.copy(mealError = true) }
+        _state.update {
+            it.copy(
+                meal = v, mealError = false,
+                foodPicker = if (v == it.foodPicker.forMeal) it.foodPicker else FoodPickerState()
+            )
         }
-    }
 
     private fun StufoodRepository.BuyFoodPage.isAllMeals(mealValue: String): Boolean {
         if (mealValue == ALL_MEALS_VALUE) return true
@@ -285,15 +317,37 @@ class BuyFoodViewModel(
         previous: StufoodRepository.BuyFoodPage,
         updated: StufoodRepository.BuyFoodPage
     ) {
-        val fresh = newFoods(previous, updated)
+        val s = _state.value
+        val picks = if (s.autoBuy) s.foodPicker.foods else emptyList()
+        val filterOn = picks.isNotEmpty()
+        val candidates = picks.map { FoodMatcher.Candidate(it.name, it.priceRial) }
+
+        // Position in the user's list if this row is an ENABLED food, else null. The self column
+        // is deliberately ignored. The row is matched against ALL of the day's foods first (so
+        // "قیمه" can never land on "قیمه نیم پرس"), and only then is "is it enabled?" checked.
+        fun rankOf(row: StufoodRepository.ExchangeableFood): Int? {
+            val i = FoodMatcher.bestMatch(row.food, candidates) ?: return null
+            return if (picks[i].enabled) i else null
+        }
+
+        var fresh = newFoods(previous, updated)
+        if (filterOn) fresh = fresh.filter { rankOf(it) != null } // others: no sound, no stop, no buy
         if (fresh.isEmpty()) return
 
-        if (_state.value.autoRefresh && foodFoundSound.value) _foodAvailable.tryEmit(Unit)
+        if (s.autoRefresh && foodFoundSound.value) _foodAvailable.tryEmit(Unit)
 
         // Keep the live notification session: it ends with a result (found / bought / failed).
-        if (_state.value.autoRefresh) stopAutoRefresh(endSession = false)
+        if (s.autoRefresh) stopAutoRefresh(endSession = false)
 
-        val buyable = if (_state.value.autoBuy) updated.availableFoods.firstOrNull { it.receive != null } else null
+        val buyable = when {
+            !s.autoBuy -> null
+            // Several wanted foods can be on sale at once (e.g. at 12:00): take the one
+            // highest in the user's list.
+            filterOn -> updated.availableFoods
+                .filter { it.receive != null && rankOf(it) != null }
+                .minByOrNull { rankOf(it)!! }
+            else -> updated.availableFoods.firstOrNull { it.receive != null }
+        }
         if (buyable != null) {
             AutoSearchBridge.onBuying(buyable.food)
             receive(buyable)
@@ -301,7 +355,6 @@ class BuyFoodViewModel(
             AutoSearchBridge.onFound(fresh.first().food)
         }
     }
-
     // ------------------------------------------------------------------
     // Toggles
     // ------------------------------------------------------------------
@@ -376,6 +429,70 @@ class BuyFoodViewModel(
         _state.update { it.copy(autoBuy = enabled) }
     }
 
+    fun loadAutoBuyFoods(force: Boolean = false) {
+        val s = _state.value
+        val page = s.page ?: return
+        if (s.foodPicker.loading) return
+
+        val date = normalizeDate(s.date)
+        if (!force && s.foodPicker.foods.isNotEmpty() &&
+            s.foodPicker.forDate == date && s.foodPicker.forMeal == s.meal) return
+
+        val jalali = JalaliCalendar.parse(date)
+        if (jalali == null) {
+            _state.update { it.copy(foodPicker = FoodPickerState(message = "Date must look like 1405/07/09")) }
+            return
+        }
+        if (page.isAllMeals(s.meal)) {
+            _state.update { it.copy(foodPicker = FoodPickerState(message = "Pick a meal first.")) }
+            return
+        }
+        val mealLabel = page.mealOptions.firstOrNull { it.second == s.meal }?.first.orEmpty()
+
+        _state.update { it.copy(foodPicker = FoodPickerState(loading = true, forDate = date, forMeal = s.meal)) }
+        pickerJob?.cancel()
+        pickerJob = viewModelScope.launch {
+            try {
+                val r = repo.fetchDayFoods(jalali, mealLabel, TARGET_SELF)
+                val half = FoodMatcher.halfFlags(r.foods.map { FoodMatcher.Candidate(it.name, it.priceRial) })
+                _state.update {
+                    it.copy(
+                        foodPicker = FoodPickerState(
+                            foods = r.foods.mapIndexed { i, f -> FoodChoice(f.name, f.priceRial, f.priceToman, half[i]) },
+                            message = r.problem,
+                            reservedFood = r.reservedFood,
+                            selfUsed = r.selfUsed,
+                            forDate = date,
+                            forMeal = s.meal
+                        )
+                    )
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Log.e(TAG, "food list failed", t)
+                _state.update { it.copy(foodPicker = FoodPickerState(message = FRIENDLY_ERROR)) }
+            }
+        }
+    }
+
+    fun setFoodEnabled(index: Int, enabled: Boolean) = _state.update { st ->
+        val list = st.foodPicker.foods.toMutableList()
+        if (index in list.indices) list[index] = list[index].copy(enabled = enabled)
+        st.copy(foodPicker = st.foodPicker.copy(foods = list))
+    }
+
+    /** [delta] = -1 moves a food up (higher priority), +1 moves it down. */
+    fun moveFood(index: Int, delta: Int) = _state.update { st ->
+        val list = st.foodPicker.foods.toMutableList()
+        val to = index + delta
+        if (index in list.indices && to in list.indices) {
+            val item = list.removeAt(index)
+            list.add(to, item)
+        }
+        st.copy(foodPicker = st.foodPicker.copy(foods = list))
+    }
+
     /** [endSession] = false keeps the live notification alive (a purchase is about to be shown). */
     private fun stopAutoRefresh(endSession: Boolean = true) {
         autoJob?.cancel()
@@ -395,13 +512,16 @@ class BuyFoodViewModel(
     fun resetToggles() {
         autoJob?.cancel()
         autoJob = null
+        pickerJob?.cancel()
+        pickerJob = null
         AutoSearchBridge.end()
         _state.update {
             it.copy(
                 autoRefresh = false,
                 autoBuy = false,
                 mealError = false,
-                busy = false
+                busy = false,
+                foodPicker = FoodPickerState()
             )
         }
     }

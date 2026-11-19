@@ -17,6 +17,10 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+import ir.mums.stufood.util.FoodMatcher
+import ir.mums.stufood.util.JalaliCalendar
+import ir.mums.stufood.util.JalaliDate
+
 /**
  * Talks to stufood.mums.ac.ir.
  *
@@ -310,6 +314,84 @@ class StufoodRepository(private val cookieJar: InMemoryCookieJar) {
             overrides = mapOf(Fields.LAST_WEEK_BTN to "prev"),
             clickedButton = Fields.LAST_WEEK_BTN
         )
+    }
+
+    data class DayFood(val name: String, val priceRial: Long?, val priceToman: String?)
+    data class DayFoodsResult(
+        val foods: List<DayFood>,
+        val problem: String? = null,
+        /** Non-null when the day is already reserved: the reserved food's name. Nothing was changed. */
+        val reservedFood: String? = null,
+        /** The self whose menu was read (may be the fallback, not [preferredSelf]). */
+        val selfUsed: String? = null
+    )
+
+    /**
+     * The foods offered on [date] for the meal named [mealLabel], read from the reservation page.
+     * Walks week by week to the date. The self matching [preferredSelf] is used; if there is
+     * none, the first real self. Only READS, never calls `selectDiet`. If the day already has a
+     * reservation, nothing is changed and [DayFoodsResult.reservedFood] is returned instead.
+     */
+    suspend fun fetchDayFoods(date: JalaliDate, mealLabel: String, preferredSelf: String): DayFoodsResult {
+        fun none(msg: String) = DayFoodsResult(emptyList(), problem = msg)
+        var page = fetchReservationPage()
+
+        // ---- meal ----
+        val wantedMeal = FoodMatcher.normalize(mealLabel)
+        val meals = page.mealOptions.filter { it.second != Fields.PLACEHOLDER_VALUE }
+        val meal = meals.firstOrNull { FoodMatcher.normalize(it.first) == wantedMeal }
+            ?: meals.firstOrNull {
+                val n = FoodMatcher.normalize(it.first)
+                wantedMeal.isNotEmpty() && (n.contains(wantedMeal) || wantedMeal.contains(n))
+            }
+            ?: return none("Couldn't find this meal on the reservation page.")
+        if (page.selectedMeal != meal.second) page = selectMeal(page, meal.second)
+
+        // ---- date: step through the weeks until the day is on screen ----
+        fun dayOf(p: ReservationPage) = p.days.firstOrNull { JalaliCalendar.parse(it.dateLabel) == date }
+
+        var steps = 0
+        while (dayOf(page) == null && steps < 12) {
+            val dates = page.days.mapNotNull { JalaliCalendar.parse(it.dateLabel) }
+            val first = dates.minOrNull() ?: break
+            val last = dates.maxOrNull() ?: break
+            page = when {
+                date < first -> if (page.lastWeek.isUsable) clickLastWeek(page) else break
+                date > last -> if (page.nextWeek.isUsable) clickNextWeek(page) else break
+                else -> break
+            }
+            steps++
+        }
+        var day = dayOf(page) ?: return none("That date isn't available on the reservation page.")
+
+        // ---- already reserved: the site won't allow a purchase, so touch nothing ----
+        day.reservedOption?.let { return DayFoodsResult(emptyList(), reservedFood = it.label) }
+
+        // ---- self: preferred one, otherwise the first real one ----
+        var selfUsed: String? = day.selfLabel?.takeIf { it.isNotBlank() }
+        if (day.cafeteriaFieldName != null) {
+            val selfs = day.cafeteriaOptions.filter { it.second != Fields.PLACEHOLDER_VALUE }
+            val target = FoodMatcher.bestSelf(preferredSelf, selfs.map { it.first })?.let { selfs[it] }
+                ?: selfs.firstOrNull()
+                ?: return none("No cafeteria is offered on that day.")
+            selfUsed = target.first
+
+            val alreadyThere = day.selectedCafeteria == target.second && day.dietOptions.isNotEmpty()
+            val canSwitch = day.status == DayStatus.SELECT_CAFETERIA || day.status == DayStatus.SELECT_DIET
+            if (!alreadyThere && canSwitch) {
+                // Nothing is reserved for this day (checked above), so this only reveals the menu.
+                page = selectCafeteria(page, day, target.second)
+                day = dayOf(page) ?: return none("That date isn't available on the reservation page.")
+                day.reservedOption?.let { return DayFoodsResult(emptyList(), reservedFood = it.label) }
+            }
+        }
+
+        val foods = day.dietOptions
+            .filter { it.label.isNotBlank() }
+            .map { DayFood(it.label.trim(), it.priceRial, it.priceToman) }
+            .distinctBy { it.name to it.priceRial }
+        return if (foods.isEmpty()) none(day.message ?: "No foods are listed for that date.")
+        else DayFoodsResult(foods, selfUsed = selfUsed)
     }
 
     /**
