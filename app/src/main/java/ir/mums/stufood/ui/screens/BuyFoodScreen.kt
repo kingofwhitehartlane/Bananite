@@ -205,6 +205,17 @@ fun BuyFoodScreen(
 
     // ---- Long-press settings dialog: interval slider + auto-buy toggle ----
     var showIntervalDialog by remember { mutableStateOf(false) }
+    var showFoodDialog by remember { mutableStateOf(false) }
+    if (showFoodDialog) {
+        AutoBuyFoodsDialog(
+            picker = state.foodPicker,
+            date = state.date,
+            onToggle = { i, on -> haptic(HapticType.TICK); vm.setFoodEnabled(i, on) },
+            onMove = { i, d -> haptic(HapticType.TICK); vm.moveFood(i, d) },
+            onReload = { haptic(HapticType.CLICK); vm.loadAutoBuyFoods(force = true) },
+            onDismiss = { showFoodDialog = false }
+        )
+    }
     if (showIntervalDialog) {
         AlertDialog(
             onDismissRequest = { showIntervalDialog = false },
@@ -274,18 +285,6 @@ fun BuyFoodScreen(
                 }
             },
             confirmButton = { TextButton(onClick = { showIntervalDialog = false }) { Text("Done") } }
-        )
-    }
-
-    var showFoodDialog by remember { mutableStateOf(false) }
-    if (showFoodDialog) {
-        AutoBuyFoodsDialog(
-            picker = state.foodPicker,
-            date = state.date,
-            onToggle = { i, on -> haptic(HapticType.TICK); vm.setFoodEnabled(i, on) },
-            onMove = { i, d -> haptic(HapticType.TICK); vm.moveFood(i, d) },
-            onReload = { haptic(HapticType.CLICK); vm.loadAutoBuyFoods(force = true) },
-            onDismiss = { showFoodDialog = false }
         )
     }
 

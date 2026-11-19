@@ -11,6 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ir.mums.stufood.ui.components.HapticType
 import ir.mums.stufood.ui.components.rememberHapticFeedback
@@ -146,9 +147,13 @@ fun AnimationSettingsScreen(
                 Slider(
                     value = sliderPosition,
                     onValueChange = { sliderPosition = it },
-                    onValueChangeFinished = { 
-                        val newIndex = sliderPosition.toInt().coerceIn(0, 3)
-                        if (!disableAll) vm.setBounciness(bounceLevels[newIndex]) 
+                    onValueChangeFinished = {
+                        val newIndex = sliderPosition.roundToInt().coerceIn(0, bounceLevels.lastIndex)
+                        sliderPosition = newIndex.toFloat()
+                        if (!disableAll) {
+                            haptic(HapticType.TICK)
+                            vm.setBounciness(bounceLevels[newIndex])
+                        }
                     },
                     valueRange = 0f..3f,
                     steps = 2, // Creates exactly 4 ticks: 0, 1, 2, 3

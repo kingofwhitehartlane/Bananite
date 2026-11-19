@@ -47,8 +47,10 @@ private fun normalizeDate(s: String) = s.map { if (it in '\u06F0'..'\u06F9') '0'
  * "خرید غذا موفقیت آمیز بود، ..." ("purchase was successful ...").
  */
 private fun isSuccessMessage(msg: String): Boolean {
-    val n = msg.replace(" ", "").replace("\u200c", "")
-    return n.contains("موفقیت آمیز") && !n.contains("ناموفق")
+    val n = msg
+        .replace('ي', 'ی')
+        .replace(Regex("[\\s\\u200c\\u00a0]+"), "")
+    return n.contains("موفقیتآمیز") && !n.contains("ناموفق")
 }
 
 /** Pulls a price like "160000 ریال" / "16,000 تومان" out of the site's alert and shows it in Toman. */
@@ -232,6 +234,7 @@ class BuyFoodViewModel(
                 foodPicker = if (v == it.foodPicker.forMeal) it.foodPicker else FoodPickerState()
             )
         }
+    }
 
     private fun StufoodRepository.BuyFoodPage.isAllMeals(mealValue: String): Boolean {
         if (mealValue == ALL_MEALS_VALUE) return true
@@ -349,10 +352,11 @@ class BuyFoodViewModel(
             else -> updated.availableFoods.firstOrNull { it.receive != null }
         }
         if (buyable != null) {
-            AutoSearchBridge.onBuying(buyable.food)
+            AutoSearchBridge.onBuying(buyable.food, selfName = buyable.self)
             receive(buyable)
         } else {
-            AutoSearchBridge.onFound(fresh.first().food)
+            val first = fresh.first()
+            AutoSearchBridge.onFound(first.food, selfName = first.self)
         }
     }
     // ------------------------------------------------------------------
@@ -384,7 +388,13 @@ class BuyFoodViewModel(
         // The loop itself always runs below, in this ViewModel.
         val liveOn = live && LiveSupport.status().supported
         val mealLabel = page.mealOptions.firstOrNull { it.second == s.meal }?.first.orEmpty()
-        AutoSearchBridge.begin(s.date, mealLabel, s.autoIntervalMs, fancy = liveOn)
+        AutoSearchBridge.begin(
+            dateLabel = s.date,
+            mealLabel = mealLabel,
+            intervalMs = s.autoIntervalMs,
+            fancy = liveOn,
+            autoBuy = s.autoBuy
+        )
         runCatching {
             if (background) AutoSearchService.start(BananiteApp.instance)
             else InProcessNotifier.start(BananiteApp.instance, showOngoing = liveOn)
@@ -427,6 +437,7 @@ class BuyFoodViewModel(
     /** Auto-buy: instantly buys the first food when a new one appears. Never saved. */
     fun setAutoBuy(enabled: Boolean) {
         _state.update { it.copy(autoBuy = enabled) }
+        AutoSearchBridge.setAutoBuy(enabled)
     }
 
     fun loadAutoBuyFoods(force: Boolean = false) {
@@ -539,21 +550,22 @@ class BuyFoodViewModel(
             val s = _state.value
             val page = s.page ?: return@launch
             if (s.busy) {
-                AutoSearchBridge.onResult(false, row.food, null, "Another request was still running. Try again.")
+                AutoSearchBridge.onResult(false, row.food, null, "Another request was still running. Try again.", selfName = row.self)
                 return@launch
             }
 
             // The postback target is positional (cell<N>_4 = "row N right now"), so
             // re-resolve the row against the newest page instead of trusting the tapped,
             // possibly stale, one.
+
             val fresh = page.availableFoods.firstOrNull { it.receive != null && foodKey(it) == foodKey(row) }
             if (fresh == null) {
                 _purchaseResult.value = PurchaseResult(false, "This food is no longer available.")
-                AutoSearchBridge.onResult(false, row.food, null, "This food is no longer available.")
+                AutoSearchBridge.onResult(false, row.food, null, "This food is no longer available.", selfName = row.self)
                 return@launch
             }
 
-            AutoSearchBridge.onBuying(fresh.food)
+            AutoSearchBridge.onBuying(fresh.food, selfName = fresh.self)
             _state.update { it.copy(busy = true) }
             try {
                 val updated = repo.receiveFood(page, fresh)
@@ -561,24 +573,23 @@ class BuyFoodViewModel(
                 val msg = updated?.message
                 Log.d(TAG, "buy -> site alert: $msg")
                 val ok = msg != null && isSuccessMessage(msg)
+                val price = if (ok) msg?.let(::extractPriceToman) else null
                 _purchaseResult.value = PurchaseResult(
                     success = ok,
                     message = msg,
                     foodName = if (ok) fresh.food else null,
-                    price = if (ok) msg?.let(::extractPriceToman) else null
+                    price = price
                 )
-                AutoSearchBridge.onResult(ok, fresh.food, if (ok) msg?.let(::extractPriceToman) else null, msg)
+                AutoSearchBridge.onResult(ok, fresh.food, price, msg, selfName = fresh.self)
             } catch (e: CancellationException) {
                 _state.update { it.copy(busy = false) }
                 throw e
             } catch (t: Throwable) {
                 Log.e(TAG, "buy failed", t)
                 _state.update { it.copy(busy = false) }
-                _purchaseResult.value = PurchaseResult(
-                    success = false,
-                    message = "Request failed (${t.message ?: "network error"})."
-                )
-                AutoSearchBridge.onResult(false, fresh.food, null, "Request failed (${t.message ?: "network error"}).")
+                val errMsg = "Request failed (${t.message ?: "network error"})."
+                _purchaseResult.value = PurchaseResult(success = false, message = errMsg)
+                AutoSearchBridge.onResult(false, fresh.food, null, errMsg, selfName = fresh.self)
             }
         }
     }
